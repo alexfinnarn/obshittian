@@ -28,6 +28,7 @@
         window.dispatchEvent(new Event('codemirror-ready'));
     </script>
     <link rel="stylesheet" href="style.css">
+    <script src="config.js"></script>
 </head>
 <body>
 
@@ -38,8 +39,21 @@
         </div>
 
         <div class="sidebar-section">
-            <div class="sidebar-section-header">Calendar</div>
             <div id="calendar-container"></div>
+        </div>
+
+        <div class="sidebar-section">
+          <div class="sidebar-section-header">Quick Links</div>
+            <div class="quick-links">
+                <a href="https://forecast.weather.gov/MapClick.php?lat=39.9103&lon=-82.7916&unit=0&lg=english&FcstType=graphical" target="_blank">NWS</a>
+                <a href="https://www.wunderground.com/forecast/us/oh/pickerington" target="_blank">Weather</a>
+                <a href="https://mail.google.com/mail/u/0/#inbox" target="_blank">Gmail</a>
+                <a href="https://mail.proton.me/u/0/inbox" target="_blank">Proton</a>
+                <a href="https://www.companionbiblecondensed.com/" target="_blank">Bible</a>
+                <a href="https://www.meetup.com/find/?source=EVENTS&eventType=inPerson&sortField=DATETIME&distance=twentyFiveMiles&location=us--oh--Brice" target="_blank">Meetup</a>
+                <a href="https://cringe.com/" target="_blank">Cringe</a>
+                <a href="https://www.experiencecolumbus.com/events/festivals-and-annual-events/" target="_blank">Cbus</a>
+            </div>
         </div>
 
         <div class="sidebar-section" style="flex: 1; display: flex; flex-direction: column; border-bottom: none;">
@@ -97,11 +111,54 @@
             const {EditorView, basicSetup, markdown, markdownLanguage, EditorState, oneDark} = window.CM;
 
             // ========================================
+            // IndexedDB for persisting directory handle
+            // ========================================
+            const DB_NAME = 'mdEditorDB';
+            const DB_STORE = 'handles';
+
+            function openDB() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(DB_NAME, 1);
+                    request.onerror = () => reject(request.error);
+                    request.onsuccess = () => resolve(request.result);
+                    request.onupgradeneeded = (e) => {
+                        const db = e.target.result;
+                        if (!db.objectStoreNames.contains(DB_STORE)) {
+                            db.createObjectStore(DB_STORE);
+                        }
+                    };
+                });
+            }
+
+            async function saveDirectoryHandle(handle) {
+                const db = await openDB();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction(DB_STORE, 'readwrite');
+                    const store = tx.objectStore(DB_STORE);
+                    const request = store.put(handle, 'rootDir');
+                    request.onsuccess = () => resolve();
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            async function getDirectoryHandle() {
+                const db = await openDB();
+                return new Promise((resolve, reject) => {
+                    const tx = db.transaction(DB_STORE, 'readonly');
+                    const store = tx.objectStore(DB_STORE);
+                    const request = store.get('rootDir');
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            }
+
+            // ========================================
             // State Management
             // ========================================
+            const config = window.editorConfig || {};
             const state = {
                 rootDirHandle: null,
-                dailyNotesFolder: 'zzz_Daily Notes', // Configurable
+                dailyNotesFolder: config.dailyNotesFolder || 'zzz_Daily Notes',
                 left: {
                     fileHandle: null,
                     dirHandle: null, // Parent directory for creating new files
@@ -202,10 +259,51 @@
                 },
                 firstDay: 0, // Sunday
                 showDaysInNextAndPreviousMonths: true,
-                enableSelectionDaysInNextAndPreviousMonths: true
+                enableSelectionDaysInNextAndPreviousMonths: true,
+                keyboardInput: false // Disable built-in arrow key handling
             });
             // Manually append picker element to container (required when not bound to a field)
             calendarContainer.appendChild(picker.el);
+
+            // ========================================
+            // Daily Note Navigation (modifier + arrow keys)
+            // ========================================
+            const navConfig = config.dailyNoteNavigation || { enabled: true, modifier: 'meta' };
+            if (navConfig.enabled !== false) {
+                document.addEventListener('keydown', (e) => {
+                    // Check if the configured modifier is pressed
+                    const modifierPressed =
+                        (navConfig.modifier === 'meta' && e.metaKey) ||
+                        (navConfig.modifier === 'ctrl' && e.ctrlKey) ||
+                        (navConfig.modifier === 'alt' && e.altKey) ||
+                        (navConfig.modifier === 'shift' && e.shiftKey);
+
+                    if (!modifierPressed) return;
+
+                    const currentDate = picker.getDate() || new Date();
+                    let newDate = new Date(currentDate);
+
+                    switch (e.key) {
+                        case 'ArrowLeft':
+                            newDate.setDate(newDate.getDate() - 1);
+                            break;
+                        case 'ArrowRight':
+                            newDate.setDate(newDate.getDate() + 1);
+                            break;
+                        case 'ArrowUp':
+                            newDate.setDate(newDate.getDate() - 7);
+                            break;
+                        case 'ArrowDown':
+                            newDate.setDate(newDate.getDate() + 7);
+                            break;
+                        default:
+                            return; // Not an arrow key, don't prevent default
+                    }
+
+                    e.preventDefault();
+                    picker.setDate(newDate); // This triggers onSelect which opens the daily note
+                });
+            }
 
             // ========================================
             // File System Operations
@@ -214,19 +312,36 @@
             // Open folder picker
             document.getElementById('btnOpenFolder').addEventListener('click', async () => {
                 try {
-                    state.rootDirHandle = await window.showDirectoryPicker();
-                    elements.fileTree.innerHTML = '';
-                    await buildFileTree(state.rootDirHandle, elements.fileTree);
-
-                    // Auto-open today's daily note
-                    picker.setDate(new Date());
-                    await openDailyNote(new Date());
+                    const dirHandle = await window.showDirectoryPicker();
+                    await openDirectory(dirHandle);
+                    await saveDirectoryHandle(dirHandle);
                 } catch (err) {
                     if (err.name !== 'AbortError') {
                         console.error('Error opening folder:', err);
                     }
                 }
             });
+
+            // Common function to open a directory
+            async function openDirectory(dirHandle) {
+                state.rootDirHandle = dirHandle;
+                elements.fileTree.innerHTML = '';
+                await buildFileTree(state.rootDirHandle, elements.fileTree);
+
+                // Auto-open today's daily note if configured
+                if (config.autoOpenTodayNote !== false) {
+                    picker.setDate(new Date());
+                    await openDailyNote(new Date());
+                }
+
+                // Restore last open file in left pane
+                if (config.restoreLastOpenFile !== false) {
+                    const lastOpenFile = localStorage.getItem('editorLastOpenFile');
+                    if (lastOpenFile) {
+                        await openFileByPath(lastOpenFile, 'left');
+                    }
+                }
+            }
 
             // Build file tree recursively
             async function buildFileTree(dirHandle, parentElement, depth = 0) {
@@ -265,6 +380,39 @@
                         parentElement.appendChild(details);
                         await buildFileTree(entry, details, depth + 1);
                     }
+                }
+            }
+
+            // Get relative path from root to a file
+            async function getRelativePath(fileHandle) {
+                if (!state.rootDirHandle) return null;
+                try {
+                    const path = await state.rootDirHandle.resolve(fileHandle);
+                    return path ? path.join('/') : null;
+                } catch {
+                    return null;
+                }
+            }
+
+            // Open a file by its relative path from root
+            async function openFileByPath(relativePath, pane) {
+                if (!state.rootDirHandle || !relativePath) return false;
+                try {
+                    const parts = relativePath.split('/');
+                    const filename = parts.pop();
+                    let currentDir = state.rootDirHandle;
+
+                    // Navigate to parent directory
+                    for (const dir of parts) {
+                        currentDir = await currentDir.getDirectoryHandle(dir);
+                    }
+
+                    const fileHandle = await currentDir.getFileHandle(filename);
+                    await openFileInPane(fileHandle, currentDir, pane);
+                    return true;
+                } catch (err) {
+                    console.log('Could not restore file:', relativePath, err.message);
+                    return false;
                 }
             }
 
@@ -308,6 +456,14 @@
                             el.classList.remove(`active-${pane}`);
                         });
                         uiElement.classList.add(`active-${pane}`);
+                    }
+
+                    // Save last open file path for left pane
+                    if (pane === 'left') {
+                        const relativePath = await getRelativePath(fileHandle);
+                        if (relativePath) {
+                            localStorage.setItem('editorLastOpenFile', relativePath);
+                        }
                     }
 
                 } catch (err) {
@@ -507,6 +663,13 @@
             });
 
             document.addEventListener('mouseup', () => {
+                if (isResizing) {
+                    // Save pane width to localStorage
+                    const width = leftPane.style.width;
+                    if (width) {
+                        localStorage.setItem('editorPaneWidth', width);
+                    }
+                }
                 isResizing = false;
                 document.body.style.cursor = '';
                 document.body.style.userSelect = '';
@@ -516,8 +679,36 @@
             // Initialize
             // ========================================
 
+            // Restore pane width from localStorage
+            if (config.restorePaneWidth !== false) {
+                const savedPaneWidth = localStorage.getItem('editorPaneWidth');
+                if (savedPaneWidth) {
+                    leftPane.style.flex = 'none';
+                    leftPane.style.width = savedPaneWidth;
+                    rightPane.style.flex = '1';
+                }
+            }
+
             // Set today's date on the calendar
             picker.setDate(new Date());
+
+            // Try to restore last opened directory
+            if (config.autoOpenLastDirectory !== false) {
+                (async () => {
+                    try {
+                        const savedHandle = await getDirectoryHandle();
+                        if (savedHandle) {
+                            // Request permission (browser may prompt user)
+                            const permission = await savedHandle.requestPermission({ mode: 'readwrite' });
+                            if (permission === 'granted') {
+                                await openDirectory(savedHandle);
+                            }
+                        }
+                    } catch (err) {
+                        console.log('Could not restore last directory:', err.message);
+                    }
+                })();
+            }
         }
     </script>
 </body>

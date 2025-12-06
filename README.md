@@ -9,6 +9,7 @@ A browser-based Markdown editor designed as a lightweight Obsidian alternative. 
 - **Live preview**: Toggle between edit, split (editor + preview), or preview-only modes per pane
 - **Native file access**: Read and write directly to your filesystem (no file copying)
 - **File tree navigation**: Browse `.md` and `.txt` files with collapsible folder structure
+- **Session persistence**: Remembers your last open file and pane widths between sessions
 - **Dark theme**: Easy on the eyes for extended writing sessions
 
 ## Usage
@@ -50,6 +51,24 @@ New daily notes are created automatically when clicking a date that doesn't have
 ## Browser Support
 
 Full functionality requires Chrome or Edge for the File System Access API. Other browsers will have limited read-only support.
+
+## Configuration
+
+Edit `config.js` to customize behavior:
+
+```javascript
+window.editorConfig = {
+    dailyNotesFolder: 'zzz_Daily Notes',  // folder for daily notes
+    autoOpenLastDirectory: true,           // reopen last folder on load
+    autoOpenTodayNote: true,               // open today's note on startup
+    restoreLastOpenFile: true,             // remember last working doc
+    restorePaneWidth: true,                // remember pane sizes
+    dailyNoteNavigation: {
+        enabled: true,
+        modifier: 'meta'  // 'meta', 'ctrl', 'alt', or 'shift'
+    }
+};
+```
 
 ## Dependencies
 

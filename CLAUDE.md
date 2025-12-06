@@ -37,6 +37,8 @@ Single-file application (`index.html`) containing:
 **Core Functions**
 - `buildFileTree(dirHandle, parentElement)` - Recursively builds sidebar file tree, filters to `.md`/`.txt` files
 - `openFileInPane(fileHandle, parentDirHandle, pane, uiElement)` - Opens a file in specified pane ('left' or 'right')
+- `openFileByPath(relativePath, pane)` - Opens a file by its relative path from root directory
+- `getRelativePath(fileHandle)` - Gets the relative path from root to a file handle
 - `openDailyNote(date)` - Creates/opens daily note for given date in right pane
 - `getOrCreateDirectory(parentHandle, name)` - Helper for creating nested folder structure
 - `generateDailyNoteTemplate(date)` - Returns default content for new daily notes
@@ -52,7 +54,18 @@ Single-file application (`index.html`) containing:
 
 ## Configuration
 
-Configurable values in the `state` object:
+Settings are managed in `config.js` via the `window.editorConfig` object:
 - `dailyNotesFolder` - Root folder name for daily notes (default: `'zzz_Daily Notes'`)
+- `autoOpenLastDirectory` - Reopen last used directory on page load (default: `true`)
+- `autoOpenTodayNote` - Open today's daily note when opening a directory (default: `true`)
+- `dailyNoteNavigation` - Keyboard navigation settings (modifier + arrow keys)
+- `restoreLastOpenFile` - Remember and restore last file in left pane (default: `true`)
+- `restorePaneWidth` - Remember and restore pane widths after resizing (default: `true`)
 
 Daily note template can be customized in `generateDailyNoteTemplate()`.
+
+## Persistence
+
+- **Directory handle**: Stored in IndexedDB (`mdEditorDB`) to restore the last opened folder
+- **Last open file**: Stored in localStorage (`editorLastOpenFile`) as relative path from root
+- **Pane width**: Stored in localStorage (`editorPaneWidth`)
