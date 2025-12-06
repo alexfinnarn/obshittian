@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minimal MD Editor</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Pikaday Calendar -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pikaday/1.8.2/css/pikaday.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pikaday/1.8.2/pikaday.min.js"></script>
+    <!-- CodeMirror 6 - all from same bundle to avoid duplicate instances -->
+    <script type="module">
+        import * as CMState from 'https://esm.sh/@codemirror/state@6.4.0';
+        import * as CMView from 'https://esm.sh/@codemirror/view@6.26.0?deps=@codemirror/state@6.4.0';
+        import {basicSetup} from 'https://esm.sh/codemirror@6.0.1?deps=@codemirror/state@6.4.0,@codemirror/view@6.26.0';
+        import {markdown, markdownLanguage} from 'https://esm.sh/@codemirror/lang-markdown@6.2.0?deps=@codemirror/state@6.4.0,@codemirror/view@6.26.0';
+        import {oneDark} from 'https://esm.sh/@codemirror/theme-one-dark@6.1.0?deps=@codemirror/state@6.4.0,@codemirror/view@6.26.0';
+
+        // Expose to global scope for use in main script
+        window.CM = {
+            EditorView: CMView.EditorView,
+            EditorState: CMState.EditorState,
+            basicSetup,
+            markdown,
+            markdownLanguage,
+            oneDark
+        };
+        window.dispatchEvent(new Event('codemirror-ready'));
+    </script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <div id="sidebar">
+        <div class="sidebar-section">
+            <button id="btnOpenFolder" style="width: calc(100% - 16px); margin: 8px;">📂 Open Folder</button>
+        </div>
+
+        <div class="sidebar-section">
+            <div class="sidebar-section-header">Calendar</div>
+            <div id="calendar-container"></div>
+        </div>
+
+        <div class="sidebar-section" style="flex: 1; display: flex; flex-direction: column; border-bottom: none;">
+            <div class="sidebar-section-header">Files</div>
+            <div id="file-tree"></div>
+        </div>
+    </div>
+
+    <!-- Main Content: Two Editor Panes -->
+    <div id="main">
+        <!-- Left Pane (Working Document) -->
+        <div class="editor-pane" id="left-pane">
+            <div class="pane-toolbar">
+                <span class="pane-filename left" id="left-filename">No file open</span>
+                <span class="unsaved-indicator" id="left-unsaved">●</span>
+                <div class="view-toggle">
+                    <button class="active" data-pane="left" data-view="edit" title="Edit">✏️</button>
+                    <button data-pane="left" data-view="split" title="Split">◫</button>
+                    <button data-pane="left" data-view="preview" title="Preview">👁</button>
+                </div>
+            </div>
+            <div class="pane-content">
+                <div class="editor-container" id="left-editor"></div>
+                <div class="preview-pane" id="left-preview"></div>
+            </div>
+        </div>
+
+        <div class="resizer" id="pane-resizer"></div>
+
+        <!-- Right Pane (Daily Note) -->
+        <div class="editor-pane" id="right-pane">
+            <div class="pane-toolbar">
+                <span class="pane-filename right" id="right-filename">No daily note</span>
+                <span class="unsaved-indicator" id="right-unsaved">●</span>
+                <div class="view-toggle">
+                    <button class="active" data-pane="right" data-view="edit" title="Edit">✏️</button>
+                    <button data-pane="right" data-view="split" title="Split">◫</button>
+                    <button data-pane="right" data-view="preview" title="Preview">👁</button>
+                </div>
+            </div>
+            <div class="pane-content">
+                <div class="editor-container" id="right-editor"></div>
+                <div class="preview-pane" id="right-preview"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========================================
+        // Wait for CodeMirror to load
+        // ========================================
+        window.addEventListener('codemirror-ready', initApp);
+
+        function initApp() {
+            const {EditorView, basicSetup, markdown, markdownLanguage, EditorState, oneDark} = window.CM;
+
+            // ========================================
+            // State Management
+            // ========================================
+            const state = {
+                rootDirHandle: null,
+                dailyNotesFolder: 'zzz_Daily Notes', // Configurable
+                left: {
+                    fileHandle: null,
+                    dirHandle: null, // Parent directory for creating new files
+                    content: '',
+                    isDirty: false,
+                    editorView: null
+                },
+                right: {
+                    fileHandle: null,
+                    dirHandle: null,
+                    content: '',
+                    isDirty: false,
+                    editorView: null
+                }
+            };
+
+            // DOM References
+            const elements = {
+                fileTree: document.getElementById('file-tree'),
+                left: {
+                    editorContainer: document.getElementById('left-editor'),
+                    preview: document.getElementById('left-preview'),
+                    filename: document.getElementById('left-filename'),
+                    unsaved: document.getElementById('left-unsaved'),
+                    pane: document.getElementById('left-pane')
+                },
+                right: {
+                    editorContainer: document.getElementById('right-editor'),
+                    preview: document.getElementById('right-preview'),
+                    filename: document.getElementById('right-filename'),
+                    unsaved: document.getElementById('right-unsaved'),
+                    pane: document.getElementById('right-pane')
+                }
+            };
+
+            // ========================================
+            // CodeMirror Setup
+            // ========================================
+
+            function createEditor(container, pane) {
+                const updateListener = EditorView.updateListener.of((update) => {
+                    if (update.docChanged) {
+                        state[pane].isDirty = true;
+                        elements[pane].unsaved.style.display = 'inline';
+                        const text = update.state.doc.toString();
+                        elements[pane].preview.innerHTML = marked.parse(text);
+                    }
+                });
+
+                const editorView = new EditorView({
+                    state: EditorState.create({
+                        doc: '',
+                        extensions: [
+                            basicSetup,
+                            markdown({
+                                base: markdownLanguage
+                            }),
+                            oneDark,
+                            updateListener,
+                            EditorView.lineWrapping,
+                            EditorView.theme({
+                                '&': {
+                                    height: '100%',
+                                    fontSize: '14px'
+                                },
+                                '.cm-scroller': {
+                                    overflow: 'auto',
+                                    fontFamily: "'SF Mono', 'Consolas', 'Monaco', monospace"
+                                },
+                                '.cm-content': {
+                                    padding: '16px'
+                                },
+                                '.cm-gutters': {
+                                    backgroundColor: '#1e1e1e',
+                                    borderRight: '1px solid #333'
+                                }
+                            })
+                        ]
+                    }),
+                    parent: container
+                });
+
+                return editorView;
+            }
+
+            // Initialize editors
+            state.left.editorView = createEditor(elements.left.editorContainer, 'left');
+            state.right.editorView = createEditor(elements.right.editorContainer, 'right');
+
+            // ========================================
+            // Calendar Setup
+            // ========================================
+            const calendarContainer = document.getElementById('calendar-container');
+            const picker = new Pikaday({
+                bound: false,
+                onSelect: async function(date) {
+                    await openDailyNote(date);
+                },
+                firstDay: 0, // Sunday
+                showDaysInNextAndPreviousMonths: true,
+                enableSelectionDaysInNextAndPreviousMonths: true
+            });
+            // Manually append picker element to container (required when not bound to a field)
+            calendarContainer.appendChild(picker.el);
+
+            // ========================================
+            // File System Operations
+            // ========================================
+
+            // Open folder picker
+            document.getElementById('btnOpenFolder').addEventListener('click', async () => {
+                try {
+                    state.rootDirHandle = await window.showDirectoryPicker();
+                    elements.fileTree.innerHTML = '';
+                    await buildFileTree(state.rootDirHandle, elements.fileTree);
+
+                    // Auto-open today's daily note
+                    picker.setDate(new Date());
+                    await openDailyNote(new Date());
+                } catch (err) {
+                    if (err.name !== 'AbortError') {
+                        console.error('Error opening folder:', err);
+                    }
+                }
+            });
+
+            // Build file tree recursively
+            async function buildFileTree(dirHandle, parentElement, depth = 0) {
+                const entries = [];
+                for await (const entry of dirHandle.values()) {
+                    entries.push(entry);
+                }
+
+                // Sort: folders first, then alphabetically
+                entries.sort((a, b) => {
+                    if (a.kind !== b.kind) return a.kind === 'directory' ? -1 : 1;
+                    return a.name.localeCompare(b.name);
+                });
+
+                for (const entry of entries) {
+                    if (entry.name.startsWith('.')) continue; // Skip hidden files
+
+                    if (entry.kind === 'file') {
+                        if (!entry.name.endsWith('.md') && !entry.name.endsWith('.txt')) continue;
+
+                        const div = document.createElement('div');
+                        div.className = 'file-item file-label';
+                        div.textContent = entry.name;
+                        div.dataset.name = entry.name;
+                        div.onclick = (e) => {
+                            e.stopPropagation();
+                            openFileInPane(entry, dirHandle, 'left', div);
+                        };
+                        parentElement.appendChild(div);
+
+                    } else if (entry.kind === 'directory') {
+                        const details = document.createElement('details');
+                        const summary = document.createElement('summary');
+                        summary.textContent = entry.name;
+                        details.appendChild(summary);
+                        parentElement.appendChild(details);
+                        await buildFileTree(entry, details, depth + 1);
+                    }
+                }
+            }
+
+            // Open file in specified pane
+            async function openFileInPane(fileHandle, parentDirHandle, pane, uiElement = null) {
+                try {
+                    // Request permission if needed
+                    if ((await fileHandle.queryPermission({ mode: 'readwrite' })) !== 'granted') {
+                        if ((await fileHandle.requestPermission({ mode: 'readwrite' })) !== 'granted') {
+                            console.error('Permission denied');
+                            return;
+                        }
+                    }
+
+                    const file = await fileHandle.getFile();
+                    const text = await file.text();
+
+                    // Update state
+                    state[pane].fileHandle = fileHandle;
+                    state[pane].dirHandle = parentDirHandle;
+                    state[pane].content = text;
+                    state[pane].isDirty = false;
+
+                    // Update CodeMirror editor
+                    state[pane].editorView.dispatch({
+                        changes: {
+                            from: 0,
+                            to: state[pane].editorView.state.doc.length,
+                            insert: text
+                        }
+                    });
+
+                    // Update UI
+                    elements[pane].preview.innerHTML = marked.parse(text);
+                    elements[pane].filename.textContent = file.name;
+                    elements[pane].unsaved.style.display = 'none';
+
+                    // Update file tree highlighting
+                    if (uiElement) {
+                        document.querySelectorAll(`.file-item.active-${pane}`).forEach(el => {
+                            el.classList.remove(`active-${pane}`);
+                        });
+                        uiElement.classList.add(`active-${pane}`);
+                    }
+
+                } catch (err) {
+                    console.error('Error opening file:', err);
+                }
+            }
+
+            // ========================================
+            // Daily Notes
+            // ========================================
+
+            async function openDailyNote(date) {
+                if (!state.rootDirHandle) {
+                    console.log('No folder open');
+                    return;
+                }
+
+                const year = date.getFullYear().toString();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const filename = `${year}-${month}-${day}.md`;
+
+                try {
+                    // Navigate to or create: zzz_Daily Notes/YYYY/MM/
+                    let dailyDir = await getOrCreateDirectory(state.rootDirHandle, state.dailyNotesFolder);
+                    let yearDir = await getOrCreateDirectory(dailyDir, year);
+                    let monthDir = await getOrCreateDirectory(yearDir, month);
+
+                    // Get or create the daily note file
+                    let fileHandle;
+                    try {
+                        fileHandle = await monthDir.getFileHandle(filename);
+                    } catch {
+                        // File doesn't exist, create it with template
+                        fileHandle = await monthDir.getFileHandle(filename, { create: true });
+                        const writable = await fileHandle.createWritable();
+                        const template = generateDailyNoteTemplate(date);
+                        await writable.write(template);
+                        await writable.close();
+                    }
+
+                    // Open in right pane
+                    await openFileInPane(fileHandle, monthDir, 'right');
+
+                    // Update the file tree to show new file if created
+                    // (For simplicity, we'll just refresh if needed)
+
+                } catch (err) {
+                    console.error('Error opening daily note:', err);
+                }
+            }
+
+            async function getOrCreateDirectory(parentHandle, name) {
+                try {
+                    return await parentHandle.getDirectoryHandle(name, { create: true });
+                } catch (err) {
+                    console.error(`Error creating directory ${name}:`, err);
+                    throw err;
+                }
+            }
+
+            function generateDailyNoteTemplate(date) {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
+
+                return `# ${year}-${month}-${day}
+
+## ${dayName}
+
+- [ ]
+
+## Notes
+
+`;
+            }
+
+            // ========================================
+            // Save Functionality
+            // ========================================
+
+            async function savePane(pane) {
+                const paneState = state[pane];
+                const paneElements = elements[pane];
+
+                if (!paneState.fileHandle) {
+                    console.log('No file open in', pane, 'pane');
+                    return;
+                }
+
+                try {
+                    const text = paneState.editorView.state.doc.toString();
+                    const writable = await paneState.fileHandle.createWritable();
+                    await writable.write(text);
+                    await writable.close();
+
+                    paneState.isDirty = false;
+                    paneState.content = text;
+                    paneElements.unsaved.style.display = 'none';
+
+                } catch (err) {
+                    console.error('Error saving:', err);
+                    alert('Error saving file: ' + err.message);
+                }
+            }
+
+            // Helper to check if a pane's editor is focused
+            function isPaneFocused(pane) {
+                const editorDom = state[pane].editorView.dom;
+                return editorDom.contains(document.activeElement);
+            }
+
+            // Keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                    e.preventDefault();
+
+                    // Determine which pane is focused
+                    if (isPaneFocused('left')) {
+                        savePane('left');
+                    } else if (isPaneFocused('right')) {
+                        savePane('right');
+                    } else {
+                        // Save both if neither focused
+                        if (state.left.isDirty) savePane('left');
+                        if (state.right.isDirty) savePane('right');
+                    }
+                }
+            });
+
+            // ========================================
+            // View Toggle (Edit/Split/Preview)
+            // ========================================
+
+            document.querySelectorAll('.view-toggle button').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const pane = btn.dataset.pane;
+                    const view = btn.dataset.view;
+                    const paneEl = elements[pane];
+
+                    // Update button states
+                    btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+
+                    // Update pane view
+                    const editorContainer = paneEl.editorContainer;
+                    const preview = paneEl.preview;
+
+                    switch (view) {
+                        case 'edit':
+                            editorContainer.style.display = 'block';
+                            preview.classList.remove('visible');
+                            editorContainer.style.flex = '1';
+                            break;
+                        case 'split':
+                            editorContainer.style.display = 'block';
+                            preview.classList.add('visible');
+                            editorContainer.style.flex = '1';
+                            break;
+                        case 'preview':
+                            editorContainer.style.display = 'none';
+                            preview.classList.add('visible');
+                            break;
+                    }
+                });
+            });
+
+            // ========================================
+            // Pane Resizer
+            // ========================================
+
+            const resizer = document.getElementById('pane-resizer');
+            const leftPane = document.getElementById('left-pane');
+            const rightPane = document.getElementById('right-pane');
+
+            let isResizing = false;
+
+            resizer.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+            });
+
+            document.addEventListener('mousemove', (e) => {
+                if (!isResizing) return;
+
+                const containerRect = document.getElementById('main').getBoundingClientRect();
+                const newLeftWidth = e.clientX - containerRect.left;
+                const minWidth = 300;
+
+                if (newLeftWidth > minWidth && (containerRect.width - newLeftWidth) > minWidth) {
+                    leftPane.style.flex = 'none';
+                    leftPane.style.width = newLeftWidth + 'px';
+                    rightPane.style.flex = '1';
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                isResizing = false;
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            });
+
+            // ========================================
+            // Initialize
+            // ========================================
+
+            // Set today's date on the calendar
+            picker.setDate(new Date());
+        }
+    </script>
+</body>
+</html>
