@@ -7,7 +7,7 @@ import { setupKeyboardShortcuts, setupViewToggle, setupPaneResizer, restorePaneW
 import { initQuickLinks } from './quick-links.js';
 
 // Wait for both CodeMirror and Pikaday to load
-let cmReady = false;
+let cmReady = typeof window.CM !== 'undefined';
 let pikadayReady = typeof Pikaday !== 'undefined';
 
 function tryInit() {
@@ -21,10 +21,13 @@ window.addEventListener('codemirror-ready', () => {
     tryInit();
 });
 
-// Check if Pikaday is already loaded, otherwise poll for it
-if (pikadayReady) {
+// Check if CM already loaded before this script ran
+if (cmReady) {
     tryInit();
-} else {
+}
+
+// Check if Pikaday is already loaded, otherwise poll for it
+if (!pikadayReady) {
     const checkPikaday = setInterval(() => {
         if (typeof Pikaday !== 'undefined') {
             pikadayReady = true;

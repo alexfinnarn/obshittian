@@ -66,7 +66,11 @@ window.editorConfig = {
     dailyNoteNavigation: {
         enabled: true,
         modifier: 'meta'  // 'meta', 'ctrl', 'alt', or 'shift'
-    }
+    },
+    defaultQuickLinks: [                   // quick links shown in header
+        { name: 'Gmail', url: 'https://mail.google.com/' },
+        { name: 'GitHub', url: 'https://github.com/' }
+    ]
 };
 ```
 
