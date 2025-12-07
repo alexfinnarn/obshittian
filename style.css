@@ -289,6 +289,37 @@ summary:hover { background: var(--hover); }
     padding-left: 1.5em;
 }
 
+/* Collapsible Lists (native <details> element) */
+.preview-pane details {
+    margin: 0;
+}
+
+.preview-pane details > summary {
+    cursor: pointer;
+    list-style: none;
+}
+
+.preview-pane details > summary::-webkit-details-marker {
+    display: none;
+}
+
+.preview-pane details > summary::before {
+    content: '▶';
+    display: inline-block;
+    color: var(--text-muted);
+    font-size: 0.65em;
+    margin-right: 0.5em;
+    transition: transform 0.15s, color 0.15s;
+}
+
+.preview-pane details[open] > summary::before {
+    transform: rotate(90deg);
+}
+
+.preview-pane details > summary:hover::before {
+    color: var(--accent);
+}
+
 .preview-pane input[type="checkbox"] {
     margin-right: 8px;
 }

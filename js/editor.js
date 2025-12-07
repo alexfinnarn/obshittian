@@ -1,14 +1,35 @@
 // CodeMirror editor setup
+import { savePane } from './ui.js';
+import { renderPreview } from './marked-config.js';
 
-export function createEditor(CM, container, pane, state, elements) {
+// Track auto-save timers per pane
+const autoSaveTimers = {
+    left: null,
+    right: null
+};
+
+export function createEditor(CM, container, pane, state, elements, config = {}) {
     const { EditorView, basicSetup, markdown, markdownLanguage, EditorState, oneDark } = CM;
+    const autoSaveDelay = config.autoSaveDelay;
 
     const updateListener = EditorView.updateListener.of((update) => {
         if (update.docChanged) {
             state[pane].isDirty = true;
             elements[pane].unsaved.style.display = 'inline';
             const text = update.state.doc.toString();
-            elements[pane].preview.innerHTML = marked.parse(text);
+            renderPreview(text, elements[pane].preview);
+
+            // Auto-save after inactivity
+            if (autoSaveDelay && autoSaveDelay > 0) {
+                if (autoSaveTimers[pane]) {
+                    clearTimeout(autoSaveTimers[pane]);
+                }
+                autoSaveTimers[pane] = setTimeout(() => {
+                    if (state[pane].isDirty && state[pane].fileHandle) {
+                        savePane(pane, state, elements);
+                    }
+                }, autoSaveDelay);
+            }
         }
     });
 

@@ -5,6 +5,7 @@ import { buildFileTree, openFileByPath, openFileInPane as openFileInPaneBase } f
 import { openDailyNote as openDailyNoteBase, setupDailyNoteNavigation } from './daily-notes.js';
 import { setupKeyboardShortcuts, setupViewToggle, setupPaneResizer, restorePaneWidth } from './ui.js';
 import { initQuickLinks } from './quick-links.js';
+import { configureMarked } from './marked-config.js';
 
 // Wait for both CodeMirror and Pikaday to load
 let cmReady = typeof window.CM !== 'undefined';
@@ -90,8 +91,11 @@ function initApp() {
     };
 
     // Initialize editors
-    state.left.editorView = createEditor(CM, elements.left.editorContainer, 'left', state, elements);
-    state.right.editorView = createEditor(CM, elements.right.editorContainer, 'right', state, elements);
+    state.left.editorView = createEditor(CM, elements.left.editorContainer, 'left', state, elements, config);
+    state.right.editorView = createEditor(CM, elements.right.editorContainer, 'right', state, elements, config);
+
+    // Configure marked.js with custom renderer for collapsible lists
+    configureMarked();
 
     // Calendar Setup
     const calendarContainer = document.getElementById('calendar-container');

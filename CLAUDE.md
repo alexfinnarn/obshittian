@@ -24,6 +24,7 @@ js/
   file-tree.js   - File tree building & navigation
   daily-notes.js - Daily note creation/opening
   ui.js          - View toggles, pane resizer, keyboard shortcuts
+  marked-config.js - Custom marked.js renderer configuration
 ```
 
 ### HTML Structure (index.html)
@@ -69,8 +70,14 @@ js/
 - `setupPaneResizer()` - Draggable pane divider
 - `restorePaneWidth(config)` - Restore saved width
 
+**js/marked-config.js** - Markdown rendering customization
+- `configureMarked()` - Configures marked.js with custom renderer (called once at startup)
+- `renderPreview(text, previewElement)` - Renders markdown to HTML in preview pane
+- Custom `link` renderer adds `target="_blank"` to open links in new tabs
+- Custom `listitem` renderer wraps nested lists in native `<details>`/`<summary>` elements for collapsible behavior
+
 **External Libraries (CDN)**
-- `marked.js` - Markdown to HTML parsing
+- `marked.js` - Markdown to HTML parsing (customized via `js/marked-config.js`)
 - `Pikaday` - Calendar widget (see `docs/pikaday.md` for API)
 - `CodeMirror 6` - Code editor with markdown support
 

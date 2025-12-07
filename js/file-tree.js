@@ -1,5 +1,6 @@
 // File tree building and navigation
 import { saveLastOpenFile } from './persistence.js';
+import { renderPreview } from './marked-config.js';
 
 // Build file tree recursively
 export async function buildFileTree(dirHandle, parentElement, openFileInPane, state, depth = 0) {
@@ -104,7 +105,7 @@ export async function openFileInPane(fileHandle, parentDirHandle, pane, state, e
         });
 
         // Update UI
-        elements[pane].preview.innerHTML = marked.parse(text);
+        renderPreview(text, elements[pane].preview);
         elements[pane].filename.textContent = file.name;
         elements[pane].unsaved.style.display = 'none';
 
@@ -121,6 +122,12 @@ export async function openFileInPane(fileHandle, parentDirHandle, pane, state, e
             const relativePath = await getRelativePath(state.rootDirHandle, fileHandle);
             if (relativePath) {
                 saveLastOpenFile(relativePath);
+            }
+
+            // Set left pane to preview mode by default
+            const previewBtn = document.querySelector('.view-toggle button[data-pane="left"][data-view="preview"]');
+            if (previewBtn) {
+                previewBtn.click();
             }
         }
 

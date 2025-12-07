@@ -30,6 +30,10 @@ window.editorConfig = {
     // Remember and restore pane widths after resizing
     restorePaneWidth: true,
 
+    // Auto-save after inactivity (in milliseconds)
+    // Set to false to disable, or a number like 7000 for 7 seconds
+    autoSaveDelay: 2000,
+
     // Default quick links (shown when no saved links exist)
     defaultQuickLinks: [
         { name: 'NWS', url: 'https://forecast.weather.gov/MapClick.php?lat=39.9103&lon=-82.7916&unit=0&lg=english&FcstType=graphical' },
