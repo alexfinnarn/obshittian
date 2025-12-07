@@ -6,8 +6,33 @@ import { openDailyNote as openDailyNoteBase, setupDailyNoteNavigation } from './
 import { setupKeyboardShortcuts, setupViewToggle, setupPaneResizer, restorePaneWidth } from './ui.js';
 import { initQuickLinks } from './quick-links.js';
 
-// Wait for CodeMirror to load
-window.addEventListener('codemirror-ready', initApp);
+// Wait for both CodeMirror and Pikaday to load
+let cmReady = false;
+let pikadayReady = typeof Pikaday !== 'undefined';
+
+function tryInit() {
+    if (cmReady && pikadayReady) {
+        initApp();
+    }
+}
+
+window.addEventListener('codemirror-ready', () => {
+    cmReady = true;
+    tryInit();
+});
+
+// Check if Pikaday is already loaded, otherwise poll for it
+if (pikadayReady) {
+    tryInit();
+} else {
+    const checkPikaday = setInterval(() => {
+        if (typeof Pikaday !== 'undefined') {
+            pikadayReady = true;
+            clearInterval(checkPikaday);
+            tryInit();
+        }
+    }, 50);
+}
 
 function initApp() {
     const CM = window.CM;
