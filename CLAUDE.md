@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A minimal browser-based Markdown editor built as a single HTML file. Designed as a lightweight Obsidian alternative with dual-pane editing and daily notes functionality. Uses the File System Access API to read/write files directly on the user's filesystem.
+A minimal browser-based Markdown editor with dual-pane editing and daily notes functionality. Designed as a lightweight Obsidian alternative. Uses the File System Access API to read/write files directly on the user's filesystem.
 
 ## Development
 
@@ -12,39 +12,69 @@ No build process required. Open `index.html` directly in Chrome or Edge (require
 
 ## Architecture
 
-Single-file application (`index.html`) containing:
+### File Structure
+```
+index.html       - HTML structure only, loads ES modules
+style.css        - Dark theme styles
+config.js        - User configuration (window.editorConfig)
+js/
+  app.js         - Main entry point, state management, initialization
+  persistence.js - IndexedDB & localStorage helpers
+  editor.js      - CodeMirror editor setup
+  file-tree.js   - File tree building & navigation
+  daily-notes.js - Daily note creation/opening
+  ui.js          - View toggles, pane resizer, keyboard shortcuts
+```
 
-### HTML Structure
+### HTML Structure (index.html)
 - Sidebar with calendar widget and file tree
 - Two independent editor panes (left for working documents, right for daily notes)
 - Each pane has its own toolbar with filename, unsaved indicator, and view toggle
 
-### CSS
+### CSS (style.css)
 - Dark theme using CSS custom properties
 - Flexbox layout with resizable panes
 - Pikaday calendar theme overrides to match dark UI
 
-### JavaScript
+### JavaScript Modules
 
-**State Management**
+**js/app.js** - Main entry point
 - `state` object tracks root directory handle and per-pane state (fileHandle, dirHandle, content, isDirty)
 - `elements` object holds DOM references for both panes
+- Initializes editors, calendar, and all event handlers
+- Orchestrates other modules
 
-**External Libraries**
-- `marked.js` (CDN) - Markdown to HTML parsing
-- `Pikaday` (CDN) - Calendar widget (see `docs/pikaday.md` for API documentation)
+**js/persistence.js** - Storage helpers
+- `saveDirectoryHandle(handle)` / `getDirectoryHandle()` - IndexedDB for directory handle
+- `saveLastOpenFile(path)` / `getLastOpenFile()` - localStorage for last file
+- `savePaneWidth(width)` / `getPaneWidth()` - localStorage for pane width
 
-**Core Functions**
-- `buildFileTree(dirHandle, parentElement)` - Recursively builds sidebar file tree, filters to `.md`/`.txt` files
-- `openFileInPane(fileHandle, parentDirHandle, pane, uiElement)` - Opens a file in specified pane ('left' or 'right')
-- `openFileByPath(relativePath, pane)` - Opens a file by its relative path from root directory
-- `getRelativePath(fileHandle)` - Gets the relative path from root to a file handle
-- `openDailyNote(date)` - Creates/opens daily note for given date in right pane
-- `getOrCreateDirectory(parentHandle, name)` - Helper for creating nested folder structure
-- `generateDailyNoteTemplate(date)` - Returns default content for new daily notes
-- `savePane(pane)` - Saves content of specified pane to filesystem
+**js/editor.js** - CodeMirror setup
+- `createEditor(CM, container, pane, state, elements)` - Creates CodeMirror instance with dark theme
 
-**Key Behaviors**
+**js/file-tree.js** - File navigation
+- `buildFileTree(dirHandle, parentElement, openFileInPane, state)` - Recursively builds sidebar tree
+- `getRelativePath(rootDirHandle, fileHandle)` - Gets relative path from root
+- `openFileByPath(relativePath, pane, state, openFileInPane)` - Opens file by path
+- `openFileInPane(fileHandle, parentDirHandle, pane, state, elements, uiElement)` - Opens file in pane
+
+**js/daily-notes.js** - Daily notes
+- `openDailyNote(date, state, openFileInPane)` - Creates/opens daily note
+- `setupDailyNoteNavigation(config, picker, openDailyNote)` - Keyboard navigation
+
+**js/ui.js** - UI functionality
+- `savePane(pane, state, elements)` - Saves pane content to filesystem
+- `setupKeyboardShortcuts(state, elements)` - Ctrl/Cmd+S handling
+- `setupViewToggle(elements)` - Edit/Split/Preview toggle
+- `setupPaneResizer()` - Draggable pane divider
+- `restorePaneWidth(config)` - Restore saved width
+
+**External Libraries (CDN)**
+- `marked.js` - Markdown to HTML parsing
+- `Pikaday` - Calendar widget (see `docs/pikaday.md` for API)
+- `CodeMirror 6` - Code editor with markdown support
+
+### Key Behaviors
 - Files clicked in tree open in left pane
 - Calendar date clicks open daily notes in right pane
 - Daily notes follow `zzz_Daily Notes/YYYY/MM/YYYY-MM-DD.md` structure
@@ -62,7 +92,7 @@ Settings are managed in `config.js` via the `window.editorConfig` object:
 - `restoreLastOpenFile` - Remember and restore last file in left pane (default: `true`)
 - `restorePaneWidth` - Remember and restore pane widths after resizing (default: `true`)
 
-Daily note template can be customized in `generateDailyNoteTemplate()`.
+Daily note template can be customized in `generateDailyNoteTemplate()` in `js/daily-notes.js`.
 
 ## Persistence
 

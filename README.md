@@ -1,6 +1,6 @@
 # Minimal MD Editor
 
-A browser-based Markdown editor designed as a lightweight Obsidian alternative. Built as a single HTML file with no build process required.
+A browser-based Markdown editor designed as a lightweight Obsidian alternative. No build process required.
 
 ## Features
 
@@ -70,7 +70,23 @@ window.editorConfig = {
 };
 ```
 
+## File Structure
+
+```
+index.html       - HTML structure, loads ES modules
+style.css        - Dark theme styles
+config.js        - User configuration
+js/
+  app.js         - Main entry point, state management
+  persistence.js - IndexedDB & localStorage helpers
+  editor.js      - CodeMirror editor setup
+  file-tree.js   - File tree building & navigation
+  daily-notes.js - Daily note creation/opening
+  ui.js          - View toggles, resizer, keyboard shortcuts
+```
+
 ## Dependencies
 
 - [marked.js](https://marked.js.org/) - Markdown parsing (CDN)
 - [Pikaday](https://pikaday.com/) - Calendar widget (CDN)
+- [CodeMirror 6](https://codemirror.net/) - Code editor (CDN)
