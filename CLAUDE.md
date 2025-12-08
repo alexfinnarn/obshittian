@@ -10,6 +10,23 @@ A minimal browser-based Markdown editor with dual-pane editing and daily notes f
 
 No build process required. Open `index.html` directly in Chrome or Edge (required for File System Access API support).
 
+### Testing
+
+```bash
+npm install        # Install dev dependencies
+npm test           # Run tests in watch mode
+npm run test:run   # Run tests once
+```
+
+Tests run automatically on pull requests to `main` via GitHub Actions (`.github/workflows/test.yml`).
+
+Tests use Vitest with jsdom. Test files are in `tests/` and cover:
+- `daily-notes.test.js` - Date formatting, template generation, directory creation
+- `file-operations.test.js` - File/folder create, rename, delete, context menu state
+- `marked-config.test.js` - Custom link/list renderers, preview rendering
+- `persistence.test.js` - localStorage helpers
+- `file-tree.test.js` - Path resolution, file opening by path
+
 ## Architecture
 
 ### File Structure
@@ -17,14 +34,26 @@ No build process required. Open `index.html` directly in Chrome or Edge (require
 index.html       - HTML structure only, loads ES modules
 style.css        - Dark theme styles
 config.js        - User configuration (window.editorConfig)
+.github/
+  workflows/
+    test.yml       - GitHub Actions workflow for PR testing
 js/
-  app.js         - Main entry point, state management, initialization
-  persistence.js - IndexedDB & localStorage helpers
-  editor.js      - CodeMirror editor setup
-  file-tree.js   - File tree building & navigation
-  daily-notes.js - Daily note creation/opening
-  ui.js          - View toggles, pane resizer, keyboard shortcuts
+  app.js           - Main entry point, state management, initialization
+  persistence.js   - IndexedDB & localStorage helpers
+  editor.js        - CodeMirror editor setup
+  file-tree.js     - File tree building, navigation & context menu
+  file-operations.js - File/folder create, rename, delete operations
+  daily-notes.js   - Daily note creation/opening
+  ui.js            - View toggles, pane resizer, keyboard shortcuts
   marked-config.js - Custom marked.js renderer configuration
+tests/
+  mocks/
+    file-system.js   - Mock File System Access API for testing
+  daily-notes.test.js
+  file-operations.test.js
+  file-tree.test.js
+  marked-config.test.js
+  persistence.test.js
 ```
 
 ### HTML Structure (index.html)
@@ -53,13 +82,25 @@ js/
 **js/editor.js** - CodeMirror setup
 - `createEditor(CM, container, pane, state, elements)` - Creates CodeMirror instance with dark theme
 
-**js/file-tree.js** - File navigation
-- `buildFileTree(dirHandle, parentElement, openFileInPane, state)` - Recursively builds sidebar tree
+**js/file-tree.js** - File navigation & context menu
+- `buildFileTree(dirHandle, parentElement, openFileInPane, state)` - Recursively builds sidebar tree with right-click handlers
+- `setupContextMenu(state, openFileInPane, refreshFileTree)` - Initializes context menu for file operations
 - `getRelativePath(rootDirHandle, fileHandle)` - Gets relative path from root
 - `openFileByPath(relativePath, pane, state, openFileInPane)` - Opens file by path
 - `openFileInPane(fileHandle, parentDirHandle, pane, state, elements, uiElement)` - Opens file in pane
 
+**js/file-operations.js** - File system operations
+- `createFile(parentDirHandle, filename)` - Creates a new empty file
+- `createFolder(parentDirHandle, folderName)` - Creates a new folder
+- `renameFile(dirHandle, oldName, newName)` - Renames a file (copy + delete, since FS API has no native rename)
+- `renameFolder(parentDirHandle, oldName, newName)` - Renames a folder recursively
+- `deleteEntry(parentDirHandle, name, isDirectory)` - Deletes a file or folder
+- Context menu state helpers (`getContextMenuState`, `setContextMenuState`, `showContextMenu`, `hideContextMenu`)
+
 **js/daily-notes.js** - Daily notes
+- `formatDailyNotePath(date)` - Returns `{ year, month, day, filename }` for a date
+- `generateDailyNoteTemplate(date)` - Creates default template for new daily notes
+- `getOrCreateDirectory(parentHandle, name)` - Gets or creates a directory
 - `openDailyNote(date, state, openFileInPane)` - Creates/opens daily note
 - `setupDailyNoteNavigation(config, picker, openDailyNote)` - Keyboard navigation
 
@@ -88,6 +129,8 @@ js/
 - `Ctrl/Cmd+S` saves the focused pane (or both if neither focused)
 - View toggle switches between edit/split/preview modes per pane
 - Pane divider is draggable for resizing
+- Right-click on files/folders opens context menu (New File, New Folder, Rename, Delete)
+- Right-click on empty file tree area creates files/folders in root
 
 ## Configuration
 

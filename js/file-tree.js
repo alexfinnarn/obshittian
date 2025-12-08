@@ -1,6 +1,10 @@
 // File tree building and navigation
 import { saveLastOpenFile } from './persistence.js';
 import { renderPreview } from './marked-config.js';
+import {
+    createFile, createFolder, renameFile, renameFolder, deleteEntry,
+    getContextMenuState, setContextMenuState, showContextMenu, hideContextMenu, promptFilename
+} from './file-operations.js';
 
 // Build file tree recursively
 export async function buildFileTree(dirHandle, parentElement, openFileInPane, state, depth = 0) {
@@ -29,17 +33,180 @@ export async function buildFileTree(dirHandle, parentElement, openFileInPane, st
                 e.stopPropagation();
                 openFileInPane(entry, dirHandle, 'left', div);
             };
+            div.oncontextmenu = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setContextMenuState({
+                    targetElement: div,
+                    targetHandle: entry,
+                    parentDirHandle: dirHandle,
+                    isDirectory: false
+                });
+                const menu = document.getElementById('context-menu');
+                showContextMenu(menu, e.clientX, e.clientY);
+            };
             parentElement.appendChild(div);
 
         } else if (entry.kind === 'directory') {
             const details = document.createElement('details');
             const summary = document.createElement('summary');
             summary.textContent = entry.name;
+            summary.dataset.name = entry.name;
+            summary.oncontextmenu = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setContextMenuState({
+                    targetElement: summary,
+                    targetHandle: entry,
+                    parentDirHandle: dirHandle,
+                    isDirectory: true
+                });
+                const menu = document.getElementById('context-menu');
+                showContextMenu(menu, e.clientX, e.clientY);
+            };
             details.appendChild(summary);
             parentElement.appendChild(details);
             await buildFileTree(entry, details, openFileInPane, state, depth + 1);
         }
     }
+}
+
+// Setup context menu handlers
+export function setupContextMenu(state, openFileInPane, refreshFileTree) {
+    const menu = document.getElementById('context-menu');
+    const fileTree = document.getElementById('file-tree');
+
+    // Right-click on empty area of file tree to create in root
+    fileTree.oncontextmenu = (e) => {
+        // Only if clicking directly on file-tree, not on a child
+        if (e.target === fileTree) {
+            e.preventDefault();
+            setContextMenuState({
+                targetElement: null,
+                targetHandle: state.rootDirHandle,
+                parentDirHandle: state.rootDirHandle,
+                isDirectory: true
+            });
+            showContextMenu(menu, e.clientX, e.clientY);
+        }
+    };
+
+    // Hide menu on click outside
+    document.addEventListener('click', () => hideContextMenu(menu));
+    document.addEventListener('contextmenu', (e) => {
+        // Hide if right-clicking outside file tree
+        if (!fileTree.contains(e.target)) {
+            hideContextMenu(menu);
+        }
+    });
+
+    // Handle menu item clicks
+    menu.addEventListener('click', async (e) => {
+        const action = e.target.dataset.action;
+        if (!action) return;
+
+        const ctx = getContextMenuState();
+        hideContextMenu(menu);
+
+        try {
+            switch (action) {
+                case 'new-file':
+                    await handleNewFile(ctx, state, openFileInPane, refreshFileTree);
+                    break;
+                case 'new-folder':
+                    await handleNewFolder(ctx, refreshFileTree);
+                    break;
+                case 'rename':
+                    await handleRename(ctx, state, refreshFileTree);
+                    break;
+                case 'delete':
+                    await handleDelete(ctx, state, refreshFileTree);
+                    break;
+            }
+        } catch (err) {
+            console.error('Context menu action failed:', err);
+            alert('Operation failed: ' + err.message);
+        }
+    });
+}
+
+async function handleNewFile(ctx, state, openFileInPane, refreshFileTree) {
+    // Determine target directory
+    const targetDir = ctx.isDirectory ? ctx.targetHandle : ctx.parentDirHandle;
+
+    const filename = promptFilename('untitled.md');
+    if (!filename) return;
+
+    // Ensure .md extension
+    const finalName = filename.endsWith('.md') || filename.endsWith('.txt')
+        ? filename
+        : filename + '.md';
+
+    const fileHandle = await createFile(targetDir, finalName);
+    await refreshFileTree();
+
+    // Open the new file
+    await openFileInPane(fileHandle, targetDir, 'left');
+}
+
+async function handleNewFolder(ctx, refreshFileTree) {
+    const targetDir = ctx.isDirectory ? ctx.targetHandle : ctx.parentDirHandle;
+
+    const folderName = promptFilename('New Folder');
+    if (!folderName) return;
+
+    await createFolder(targetDir, folderName);
+    await refreshFileTree();
+}
+
+async function handleRename(ctx, state, refreshFileTree) {
+    if (!ctx.targetHandle || ctx.targetHandle === state.rootDirHandle) {
+        alert('Cannot rename root directory');
+        return;
+    }
+
+    const oldName = ctx.targetHandle.name;
+    const newName = promptFilename(oldName);
+    if (!newName || newName === oldName) return;
+
+    if (ctx.isDirectory) {
+        await renameFolder(ctx.parentDirHandle, oldName, newName);
+    } else {
+        await renameFile(ctx.parentDirHandle, oldName, newName);
+    }
+
+    await refreshFileTree();
+}
+
+async function handleDelete(ctx, state, refreshFileTree) {
+    if (!ctx.targetHandle || ctx.targetHandle === state.rootDirHandle) {
+        alert('Cannot delete root directory');
+        return;
+    }
+
+    const name = ctx.targetHandle.name;
+    const type = ctx.isDirectory ? 'folder' : 'file';
+
+    if (!confirm(`Delete ${type} "${name}"?`)) return;
+
+    await deleteEntry(ctx.parentDirHandle, name, ctx.isDirectory);
+
+    // Clear editor if the deleted file was open
+    if (!ctx.isDirectory) {
+        for (const pane of ['left', 'right']) {
+            if (state[pane].fileHandle?.name === name) {
+                state[pane].fileHandle = null;
+                state[pane].dirHandle = null;
+                state[pane].content = '';
+                state[pane].isDirty = false;
+                state[pane].editorView.dispatch({
+                    changes: { from: 0, to: state[pane].editorView.state.doc.length, insert: '' }
+                });
+            }
+        }
+    }
+
+    await refreshFileTree();
 }
 
 // Get relative path from root to a file

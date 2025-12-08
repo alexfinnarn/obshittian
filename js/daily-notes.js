@@ -1,5 +1,16 @@
 // Daily notes functionality
 
+/**
+ * Format a date into daily note path components
+ */
+export function formatDailyNotePath(date) {
+    const year = date.getFullYear().toString();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const filename = `${year}-${month}-${day}.md`;
+    return { year, month, day, filename };
+}
+
 export async function openDailyNote(date, state, openFileInPane) {
     if (!state.rootDirHandle) {
         console.log('No folder open');
@@ -38,7 +49,7 @@ export async function openDailyNote(date, state, openFileInPane) {
     }
 }
 
-async function getOrCreateDirectory(parentHandle, name) {
+export async function getOrCreateDirectory(parentHandle, name) {
     try {
         return await parentHandle.getDirectoryHandle(name, { create: true });
     } catch (err) {
@@ -47,7 +58,7 @@ async function getOrCreateDirectory(parentHandle, name) {
     }
 }
 
-function generateDailyNoteTemplate(date) {
+export function generateDailyNoteTemplate(date) {
     const year = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
