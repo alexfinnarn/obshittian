@@ -9,6 +9,7 @@ A browser-based Markdown editor designed as a lightweight Obsidian alternative. 
 - **Live preview**: Toggle between edit, split (editor + preview), or preview-only modes per pane
 - **Native file access**: Read and write directly to your filesystem (no file copying)
 - **File tree navigation**: Browse `.md` and `.txt` files with collapsible folder structure
+- **File management**: Right-click context menu to create, rename, and delete files/folders
 - **Session persistence**: Remembers your last open file and pane widths between sessions
 - **Dark theme**: Easy on the eyes for extended writing sessions
 
@@ -77,20 +78,38 @@ window.editorConfig = {
 ## File Structure
 
 ```
-index.html       - HTML structure, loads ES modules
-style.css        - Dark theme styles
-config.js        - User configuration
+index.html         - HTML structure, loads ES modules
+style.css          - Dark theme styles
+config.js          - User configuration
+.github/workflows/ - CI for running tests on PRs
 js/
-  app.js         - Main entry point, state management
-  persistence.js - IndexedDB & localStorage helpers
-  editor.js      - CodeMirror editor setup
-  file-tree.js   - File tree building & navigation
-  daily-notes.js - Daily note creation/opening
-  ui.js          - View toggles, resizer, keyboard shortcuts
+  app.js           - Main entry point, state management
+  persistence.js   - IndexedDB & localStorage helpers
+  editor.js        - CodeMirror editor setup
+  file-tree.js     - File tree building, navigation & context menu
+  file-operations.js - File/folder create, rename, delete
+  daily-notes.js   - Daily note creation/opening
+  ui.js            - View toggles, resizer, keyboard shortcuts
+tests/             - Vitest unit tests
 ```
+
+## Testing
+
+```bash
+npm install        # Install dev dependencies
+npm test           # Run tests in watch mode
+npm run test:run   # Run tests once
+```
+
+Tests run automatically on pull requests via GitHub Actions.
 
 ## Dependencies
 
-- [marked.js](https://marked.js.org/) - Markdown parsing (CDN)
-- [Pikaday](https://pikaday.com/) - Calendar widget (CDN)
-- [CodeMirror 6](https://codemirror.net/) - Code editor (CDN)
+**Runtime (CDN)**
+- [marked.js](https://marked.js.org/) - Markdown parsing
+- [Pikaday](https://pikaday.com/) - Calendar widget
+- [CodeMirror 6](https://codemirror.net/) - Code editor
+
+**Dev (npm)**
+- [Vitest](https://vitest.dev/) - Test runner
+- [jsdom](https://github.com/jsdom/jsdom) - DOM simulation for tests

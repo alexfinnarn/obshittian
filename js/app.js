@@ -1,7 +1,7 @@
 // Main application entry point
 import { saveDirectoryHandle, getDirectoryHandle, getLastOpenFile } from './persistence.js';
 import { createEditor } from './editor.js';
-import { buildFileTree, openFileByPath, openFileInPane as openFileInPaneBase } from './file-tree.js';
+import { buildFileTree, openFileByPath, openFileInPane as openFileInPaneBase, setupContextMenu } from './file-tree.js';
 import { openDailyNote as openDailyNoteBase, setupDailyNoteNavigation } from './daily-notes.js';
 import { setupKeyboardShortcuts, setupViewToggle, setupPaneResizer, restorePaneWidth } from './ui.js';
 import { initQuickLinks } from './quick-links.js';
@@ -127,6 +127,13 @@ function initApp() {
         }
     });
 
+    // Function to refresh the file tree
+    async function refreshFileTree() {
+        if (!state.rootDirHandle) return;
+        elements.fileTree.innerHTML = '';
+        await buildFileTree(state.rootDirHandle, elements.fileTree, openFileInPane, state);
+    }
+
     // Common function to open a directory
     async function openDirectory(dirHandle) {
         state.rootDirHandle = dirHandle;
@@ -147,6 +154,9 @@ function initApp() {
             }
         }
     }
+
+    // Setup context menu for file operations
+    setupContextMenu(state, openFileInPane, refreshFileTree);
 
     // Setup UI
     setupKeyboardShortcuts(state, elements);

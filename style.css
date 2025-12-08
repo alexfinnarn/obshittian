@@ -553,3 +553,57 @@ button:hover { background: #444; }
     color: var(--accent);
     background: transparent;
 }
+
+/* Context Menu */
+.context-menu {
+    position: fixed;
+    background: var(--sidebar-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 4px 0;
+    min-width: 150px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    display: none;
+}
+
+.context-menu.visible {
+    display: block;
+}
+
+.context-menu-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 0.85em;
+}
+
+.context-menu-item:hover {
+    background: var(--hover);
+}
+
+.context-menu-item[data-action="delete"]:hover {
+    background: #5a2d2d;
+    color: #ff6b6b;
+}
+
+.context-menu-separator {
+    height: 1px;
+    background: var(--border);
+    margin: 4px 0;
+}
+
+/* Inline rename input */
+.file-item.renaming {
+    padding: 2px 8px;
+}
+
+.rename-input {
+    width: 100%;
+    padding: 2px 4px;
+    background: var(--bg);
+    border: 1px solid var(--accent);
+    border-radius: 3px;
+    color: var(--text);
+    font-size: 0.9em;
+    outline: none;
+}

@@ -1,0 +1,16 @@
+{
+  "name": "markdown-editor",
+  "version": "1.0.0",
+  "description": "Minimal browser-based Markdown editor with dual-pane editing",
+  "type": "module",
+  "scripts": {
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "jsdom": "^25.0.1",
+    "marked": "^17.0.1",
+    "vitest": "^2.1.6"
+  }
+}
