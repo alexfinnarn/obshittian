@@ -4,12 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Minimal MD Editor</title>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <!-- Fuse.js for fuzzy search -->
-    <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0"></script>
-    <!-- Pikaday Calendar -->
+    <!-- External Libraries - each dispatches a ready event for js/dependencies.js -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"
+        onload="window.dispatchEvent(new Event('marked-ready'))"
+        onerror="console.error('Failed to load marked.js from CDN')"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0"
+        onload="window.dispatchEvent(new Event('fuse-ready'))"
+        onerror="console.error('Failed to load Fuse.js from CDN')"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pikaday@1.8.2/css/pikaday.css">
-    <script src="https://cdn.jsdelivr.net/npm/pikaday@1.8.2/pikaday.js" onerror="console.error('Failed to load Pikaday from CDN')"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pikaday@1.8.2/pikaday.js"
+        onload="window.dispatchEvent(new Event('pikaday-ready'))"
+        onerror="console.error('Failed to load Pikaday from CDN')"></script>
     <!-- CodeMirror 6 - all from same bundle to avoid duplicate instances -->
     <script type="module">
         import * as CMState from 'https://esm.sh/@codemirror/state@6.4.0';
@@ -29,7 +34,7 @@
             yaml,
             oneDark
         };
-        window.dispatchEvent(new Event('codemirror-ready'));
+        window.dispatchEvent(new Event('cm-ready'));
     </script>
     <link rel="stylesheet" href="style.css">
     <script src="config.js"></script>

@@ -2,6 +2,8 @@
 import { savePaneWidth, getPaneWidth } from './persistence.js';
 import { updateFileInIndex } from './tags.js';
 import { getRelativePath } from './file-tree.js';
+import { registerShortcut } from './keyboard.js';
+import { writeToFile } from './file-operations.js';
 
 // View modes in cycle order
 const VIEW_MODES = ['edit', 'split', 'preview'];
@@ -18,9 +20,7 @@ export async function savePane(pane, state, elements) {
 
     try {
         const text = paneState.editorView.state.doc.toString();
-        const writable = await paneState.fileHandle.createWritable();
-        await writable.write(text);
-        await writable.close();
+        await writeToFile(paneState.fileHandle, text);
 
         paneState.isDirty = false;
         paneState.content = text;
@@ -44,14 +44,14 @@ function isPaneFocused(pane, state) {
     return editorDom.contains(document.activeElement);
 }
 
-// Setup keyboard shortcuts
-export function setupKeyboardShortcuts(state, elements) {
-    document.addEventListener('keydown', (e) => {
-        // Cmd/Ctrl+S: Save
-        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-            e.preventDefault();
-
-            // Determine which pane is focused
+// Register UI keyboard shortcuts
+export function registerUIShortcuts(state, elements) {
+    // Cmd/Ctrl+S: Save
+    registerShortcut({
+        keys: { mod: true, key: 's' },
+        description: 'Save file',
+        category: 'Editor',
+        handler: () => {
             if (isPaneFocused('left', state)) {
                 savePane('left', state, elements);
             } else if (isPaneFocused('right', state)) {
@@ -62,12 +62,14 @@ export function setupKeyboardShortcuts(state, elements) {
                 if (state.right.isDirty) savePane('right', state, elements);
             }
         }
+    });
 
-        // Cmd/Ctrl+E: Cycle view mode (edit → split → preview)
-        if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
-            e.preventDefault();
-
-            // Cycle view for focused pane, or both if neither focused
+    // Cmd/Ctrl+E: Cycle view mode
+    registerShortcut({
+        keys: { mod: true, key: 'e' },
+        description: 'Cycle view mode (edit/split/preview)',
+        category: 'Editor',
+        handler: () => {
             if (isPaneFocused('left', state)) {
                 cycleViewMode('left', elements);
             } else if (isPaneFocused('right', state)) {

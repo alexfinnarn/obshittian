@@ -1,4 +1,6 @@
 // Daily notes functionality
+import { registerShortcut } from './keyboard.js';
+import { writeToFile } from './file-operations.js';
 
 /**
  * Format a date into daily note path components
@@ -17,10 +19,7 @@ export async function openDailyNote(date, state, openFileInPane) {
         return;
     }
 
-    const year = date.getFullYear().toString();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const filename = `${year}-${month}-${day}.md`;
+    const { year, month, day, filename } = formatDailyNotePath(date);
 
     try {
         // Navigate to or create: zzz_Daily Notes/YYYY/MM/
@@ -35,10 +34,7 @@ export async function openDailyNote(date, state, openFileInPane) {
         } catch {
             // File doesn't exist, create it with template
             fileHandle = await monthDir.getFileHandle(filename, { create: true });
-            const writable = await fileHandle.createWritable();
-            const template = generateDailyNoteTemplate(date);
-            await writable.write(template);
-            await writable.close();
+            await writeToFile(fileHandle, generateDailyNoteTemplate(date));
         }
 
         // Open in right pane
@@ -59,9 +55,7 @@ export async function getOrCreateDirectory(parentHandle, name) {
 }
 
 export function generateDailyNoteTemplate(date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
+    const { year, month, day } = formatDailyNotePath(date);
     const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
 
     return `# ${year}-${month}-${day}
@@ -75,42 +69,48 @@ export function generateDailyNoteTemplate(date) {
 `;
 }
 
-// Setup daily note keyboard navigation
-export function setupDailyNoteNavigation(config, picker, openDailyNote) {
+// Register daily note keyboard navigation shortcuts
+export function registerDailyNoteShortcuts(config, picker, openDailyNote) {
     const navConfig = config.dailyNoteNavigation || { enabled: true, modifier: 'meta' };
     if (navConfig.enabled === false) return;
 
-    document.addEventListener('keydown', (e) => {
-        // Check if the configured modifier is pressed
-        const modifierPressed =
-            (navConfig.modifier === 'meta' && e.metaKey) ||
-            (navConfig.modifier === 'ctrl' && e.ctrlKey) ||
-            (navConfig.modifier === 'alt' && e.altKey) ||
-            (navConfig.modifier === 'shift' && e.shiftKey);
+    // Build the modifier key config based on user preference
+    const modifierKey = navConfig.modifier || 'meta';
+    const buildKeys = (key) => ({ [modifierKey]: true, key });
 
-        if (!modifierPressed) return;
-
+    // Helper to navigate daily notes
+    const navigateDays = (days) => {
         const currentDate = picker.getDate() || new Date();
-        let newDate = new Date(currentDate);
+        const newDate = new Date(currentDate);
+        newDate.setDate(newDate.getDate() + days);
+        picker.setDate(newDate);
+    };
 
-        switch (e.key) {
-            case 'ArrowLeft':
-                newDate.setDate(newDate.getDate() - 1);
-                break;
-            case 'ArrowRight':
-                newDate.setDate(newDate.getDate() + 1);
-                break;
-            case 'ArrowUp':
-                newDate.setDate(newDate.getDate() - 7);
-                break;
-            case 'ArrowDown':
-                newDate.setDate(newDate.getDate() + 7);
-                break;
-            default:
-                return; // Not an arrow key, don't prevent default
-        }
+    registerShortcut({
+        keys: buildKeys('ArrowLeft'),
+        description: 'Previous day',
+        category: 'Daily Notes',
+        handler: () => navigateDays(-1)
+    });
 
-        e.preventDefault();
-        picker.setDate(newDate); // This triggers onSelect which opens the daily note
+    registerShortcut({
+        keys: buildKeys('ArrowRight'),
+        description: 'Next day',
+        category: 'Daily Notes',
+        handler: () => navigateDays(1)
+    });
+
+    registerShortcut({
+        keys: buildKeys('ArrowUp'),
+        description: 'Previous week',
+        category: 'Daily Notes',
+        handler: () => navigateDays(-7)
+    });
+
+    registerShortcut({
+        keys: buildKeys('ArrowDown'),
+        description: 'Next week',
+        category: 'Daily Notes',
+        handler: () => navigateDays(7)
     });
 }

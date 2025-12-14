@@ -1,4 +1,6 @@
-// Tags module - frontmatter parsing, indexing, and fuzzy search
+// Tags module - indexing and fuzzy search
+
+import { parseFrontmatter } from './frontmatter.js';
 
 // Tag index structure
 let tagIndex = {
@@ -10,81 +12,12 @@ let tagIndex = {
 let fuseInstance = null;
 
 /**
- * Extract frontmatter from markdown content
- * @param {string} content - The markdown file content
- * @returns {Object} Parsed frontmatter object or empty object
- */
-export function extractFrontmatter(content) {
-    if (!content || !content.startsWith('---')) {
-        return {};
-    }
-
-    // Find the closing ---
-    const endIndex = content.indexOf('---', 3);
-    if (endIndex === -1) {
-        return {};
-    }
-
-    const frontmatterText = content.substring(3, endIndex).trim();
-    const result = {};
-
-    // Simple YAML-like parsing for tags
-    const lines = frontmatterText.split('\n');
-    let currentKey = null;
-    let listItems = [];
-
-    for (const line of lines) {
-        const trimmed = line.trim();
-
-        // Check for list item (  - value)
-        if (trimmed.startsWith('- ') && currentKey) {
-            listItems.push(trimmed.substring(2).trim());
-            continue;
-        }
-
-        // If we were collecting list items, save them
-        if (listItems.length > 0 && currentKey) {
-            result[currentKey] = listItems;
-            listItems = [];
-            currentKey = null;
-        }
-
-        // Check for key: value pair
-        const colonIndex = trimmed.indexOf(':');
-        if (colonIndex > 0) {
-            const key = trimmed.substring(0, colonIndex).trim();
-            const value = trimmed.substring(colonIndex + 1).trim();
-
-            if (value === '') {
-                // Could be start of a list
-                currentKey = key;
-            } else if (value.startsWith('[') && value.endsWith(']')) {
-                // YAML array syntax: [one, two, three]
-                const items = value.slice(1, -1).split(',').map(s => s.trim()).filter(s => s);
-                result[key] = items;
-            } else {
-                // Comma-separated or single value
-                const items = value.split(',').map(s => s.trim()).filter(s => s);
-                result[key] = items.length === 1 ? items[0] : items;
-            }
-        }
-    }
-
-    // Handle any remaining list items
-    if (listItems.length > 0 && currentKey) {
-        result[currentKey] = listItems;
-    }
-
-    return result;
-}
-
-/**
  * Extract tags from frontmatter
  * @param {string} content - The markdown file content
  * @returns {string[]} Array of tags
  */
 export function extractTags(content) {
-    const frontmatter = extractFrontmatter(content);
+    const frontmatter = parseFrontmatter(content);
     const tags = frontmatter.tags;
 
     if (!tags) return [];

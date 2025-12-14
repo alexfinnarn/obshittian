@@ -20,7 +20,19 @@ A browser-based Markdown editor designed as a lightweight Obsidian alternative. 
 2. Click "Open Folder" and select your notes directory
 3. Use the left pane for working documents, right pane for daily notes
 4. Click dates in the calendar to navigate daily notes
-5. `Ctrl/Cmd+S` saves the currently focused pane
+
+## Keyboard Shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `Ctrl/Cmd+S` | Save focused pane (or both if neither focused) |
+| `Ctrl/Cmd+E` | Cycle view mode: edit → split → preview |
+| `Meta/Ctrl+←` | Previous day (daily notes) |
+| `Meta/Ctrl+→` | Next day (daily notes) |
+| `Meta/Ctrl+↑` | Previous week (daily notes) |
+| `Meta/Ctrl+↓` | Next week (daily notes) |
+
+Daily note navigation modifier is configurable in `config.js`.
 
 ## Layout
 
@@ -116,7 +128,8 @@ js/
   file-tree.js     - File tree building, navigation & context menu
   file-operations.js - File/folder create, rename, delete
   daily-notes.js   - Daily note creation/opening
-  ui.js            - View toggles, resizer, keyboard shortcuts
+  ui.js            - View toggles, pane resizer
+  keyboard.js      - Centralized keyboard shortcut registration
   tags.js          - Tag extraction, indexing, fuzzy search
 tests/             - Vitest unit tests
 ```

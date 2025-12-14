@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
-    extractFrontmatter,
     extractTags,
     updateFileInIndex,
     removeFileFromIndex,
@@ -10,70 +9,6 @@ import {
 } from '../js/tags.js';
 
 describe('tags', () => {
-    describe('extractFrontmatter', () => {
-        it('returns empty object for content without frontmatter', () => {
-            const content = '# Hello World\n\nSome content here.';
-            const result = extractFrontmatter(content);
-            expect(result).toEqual({});
-        });
-
-        it('returns empty object for null/undefined content', () => {
-            expect(extractFrontmatter(null)).toEqual({});
-            expect(extractFrontmatter(undefined)).toEqual({});
-            expect(extractFrontmatter('')).toEqual({});
-        });
-
-        it('returns empty object for unclosed frontmatter', () => {
-            const content = '---\ntags: one, two\nNo closing delimiter';
-            const result = extractFrontmatter(content);
-            expect(result).toEqual({});
-        });
-
-        it('parses comma-separated tags', () => {
-            const content = '---\ntags: one, two, three\n---\n\n# Content';
-            const result = extractFrontmatter(content);
-            expect(result.tags).toEqual(['one', 'two', 'three']);
-        });
-
-        it('parses YAML array syntax', () => {
-            const content = '---\ntags: [project, important, todo]\n---\n\n# Content';
-            const result = extractFrontmatter(content);
-            expect(result.tags).toEqual(['project', 'important', 'todo']);
-        });
-
-        it('parses YAML list syntax', () => {
-            const content = '---\ntags:\n  - one\n  - two\n  - three\n---\n\n# Content';
-            const result = extractFrontmatter(content);
-            expect(result.tags).toEqual(['one', 'two', 'three']);
-        });
-
-        it('handles single tag value', () => {
-            const content = '---\ntags: single\n---\n\n# Content';
-            const result = extractFrontmatter(content);
-            expect(result.tags).toBe('single');
-        });
-
-        it('trims whitespace from tags', () => {
-            const content = '---\ntags:  spaced ,  out  ,  tags  \n---\n\n# Content';
-            const result = extractFrontmatter(content);
-            expect(result.tags).toEqual(['spaced', 'out', 'tags']);
-        });
-
-        it('handles empty tags array', () => {
-            const content = '---\ntags: []\n---\n\n# Content';
-            const result = extractFrontmatter(content);
-            expect(result.tags).toEqual([]);
-        });
-
-        it('parses multiple frontmatter fields', () => {
-            const content = '---\ntitle: My Note\ntags: one, two\nstatus: draft\n---\n\n# Content';
-            const result = extractFrontmatter(content);
-            expect(result.title).toBe('My Note');
-            expect(result.tags).toEqual(['one', 'two']);
-            expect(result.status).toBe('draft');
-        });
-    });
-
     describe('extractTags', () => {
         it('extracts tags from frontmatter', () => {
             const content = '---\ntags: project, important\n---\n\n# Content';

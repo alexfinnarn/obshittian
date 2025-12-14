@@ -2,42 +2,28 @@
 import { saveDirectoryHandle, getDirectoryHandle, getLastOpenFile } from './persistence.js';
 import { createEditor } from './editor.js';
 import { buildFileTree, openFileByPath, openFileInPane as openFileInPaneBase, setupContextMenu, getRelativePath } from './file-tree.js';
-import { openDailyNote as openDailyNoteBase, setupDailyNoteNavigation } from './daily-notes.js';
-import { setupKeyboardShortcuts, setupViewToggle, setupPaneResizer, restorePaneWidth } from './ui.js';
+import { openDailyNote as openDailyNoteBase, registerDailyNoteShortcuts } from './daily-notes.js';
+import { registerUIShortcuts, setupViewToggle, setupPaneResizer, restorePaneWidth } from './ui.js';
 import { initQuickLinks } from './quick-links.js';
 import { configureMarked } from './marked-config.js';
-import { buildTagIndex, searchTags, getFilesForTag, updateFileInIndex } from './tags.js';
+import { buildTagIndex } from './tags.js';
+import { initKeyboardShortcuts } from './keyboard.js';
+import { setupSidebarTabs, showIndexingStatus, clearIndexingStatus } from './sidebar.js';
+import { whenAllReady } from './dependencies.js';
 
-// Wait for both CodeMirror and Pikaday to load
-let cmReady = typeof window.CM !== 'undefined';
-let pikadayReady = typeof Pikaday !== 'undefined';
-
-function tryInit() {
-    if (cmReady && pikadayReady) {
-        initApp();
-    }
-}
-
-window.addEventListener('codemirror-ready', () => {
-    cmReady = true;
-    tryInit();
-});
-
-// Check if CM already loaded before this script ran
-if (cmReady) {
-    tryInit();
-}
-
-// Check if Pikaday is already loaded, otherwise poll for it
-if (!pikadayReady) {
-    const checkPikaday = setInterval(() => {
-        if (typeof Pikaday !== 'undefined') {
-            pikadayReady = true;
-            clearInterval(checkPikaday);
-            tryInit();
-        }
-    }, 50);
-}
+// Wait for all external libraries to load before initializing
+whenAllReady()
+    .then(initApp)
+    .catch(err => {
+        console.error('Failed to load dependencies:', err);
+        document.body.innerHTML = `
+            <div style="padding: 2rem; color: #ff6b6b; font-family: system-ui;">
+                <h1>Failed to load application</h1>
+                <p>${err.message}</p>
+                <p>Please check your internet connection and refresh the page.</p>
+            </div>
+        `;
+    });
 
 function initApp() {
     const CM = window.CM;
@@ -124,8 +110,8 @@ function initApp() {
     });
     calendarContainer.appendChild(picker.el);
 
-    // Setup daily note navigation (modifier + arrow keys)
-    setupDailyNoteNavigation(config, picker, openDailyNote);
+    // Register daily note shortcuts (modifier + arrow keys)
+    registerDailyNoteShortcuts(config, picker, openDailyNote);
 
     // Open folder picker
     document.getElementById('btnOpenFolder').addEventListener('click', async () => {
@@ -173,10 +159,10 @@ function initApp() {
 
         // Build tag index in background
         state.tags.isIndexing = true;
-        elements.tabs.tagResults.innerHTML = '<div class="search-indexing">Indexing tags...</div>';
+        showIndexingStatus(elements.tabs);
         try {
             await buildTagIndex(dirHandle);
-            elements.tabs.tagResults.innerHTML = '';
+            clearIndexingStatus(elements.tabs);
         } catch (err) {
             console.error('Error building tag index:', err);
         }
@@ -197,116 +183,14 @@ function initApp() {
         }
     }
 
-    // Setup sidebar tabs and tag search
-    function setupSidebarTabs(elements, state, openFileInPane) {
-        const { tabs } = elements;
-        let searchDebounceTimer = null;
-
-        // Tab switching
-        tabs.tabButtons.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const tabName = btn.dataset.tab;
-
-                // Update button states
-                tabs.tabButtons.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-
-                // Show/hide tab content
-                if (tabName === 'files') {
-                    tabs.filesTab.style.display = '';
-                    tabs.searchTab.style.display = 'none';
-                } else {
-                    tabs.filesTab.style.display = 'none';
-                    tabs.searchTab.style.display = '';
-                    tabs.tagSearch.focus();
-                }
-            });
-        });
-
-        // Tag search with debounce
-        tabs.tagSearch.addEventListener('input', (e) => {
-            clearTimeout(searchDebounceTimer);
-            searchDebounceTimer = setTimeout(() => {
-                const query = e.target.value.trim();
-                renderTagResults(query, tabs, state, openFileInPane);
-            }, 150);
-        });
-
-        // Clear file results when search changes
-        tabs.tagSearch.addEventListener('input', () => {
-            state.tags.selectedTag = null;
-            tabs.fileResults.innerHTML = '';
-        });
-    }
-
-    // Render tag search results
-    function renderTagResults(query, tabs, state, openFileInPane) {
-        if (!query) {
-            tabs.tagResults.innerHTML = '';
-            tabs.fileResults.innerHTML = '';
-            return;
-        }
-
-        if (state.tags.isIndexing) {
-            tabs.tagResults.innerHTML = '<div class="search-indexing">Indexing tags...</div>';
-            return;
-        }
-
-        const results = searchTags(query);
-
-        if (results.length === 0) {
-            tabs.tagResults.innerHTML = '<div class="search-empty">No matching tags</div>';
-            tabs.fileResults.innerHTML = '';
-            return;
-        }
-
-        tabs.tagResults.innerHTML = results.map(r =>
-            `<span class="tag-item" data-tag="${r.tag}">${r.tag}<span class="tag-count">${r.count}</span></span>`
-        ).join('');
-
-        // Add click handlers to tag items
-        tabs.tagResults.querySelectorAll('.tag-item').forEach(item => {
-            item.addEventListener('click', () => {
-                const tag = item.dataset.tag;
-
-                // Update active state
-                tabs.tagResults.querySelectorAll('.tag-item').forEach(t => t.classList.remove('active'));
-                item.classList.add('active');
-
-                state.tags.selectedTag = tag;
-                renderFileResults(tag, tabs, state, openFileInPane);
-            });
-        });
-    }
-
-    // Render files for a selected tag
-    function renderFileResults(tag, tabs, state, openFileInPane) {
-        const files = getFilesForTag(tag);
-
-        if (files.length === 0) {
-            tabs.fileResults.innerHTML = '<div class="search-empty">No files with this tag</div>';
-            return;
-        }
-
-        tabs.fileResults.innerHTML = `
-            <div class="file-results-header">Files with #${tag}</div>
-            ${files.map(path => `<div class="file-result-item" data-path="${path}">${path}</div>`).join('')}
-        `;
-
-        // Add click handlers to file items
-        tabs.fileResults.querySelectorAll('.file-result-item').forEach(item => {
-            item.addEventListener('click', async () => {
-                const path = item.dataset.path;
-                await openFileByPath(path, 'left', state, openFileInPane);
-            });
-        });
-    }
-
     // Setup context menu for file operations
     setupContextMenu(state, openFileInPane, refreshFileTree);
 
+    // Register keyboard shortcuts and initialize the listener
+    registerUIShortcuts(state, elements);
+    initKeyboardShortcuts();
+
     // Setup UI
-    setupKeyboardShortcuts(state, elements);
     setupViewToggle(elements);
     setupPaneResizer();
     restorePaneWidth(config);
