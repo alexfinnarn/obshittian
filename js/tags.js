@@ -2,6 +2,13 @@
 
 import { parseFrontmatter } from './frontmatter.js';
 
+// Fuse.js configuration
+const FUSE_OPTIONS = {
+    keys: ['tag'],
+    threshold: 0.4,
+    includeScore: true
+};
+
 // Tag index structure
 let tagIndex = {
     files: {},      // path -> [tags]
@@ -10,6 +17,50 @@ let tagIndex = {
 };
 
 let fuseInstance = null;
+
+/**
+ * Rebuild allTags array and Fuse.js instance from current tag index
+ */
+function rebuildSearchIndex() {
+    tagIndex.allTags = Object.entries(tagIndex.tags).map(([tag, paths]) => ({
+        tag,
+        count: paths.length
+    }));
+
+    if (typeof Fuse !== 'undefined') {
+        fuseInstance = new Fuse(tagIndex.allTags, FUSE_OPTIONS);
+    }
+}
+
+/**
+ * Remove a file's tags from the reverse index
+ * @param {string} filePath - File path to remove
+ */
+function removeFileTagReferences(filePath) {
+    const tags = tagIndex.files[filePath] || [];
+    for (const tag of tags) {
+        if (tagIndex.tags[tag]) {
+            tagIndex.tags[tag] = tagIndex.tags[tag].filter(p => p !== filePath);
+            if (tagIndex.tags[tag].length === 0) {
+                delete tagIndex.tags[tag];
+            }
+        }
+    }
+}
+
+/**
+ * Add tags for a file to the reverse index
+ * @param {string} filePath - File path
+ * @param {string[]} tags - Tags to add
+ */
+function addFileTagReferences(filePath, tags) {
+    for (const tag of tags) {
+        if (!tagIndex.tags[tag]) {
+            tagIndex.tags[tag] = [];
+        }
+        tagIndex.tags[tag].push(filePath);
+    }
+}
 
 /**
  * Extract tags from frontmatter
@@ -54,14 +105,7 @@ async function scanDirectory(dirHandle, basePath = '') {
                 const tags = extractTags(text);
                 if (tags.length > 0) {
                     tagIndex.files[entryPath] = tags;
-
-                    // Update reverse index
-                    for (const tag of tags) {
-                        if (!tagIndex.tags[tag]) {
-                            tagIndex.tags[tag] = [];
-                        }
-                        tagIndex.tags[tag].push(entryPath);
-                    }
+                    addFileTagReferences(entryPath, tags);
                 }
             } catch (err) {
                 console.error(`Error reading file ${entryPath}:`, err);
@@ -85,18 +129,7 @@ export async function buildTagIndex(rootDirHandle) {
 
     await scanDirectory(rootDirHandle);
 
-    // Build allTags array for Fuse.js
-    tagIndex.allTags = Object.entries(tagIndex.tags).map(([tag, paths]) => ({
-        tag,
-        count: paths.length
-    }));
-
-    // Initialize Fuse.js
-    fuseInstance = new Fuse(tagIndex.allTags, {
-        keys: ['tag'],
-        threshold: 0.4,
-        includeScore: true
-    });
+    rebuildSearchIndex();
 
     return tagIndex;
 }
@@ -134,45 +167,18 @@ export function getFilesForTag(tag) {
  * @param {string} content - File content
  */
 export function updateFileInIndex(filePath, content) {
-    // Remove old tags for this file
-    const oldTags = tagIndex.files[filePath] || [];
-    for (const tag of oldTags) {
-        if (tagIndex.tags[tag]) {
-            tagIndex.tags[tag] = tagIndex.tags[tag].filter(p => p !== filePath);
-            if (tagIndex.tags[tag].length === 0) {
-                delete tagIndex.tags[tag];
-            }
-        }
-    }
+    removeFileTagReferences(filePath);
 
-    // Extract new tags
     const newTags = extractTags(content);
 
     if (newTags.length > 0) {
         tagIndex.files[filePath] = newTags;
-        for (const tag of newTags) {
-            if (!tagIndex.tags[tag]) {
-                tagIndex.tags[tag] = [];
-            }
-            tagIndex.tags[tag].push(filePath);
-        }
+        addFileTagReferences(filePath, newTags);
     } else {
         delete tagIndex.files[filePath];
     }
 
-    // Rebuild allTags and Fuse instance
-    tagIndex.allTags = Object.entries(tagIndex.tags).map(([tag, paths]) => ({
-        tag,
-        count: paths.length
-    }));
-
-    if (typeof Fuse !== 'undefined') {
-        fuseInstance = new Fuse(tagIndex.allTags, {
-            keys: ['tag'],
-            threshold: 0.4,
-            includeScore: true
-        });
-    }
+    rebuildSearchIndex();
 }
 
 /**
@@ -180,32 +186,9 @@ export function updateFileInIndex(filePath, content) {
  * @param {string} filePath - Relative file path
  */
 export function removeFileFromIndex(filePath) {
-    const tags = tagIndex.files[filePath] || [];
-
-    for (const tag of tags) {
-        if (tagIndex.tags[tag]) {
-            tagIndex.tags[tag] = tagIndex.tags[tag].filter(p => p !== filePath);
-            if (tagIndex.tags[tag].length === 0) {
-                delete tagIndex.tags[tag];
-            }
-        }
-    }
-
+    removeFileTagReferences(filePath);
     delete tagIndex.files[filePath];
-
-    // Rebuild allTags
-    tagIndex.allTags = Object.entries(tagIndex.tags).map(([tag, paths]) => ({
-        tag,
-        count: paths.length
-    }));
-
-    if (fuseInstance) {
-        fuseInstance = new Fuse(tagIndex.allTags, {
-            keys: ['tag'],
-            threshold: 0.4,
-            includeScore: true
-        });
-    }
+    rebuildSearchIndex();
 }
 
 /**
