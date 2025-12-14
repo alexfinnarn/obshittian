@@ -6,6 +6,7 @@ A browser-based Markdown editor designed as a lightweight Obsidian alternative. 
 
 - **Dual-pane editing**: Work on two documents simultaneously with a resizable split view
 - **Daily notes with calendar**: Click any date to create/open a daily note in `YYYY/MM/YYYY-MM-DD.md` format
+- **Tag system with fuzzy search**: Add tags via YAML frontmatter and find notes by tag
 - **Live preview**: Toggle between edit, split (editor + preview), or preview-only modes per pane
 - **Native file access**: Read and write directly to your filesystem (no file copying)
 - **File tree navigation**: Browse `.md` and `.txt` files with collapsible folder structure
@@ -28,8 +29,9 @@ A browser-based Markdown editor designed as a lightweight Obsidian alternative. 
 │  Sidebar    │   Left Pane      │   Right Pane     │
 │             │   (Working Doc)  │   (Daily Note)   │
 │  Calendar   │                  │                  │
-│             │                  │                  │
-│  File Tree  │                  │                  │
+│  Quick Links│                  │                  │
+│  [Files|Search] tabs           │                  │
+│  File Tree / Tag Search        │                  │
 └─────────────┴──────────────────┴──────────────────┘
 ```
 
@@ -48,6 +50,31 @@ zzz_Daily Notes/
 ```
 
 New daily notes are created automatically when clicking a date that doesn't have an existing note.
+
+## Tags
+
+Add tags to your notes using YAML frontmatter at the top of the file:
+
+```markdown
+---
+tags: project, important, todo
+---
+
+# My Note
+Content here...
+```
+
+Supported tag formats:
+- Comma-separated: `tags: one, two, three`
+- YAML array: `tags: [one, two, three]`
+- YAML list:
+  ```yaml
+  tags:
+    - one
+    - two
+  ```
+
+Click the **Search** tab in the sidebar to find notes by tag. The search uses fuzzy matching, so typing "proj" will find "project".
 
 ## Browser Support
 
@@ -90,6 +117,7 @@ js/
   file-operations.js - File/folder create, rename, delete
   daily-notes.js   - Daily note creation/opening
   ui.js            - View toggles, resizer, keyboard shortcuts
+  tags.js          - Tag extraction, indexing, fuzzy search
 tests/             - Vitest unit tests
 ```
 
@@ -109,7 +137,9 @@ Tests run automatically on pull requests via GitHub Actions.
 - [marked.js](https://marked.js.org/) - Markdown parsing
 - [Pikaday](https://pikaday.com/) - Calendar widget
 - [CodeMirror 6](https://codemirror.net/) - Code editor
+- [Fuse.js](https://www.fusejs.io/) - Fuzzy search for tags
 
 **Dev (npm)**
 - [Vitest](https://vitest.dev/) - Test runner
 - [jsdom](https://github.com/jsdom/jsdom) - DOM simulation for tests
+- [Playwright](https://playwright.dev/) - E2E browser testing

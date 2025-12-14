@@ -5,6 +5,7 @@ import {
     createFile, createFolder, renameFile, renameFolder, deleteEntry,
     getContextMenuState, setContextMenuState, showContextMenu, hideContextMenu, promptFilename
 } from './file-operations.js';
+import { removeFileFromIndex, renameFileInIndex } from './tags.js';
 
 // Build file tree recursively
 export async function buildFileTree(dirHandle, parentElement, openFileInPane, state, depth = 0) {
@@ -29,6 +30,7 @@ export async function buildFileTree(dirHandle, parentElement, openFileInPane, st
             div.className = 'file-item file-label';
             div.textContent = entry.name;
             div.dataset.name = entry.name;
+            div.dataset.testid = `file-item-${entry.name}`;
             div.onclick = (e) => {
                 e.stopPropagation();
                 openFileInPane(entry, dirHandle, 'left', div);
@@ -49,9 +51,11 @@ export async function buildFileTree(dirHandle, parentElement, openFileInPane, st
 
         } else if (entry.kind === 'directory') {
             const details = document.createElement('details');
+            details.dataset.testid = `folder-${entry.name}`;
             const summary = document.createElement('summary');
             summary.textContent = entry.name;
             summary.dataset.name = entry.name;
+            summary.dataset.testid = `folder-summary-${entry.name}`;
             summary.oncontextmenu = (e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -169,10 +173,22 @@ async function handleRename(ctx, state, refreshFileTree) {
     const newName = promptFilename(oldName);
     if (!newName || newName === oldName) return;
 
+    // Get relative path before renaming (for tag index update)
+    let oldPath = null;
+    if (!ctx.isDirectory && oldName.endsWith('.md')) {
+        oldPath = await getRelativePath(state.rootDirHandle, ctx.targetHandle);
+    }
+
     if (ctx.isDirectory) {
         await renameFolder(ctx.parentDirHandle, oldName, newName);
     } else {
         await renameFile(ctx.parentDirHandle, oldName, newName);
+
+        // Update tag index with new path
+        if (oldPath) {
+            const newPath = oldPath.replace(/[^/]+$/, newName);
+            renameFileInIndex(oldPath, newPath);
+        }
     }
 
     await refreshFileTree();
@@ -189,7 +205,18 @@ async function handleDelete(ctx, state, refreshFileTree) {
 
     if (!confirm(`Delete ${type} "${name}"?`)) return;
 
+    // Get relative path before deleting (for tag index update)
+    let filePath = null;
+    if (!ctx.isDirectory && name.endsWith('.md')) {
+        filePath = await getRelativePath(state.rootDirHandle, ctx.targetHandle);
+    }
+
     await deleteEntry(ctx.parentDirHandle, name, ctx.isDirectory);
+
+    // Remove from tag index
+    if (filePath) {
+        removeFileFromIndex(filePath);
+    }
 
     // Clear editor if the deleted file was open
     if (!ctx.isDirectory) {

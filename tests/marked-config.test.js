@@ -139,5 +139,86 @@ describe('marked-config', () => {
       expect(previewElement.innerHTML).not.toContain('Old content');
       expect(previewElement.innerHTML).toContain('New content');
     });
+
+    describe('frontmatter handling', () => {
+      it('wraps frontmatter in a details element', () => {
+        const content = `---
+tags: test, example
+title: My Note
+---
+
+# Content here`;
+
+        renderPreview(content, previewElement);
+
+        expect(previewElement.innerHTML).toContain('<details class="frontmatter-details">');
+        expect(previewElement.innerHTML).toContain('<summary>Frontmatter</summary>');
+      });
+
+      it('displays frontmatter as preformatted text', () => {
+        const content = `---
+tags: test
+---
+
+# Heading`;
+
+        renderPreview(content, previewElement);
+
+        expect(previewElement.innerHTML).toContain('<pre class="frontmatter-yaml">');
+        expect(previewElement.innerHTML).toContain('tags: test');
+      });
+
+      it('escapes HTML entities in frontmatter', () => {
+        const content = `---
+title: <script>alert("xss")</script>
+---
+
+Content`;
+
+        renderPreview(content, previewElement);
+
+        expect(previewElement.innerHTML).toContain('&lt;script&gt;');
+        expect(previewElement.innerHTML).not.toContain('<script>alert');
+      });
+
+      it('renders content after frontmatter normally', () => {
+        const content = `---
+tags: test
+---
+
+# My Heading
+
+Some paragraph text.`;
+
+        renderPreview(content, previewElement);
+
+        expect(previewElement.innerHTML).toContain('<h1>My Heading</h1>');
+        expect(previewElement.innerHTML).toContain('<p>Some paragraph text.</p>');
+      });
+
+      it('renders content without frontmatter normally', () => {
+        const content = `# No Frontmatter
+
+Just regular content.`;
+
+        renderPreview(content, previewElement);
+
+        expect(previewElement.innerHTML).not.toContain('<details');
+        expect(previewElement.innerHTML).toContain('<h1>No Frontmatter</h1>');
+      });
+
+      it('handles content starting with --- but no closing delimiter', () => {
+        const content = `---
+This is not valid frontmatter
+It has no closing delimiter
+
+# Heading`;
+
+        renderPreview(content, previewElement);
+
+        // Should treat the whole thing as content, not frontmatter
+        expect(previewElement.innerHTML).not.toContain('frontmatter-details');
+      });
+    });
   });
 });

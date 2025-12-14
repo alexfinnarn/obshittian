@@ -1,5 +1,10 @@
 // UI functionality: view toggles, resizer, save, keyboard shortcuts
 import { savePaneWidth, getPaneWidth } from './persistence.js';
+import { updateFileInIndex } from './tags.js';
+import { getRelativePath } from './file-tree.js';
+
+// View modes in cycle order
+const VIEW_MODES = ['edit', 'split', 'preview'];
 
 // Save pane content
 export async function savePane(pane, state, elements) {
@@ -21,6 +26,12 @@ export async function savePane(pane, state, elements) {
         paneState.content = text;
         paneElements.unsaved.style.display = 'none';
 
+        // Update tag index for this file
+        const relativePath = await getRelativePath(state.rootDirHandle, paneState.fileHandle);
+        if (relativePath) {
+            updateFileInIndex(relativePath, text);
+        }
+
     } catch (err) {
         console.error('Error saving:', err);
         alert('Error saving file: ' + err.message);
@@ -36,6 +47,7 @@ function isPaneFocused(pane, state) {
 // Setup keyboard shortcuts
 export function setupKeyboardShortcuts(state, elements) {
     document.addEventListener('keydown', (e) => {
+        // Cmd/Ctrl+S: Save
         if ((e.ctrlKey || e.metaKey) && e.key === 's') {
             e.preventDefault();
 
@@ -50,7 +62,68 @@ export function setupKeyboardShortcuts(state, elements) {
                 if (state.right.isDirty) savePane('right', state, elements);
             }
         }
+
+        // Cmd/Ctrl+E: Cycle view mode (edit → split → preview)
+        if ((e.ctrlKey || e.metaKey) && e.key === 'e') {
+            e.preventDefault();
+
+            // Cycle view for focused pane, or both if neither focused
+            if (isPaneFocused('left', state)) {
+                cycleViewMode('left', elements);
+            } else if (isPaneFocused('right', state)) {
+                cycleViewMode('right', elements);
+            } else {
+                cycleViewMode('left', elements);
+                cycleViewMode('right', elements);
+            }
+        }
     });
+}
+
+// Get current view mode for a pane
+export function getCurrentViewMode(pane) {
+    const activeBtn = document.querySelector(`.view-toggle button[data-pane="${pane}"].active`);
+    return activeBtn ? activeBtn.dataset.view : 'edit';
+}
+
+// Set view mode for a pane
+export function setViewMode(pane, view, elements) {
+    const paneEl = elements[pane];
+    const toggleContainer = document.querySelector(`.view-toggle button[data-pane="${pane}"]`).parentElement;
+
+    // Update button states
+    toggleContainer.querySelectorAll('button').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.view === view);
+    });
+
+    // Update pane view
+    const editorContainer = paneEl.editorContainer;
+    const preview = paneEl.preview;
+
+    switch (view) {
+        case 'edit':
+            editorContainer.style.display = 'block';
+            preview.classList.remove('visible');
+            editorContainer.style.flex = '1';
+            break;
+        case 'split':
+            editorContainer.style.display = 'block';
+            preview.classList.add('visible');
+            editorContainer.style.flex = '1';
+            break;
+        case 'preview':
+            editorContainer.style.display = 'none';
+            preview.classList.add('visible');
+            break;
+    }
+}
+
+// Cycle to next view mode for a pane
+export function cycleViewMode(pane, elements) {
+    const currentView = getCurrentViewMode(pane);
+    const currentIndex = VIEW_MODES.indexOf(currentView);
+    const nextIndex = (currentIndex + 1) % VIEW_MODES.length;
+    setViewMode(pane, VIEW_MODES[nextIndex], elements);
 }
 
 // Setup view toggle buttons (Edit/Split/Preview)
@@ -59,32 +132,7 @@ export function setupViewToggle(elements) {
         btn.addEventListener('click', () => {
             const pane = btn.dataset.pane;
             const view = btn.dataset.view;
-            const paneEl = elements[pane];
-
-            // Update button states
-            btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-
-            // Update pane view
-            const editorContainer = paneEl.editorContainer;
-            const preview = paneEl.preview;
-
-            switch (view) {
-                case 'edit':
-                    editorContainer.style.display = 'block';
-                    preview.classList.remove('visible');
-                    editorContainer.style.flex = '1';
-                    break;
-                case 'split':
-                    editorContainer.style.display = 'block';
-                    preview.classList.add('visible');
-                    editorContainer.style.flex = '1';
-                    break;
-                case 'preview':
-                    editorContainer.style.display = 'none';
-                    preview.classList.add('visible');
-                    break;
-            }
+            setViewMode(pane, view, elements);
         });
     });
 }
