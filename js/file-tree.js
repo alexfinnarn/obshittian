@@ -269,60 +269,83 @@ export async function openFileByPath(relativePath, pane, state, openFileInPane) 
     }
 }
 
+// Request read/write permission for a file
+async function requestFilePermission(fileHandle) {
+    if ((await fileHandle.queryPermission({ mode: 'readwrite' })) !== 'granted') {
+        if ((await fileHandle.requestPermission({ mode: 'readwrite' })) !== 'granted') {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Update pane state with file data
+function updatePaneState(pane, state, fileHandle, parentDirHandle, content) {
+    state[pane].fileHandle = fileHandle;
+    state[pane].dirHandle = parentDirHandle;
+    state[pane].content = content;
+    state[pane].isDirty = false;
+}
+
+// Update CodeMirror editor content
+function updateEditorContent(pane, state, text) {
+    state[pane].editorView.dispatch({
+        changes: {
+            from: 0,
+            to: state[pane].editorView.state.doc.length,
+            insert: text
+        }
+    });
+}
+
+// Update pane UI elements (filename, preview, unsaved indicator)
+function updatePaneUI(pane, elements, filename, text) {
+    renderPreview(text, elements[pane].preview);
+    elements[pane].filename.textContent = filename;
+    elements[pane].unsaved.style.display = 'none';
+}
+
+// Update file tree highlighting for active file
+function updateFileTreeHighlight(pane, uiElement) {
+    if (!uiElement) return;
+    document.querySelectorAll(`.file-item.active-${pane}`).forEach(el => {
+        el.classList.remove(`active-${pane}`);
+    });
+    uiElement.classList.add(`active-${pane}`);
+}
+
+// Handle left pane-specific behavior (persistence and default view mode)
+async function handleLeftPaneDefaults(state, fileHandle) {
+    const relativePath = await getRelativePath(state.rootDirHandle, fileHandle);
+    if (relativePath) {
+        saveLastOpenFile(relativePath);
+    }
+
+    // Set left pane to preview mode by default
+    const previewBtn = document.querySelector('.view-toggle button[data-pane="left"][data-view="preview"]');
+    if (previewBtn) {
+        previewBtn.click();
+    }
+}
+
 // Open file in specified pane
 export async function openFileInPane(fileHandle, parentDirHandle, pane, state, elements, uiElement = null) {
     try {
-        // Request permission if needed
-        if ((await fileHandle.queryPermission({ mode: 'readwrite' })) !== 'granted') {
-            if ((await fileHandle.requestPermission({ mode: 'readwrite' })) !== 'granted') {
-                console.error('Permission denied');
-                return;
-            }
+        if (!await requestFilePermission(fileHandle)) {
+            console.error('Permission denied');
+            return;
         }
 
         const file = await fileHandle.getFile();
         const text = await file.text();
 
-        // Update state
-        state[pane].fileHandle = fileHandle;
-        state[pane].dirHandle = parentDirHandle;
-        state[pane].content = text;
-        state[pane].isDirty = false;
+        updatePaneState(pane, state, fileHandle, parentDirHandle, text);
+        updateEditorContent(pane, state, text);
+        updatePaneUI(pane, elements, file.name, text);
+        updateFileTreeHighlight(pane, uiElement);
 
-        // Update CodeMirror editor
-        state[pane].editorView.dispatch({
-            changes: {
-                from: 0,
-                to: state[pane].editorView.state.doc.length,
-                insert: text
-            }
-        });
-
-        // Update UI
-        renderPreview(text, elements[pane].preview);
-        elements[pane].filename.textContent = file.name;
-        elements[pane].unsaved.style.display = 'none';
-
-        // Update file tree highlighting
-        if (uiElement) {
-            document.querySelectorAll(`.file-item.active-${pane}`).forEach(el => {
-                el.classList.remove(`active-${pane}`);
-            });
-            uiElement.classList.add(`active-${pane}`);
-        }
-
-        // Save last open file path for left pane
         if (pane === 'left') {
-            const relativePath = await getRelativePath(state.rootDirHandle, fileHandle);
-            if (relativePath) {
-                saveLastOpenFile(relativePath);
-            }
-
-            // Set left pane to preview mode by default
-            const previewBtn = document.querySelector('.view-toggle button[data-pane="left"][data-view="preview"]');
-            if (previewBtn) {
-                previewBtn.click();
-            }
+            await handleLeftPaneDefaults(state, fileHandle);
         }
 
     } catch (err) {

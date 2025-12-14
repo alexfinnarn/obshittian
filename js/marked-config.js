@@ -1,5 +1,7 @@
 // Custom marked.js renderer configuration
 
+import { splitFrontmatter } from './frontmatter.js';
+
 /**
  * Configure marked with custom renderer for collapsible nested lists
  * Uses native <details>/<summary> elements for collapse/expand behavior
@@ -45,28 +47,6 @@ export function configureMarked() {
 }
 
 /**
- * Extract frontmatter from content and return both parts
- * @param {string} text - The markdown content
- * @returns {{ frontmatter: string|null, content: string }}
- */
-function extractFrontmatterForPreview(text) {
-    if (!text || !text.startsWith('---')) {
-        return { frontmatter: null, content: text };
-    }
-
-    // Find the closing ---
-    const endIndex = text.indexOf('---', 3);
-    if (endIndex === -1) {
-        return { frontmatter: null, content: text };
-    }
-
-    const frontmatter = text.substring(3, endIndex).trim();
-    const content = text.substring(endIndex + 3).trimStart();
-
-    return { frontmatter, content };
-}
-
-/**
  * Render YAML frontmatter as formatted HTML
  * @param {string} yaml - The YAML content
  * @returns {string} HTML string
@@ -85,7 +65,7 @@ function renderFrontmatterHtml(yaml) {
  * Render markdown to HTML with collapsible lists and frontmatter handling
  */
 export function renderPreview(text, previewElement) {
-    const { frontmatter, content } = extractFrontmatterForPreview(text);
+    const { frontmatter, body } = splitFrontmatter(text);
 
     let html = '';
 
@@ -96,7 +76,7 @@ ${renderFrontmatterHtml(frontmatter)}
 </details>`;
     }
 
-    html += marked.parse(content);
+    html += marked.parse(body);
 
     previewElement.innerHTML = html;
 }

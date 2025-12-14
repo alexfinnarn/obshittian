@@ -1,4 +1,13 @@
-// Tags module - frontmatter parsing, indexing, and fuzzy search
+// Tags module - indexing and fuzzy search
+
+import { parseFrontmatter } from './frontmatter.js';
+
+// Fuse.js configuration
+const FUSE_OPTIONS = {
+    keys: ['tag'],
+    threshold: 0.4,
+    includeScore: true
+};
 
 // Tag index structure
 let tagIndex = {
@@ -10,72 +19,47 @@ let tagIndex = {
 let fuseInstance = null;
 
 /**
- * Extract frontmatter from markdown content
- * @param {string} content - The markdown file content
- * @returns {Object} Parsed frontmatter object or empty object
+ * Rebuild allTags array and Fuse.js instance from current tag index
  */
-export function extractFrontmatter(content) {
-    if (!content || !content.startsWith('---')) {
-        return {};
+function rebuildSearchIndex() {
+    tagIndex.allTags = Object.entries(tagIndex.tags).map(([tag, paths]) => ({
+        tag,
+        count: paths.length
+    }));
+
+    if (typeof Fuse !== 'undefined') {
+        fuseInstance = new Fuse(tagIndex.allTags, FUSE_OPTIONS);
     }
+}
 
-    // Find the closing ---
-    const endIndex = content.indexOf('---', 3);
-    if (endIndex === -1) {
-        return {};
-    }
-
-    const frontmatterText = content.substring(3, endIndex).trim();
-    const result = {};
-
-    // Simple YAML-like parsing for tags
-    const lines = frontmatterText.split('\n');
-    let currentKey = null;
-    let listItems = [];
-
-    for (const line of lines) {
-        const trimmed = line.trim();
-
-        // Check for list item (  - value)
-        if (trimmed.startsWith('- ') && currentKey) {
-            listItems.push(trimmed.substring(2).trim());
-            continue;
-        }
-
-        // If we were collecting list items, save them
-        if (listItems.length > 0 && currentKey) {
-            result[currentKey] = listItems;
-            listItems = [];
-            currentKey = null;
-        }
-
-        // Check for key: value pair
-        const colonIndex = trimmed.indexOf(':');
-        if (colonIndex > 0) {
-            const key = trimmed.substring(0, colonIndex).trim();
-            const value = trimmed.substring(colonIndex + 1).trim();
-
-            if (value === '') {
-                // Could be start of a list
-                currentKey = key;
-            } else if (value.startsWith('[') && value.endsWith(']')) {
-                // YAML array syntax: [one, two, three]
-                const items = value.slice(1, -1).split(',').map(s => s.trim()).filter(s => s);
-                result[key] = items;
-            } else {
-                // Comma-separated or single value
-                const items = value.split(',').map(s => s.trim()).filter(s => s);
-                result[key] = items.length === 1 ? items[0] : items;
+/**
+ * Remove a file's tags from the reverse index
+ * @param {string} filePath - File path to remove
+ */
+function removeFileTagReferences(filePath) {
+    const tags = tagIndex.files[filePath] || [];
+    for (const tag of tags) {
+        if (tagIndex.tags[tag]) {
+            tagIndex.tags[tag] = tagIndex.tags[tag].filter(p => p !== filePath);
+            if (tagIndex.tags[tag].length === 0) {
+                delete tagIndex.tags[tag];
             }
         }
     }
+}
 
-    // Handle any remaining list items
-    if (listItems.length > 0 && currentKey) {
-        result[currentKey] = listItems;
+/**
+ * Add tags for a file to the reverse index
+ * @param {string} filePath - File path
+ * @param {string[]} tags - Tags to add
+ */
+function addFileTagReferences(filePath, tags) {
+    for (const tag of tags) {
+        if (!tagIndex.tags[tag]) {
+            tagIndex.tags[tag] = [];
+        }
+        tagIndex.tags[tag].push(filePath);
     }
-
-    return result;
 }
 
 /**
@@ -84,7 +68,7 @@ export function extractFrontmatter(content) {
  * @returns {string[]} Array of tags
  */
 export function extractTags(content) {
-    const frontmatter = extractFrontmatter(content);
+    const frontmatter = parseFrontmatter(content);
     const tags = frontmatter.tags;
 
     if (!tags) return [];
@@ -121,14 +105,7 @@ async function scanDirectory(dirHandle, basePath = '') {
                 const tags = extractTags(text);
                 if (tags.length > 0) {
                     tagIndex.files[entryPath] = tags;
-
-                    // Update reverse index
-                    for (const tag of tags) {
-                        if (!tagIndex.tags[tag]) {
-                            tagIndex.tags[tag] = [];
-                        }
-                        tagIndex.tags[tag].push(entryPath);
-                    }
+                    addFileTagReferences(entryPath, tags);
                 }
             } catch (err) {
                 console.error(`Error reading file ${entryPath}:`, err);
@@ -152,18 +129,7 @@ export async function buildTagIndex(rootDirHandle) {
 
     await scanDirectory(rootDirHandle);
 
-    // Build allTags array for Fuse.js
-    tagIndex.allTags = Object.entries(tagIndex.tags).map(([tag, paths]) => ({
-        tag,
-        count: paths.length
-    }));
-
-    // Initialize Fuse.js
-    fuseInstance = new Fuse(tagIndex.allTags, {
-        keys: ['tag'],
-        threshold: 0.4,
-        includeScore: true
-    });
+    rebuildSearchIndex();
 
     return tagIndex;
 }
@@ -201,45 +167,18 @@ export function getFilesForTag(tag) {
  * @param {string} content - File content
  */
 export function updateFileInIndex(filePath, content) {
-    // Remove old tags for this file
-    const oldTags = tagIndex.files[filePath] || [];
-    for (const tag of oldTags) {
-        if (tagIndex.tags[tag]) {
-            tagIndex.tags[tag] = tagIndex.tags[tag].filter(p => p !== filePath);
-            if (tagIndex.tags[tag].length === 0) {
-                delete tagIndex.tags[tag];
-            }
-        }
-    }
+    removeFileTagReferences(filePath);
 
-    // Extract new tags
     const newTags = extractTags(content);
 
     if (newTags.length > 0) {
         tagIndex.files[filePath] = newTags;
-        for (const tag of newTags) {
-            if (!tagIndex.tags[tag]) {
-                tagIndex.tags[tag] = [];
-            }
-            tagIndex.tags[tag].push(filePath);
-        }
+        addFileTagReferences(filePath, newTags);
     } else {
         delete tagIndex.files[filePath];
     }
 
-    // Rebuild allTags and Fuse instance
-    tagIndex.allTags = Object.entries(tagIndex.tags).map(([tag, paths]) => ({
-        tag,
-        count: paths.length
-    }));
-
-    if (typeof Fuse !== 'undefined') {
-        fuseInstance = new Fuse(tagIndex.allTags, {
-            keys: ['tag'],
-            threshold: 0.4,
-            includeScore: true
-        });
-    }
+    rebuildSearchIndex();
 }
 
 /**
@@ -247,32 +186,9 @@ export function updateFileInIndex(filePath, content) {
  * @param {string} filePath - Relative file path
  */
 export function removeFileFromIndex(filePath) {
-    const tags = tagIndex.files[filePath] || [];
-
-    for (const tag of tags) {
-        if (tagIndex.tags[tag]) {
-            tagIndex.tags[tag] = tagIndex.tags[tag].filter(p => p !== filePath);
-            if (tagIndex.tags[tag].length === 0) {
-                delete tagIndex.tags[tag];
-            }
-        }
-    }
-
+    removeFileTagReferences(filePath);
     delete tagIndex.files[filePath];
-
-    // Rebuild allTags
-    tagIndex.allTags = Object.entries(tagIndex.tags).map(([tag, paths]) => ({
-        tag,
-        count: paths.length
-    }));
-
-    if (fuseInstance) {
-        fuseInstance = new Fuse(tagIndex.allTags, {
-            keys: ['tag'],
-            threshold: 0.4,
-            includeScore: true
-        });
-    }
+    rebuildSearchIndex();
 }
 
 /**

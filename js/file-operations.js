@@ -1,78 +1,120 @@
 // File operations: create, rename, delete
 
+/**
+ * Write content to a file handle
+ * @param {FileSystemFileHandle} fileHandle - The file handle to write to
+ * @param {string} content - The content to write
+ */
+export async function writeToFile(fileHandle, content) {
+    try {
+        const writable = await fileHandle.createWritable();
+        await writable.write(content);
+        await writable.close();
+    } catch (err) {
+        throw new Error(`Failed to write to file "${fileHandle.name}": ${err.message}`);
+    }
+}
+
 // Create a new file in the given directory
 export async function createFile(parentDirHandle, filename) {
-    const fileHandle = await parentDirHandle.getFileHandle(filename, { create: true });
-    const writable = await fileHandle.createWritable();
-    await writable.write('');
-    await writable.close();
-    return fileHandle;
+    try {
+        const fileHandle = await parentDirHandle.getFileHandle(filename, { create: true });
+        await writeToFile(fileHandle, '');
+        return fileHandle;
+    } catch (err) {
+        throw new Error(`Failed to create file "${filename}": ${err.message}`);
+    }
 }
 
 // Create a new folder in the given directory
 export async function createFolder(parentDirHandle, folderName) {
-    return await parentDirHandle.getDirectoryHandle(folderName, { create: true });
+    try {
+        return await parentDirHandle.getDirectoryHandle(folderName, { create: true });
+    } catch (err) {
+        throw new Error(`Failed to create folder "${folderName}": ${err.message}`);
+    }
 }
 
 // Rename a file (copy to new name, delete old)
 export async function renameFile(dirHandle, oldName, newName) {
-    const oldHandle = await dirHandle.getFileHandle(oldName);
-    const file = await oldHandle.getFile();
-    const content = await file.text();
+    try {
+        const oldHandle = await dirHandle.getFileHandle(oldName);
+        const file = await oldHandle.getFile();
+        const content = await file.text();
 
-    const newHandle = await dirHandle.getFileHandle(newName, { create: true });
-    const writable = await newHandle.createWritable();
-    await writable.write(content);
-    await writable.close();
+        const newHandle = await dirHandle.getFileHandle(newName, { create: true });
+        await writeToFile(newHandle, content);
 
-    await dirHandle.removeEntry(oldName);
-    return newHandle;
+        await dirHandle.removeEntry(oldName);
+        return newHandle;
+    } catch (err) {
+        throw new Error(`Failed to rename "${oldName}" to "${newName}": ${err.message}`);
+    }
 }
 
 // Rename a folder (recursively copy contents, delete old)
 export async function renameFolder(parentDirHandle, oldName, newName) {
-    const oldDir = await parentDirHandle.getDirectoryHandle(oldName);
-    const newDir = await parentDirHandle.getDirectoryHandle(newName, { create: true });
+    try {
+        const oldDir = await parentDirHandle.getDirectoryHandle(oldName);
+        const newDir = await parentDirHandle.getDirectoryHandle(newName, { create: true });
 
-    await copyDirectoryContents(oldDir, newDir);
-    await deleteDirectory(parentDirHandle, oldName);
+        await copyDirectoryContents(oldDir, newDir);
+        await deleteDirectory(parentDirHandle, oldName);
 
-    return newDir;
+        return newDir;
+    } catch (err) {
+        throw new Error(`Failed to rename folder "${oldName}" to "${newName}": ${err.message}`);
+    }
 }
 
 // Helper: recursively copy directory contents
 async function copyDirectoryContents(srcDir, destDir) {
-    for await (const entry of srcDir.values()) {
-        if (entry.kind === 'file') {
-            const file = await entry.getFile();
-            const content = await file.text();
-            const newFile = await destDir.getFileHandle(entry.name, { create: true });
-            const writable = await newFile.createWritable();
-            await writable.write(content);
-            await writable.close();
-        } else if (entry.kind === 'directory') {
-            const newSubDir = await destDir.getDirectoryHandle(entry.name, { create: true });
-            await copyDirectoryContents(entry, newSubDir);
+    try {
+        for await (const entry of srcDir.values()) {
+            if (entry.kind === 'file') {
+                const file = await entry.getFile();
+                const content = await file.text();
+                const newFile = await destDir.getFileHandle(entry.name, { create: true });
+                await writeToFile(newFile, content);
+            } else if (entry.kind === 'directory') {
+                const newSubDir = await destDir.getDirectoryHandle(entry.name, { create: true });
+                await copyDirectoryContents(entry, newSubDir);
+            }
         }
+    } catch (err) {
+        throw new Error(`Failed to copy directory contents: ${err.message}`);
     }
 }
 
 // Delete a file
 export async function deleteFile(dirHandle, filename) {
-    await dirHandle.removeEntry(filename);
+    try {
+        await dirHandle.removeEntry(filename);
+    } catch (err) {
+        throw new Error(`Failed to delete file "${filename}": ${err.message}`);
+    }
 }
 
 // Delete a folder (recursively)
 async function deleteDirectory(parentDirHandle, folderName) {
-    await parentDirHandle.removeEntry(folderName, { recursive: true });
+    try {
+        await parentDirHandle.removeEntry(folderName, { recursive: true });
+    } catch (err) {
+        throw new Error(`Failed to delete folder "${folderName}": ${err.message}`);
+    }
 }
 
 // Delete entry (file or folder)
 export async function deleteEntry(parentDirHandle, name, isDirectory) {
-    if (isDirectory) {
-        await parentDirHandle.removeEntry(name, { recursive: true });
-    } else {
-        await parentDirHandle.removeEntry(name);
+    try {
+        if (isDirectory) {
+            await parentDirHandle.removeEntry(name, { recursive: true });
+        } else {
+            await parentDirHandle.removeEntry(name);
+        }
+    } catch (err) {
+        const type = isDirectory ? 'folder' : 'file';
+        throw new Error(`Failed to delete ${type} "${name}": ${err.message}`);
     }
 }
 
