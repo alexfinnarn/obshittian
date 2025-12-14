@@ -1,11 +1,12 @@
 // Main application entry point
 import { saveDirectoryHandle, getDirectoryHandle, getLastOpenFile } from './persistence.js';
 import { createEditor } from './editor.js';
-import { buildFileTree, openFileByPath, openFileInPane as openFileInPaneBase, setupContextMenu } from './file-tree.js';
+import { buildFileTree, openFileByPath, openFileInPane as openFileInPaneBase, setupContextMenu, getRelativePath } from './file-tree.js';
 import { openDailyNote as openDailyNoteBase, setupDailyNoteNavigation } from './daily-notes.js';
 import { setupKeyboardShortcuts, setupViewToggle, setupPaneResizer, restorePaneWidth } from './ui.js';
 import { initQuickLinks } from './quick-links.js';
 import { configureMarked } from './marked-config.js';
+import { buildTagIndex, searchTags, getFilesForTag, updateFileInIndex } from './tags.js';
 
 // Wait for both CodeMirror and Pikaday to load
 let cmReady = typeof window.CM !== 'undefined';
@@ -59,6 +60,10 @@ function initApp() {
             content: '',
             isDirty: false,
             editorView: null
+        },
+        tags: {
+            isIndexing: false,
+            selectedTag: null
         }
     };
 
@@ -78,6 +83,14 @@ function initApp() {
             filename: document.getElementById('right-filename'),
             unsaved: document.getElementById('right-unsaved'),
             pane: document.getElementById('right-pane')
+        },
+        tabs: {
+            filesTab: document.getElementById('files-tab'),
+            searchTab: document.getElementById('search-tab'),
+            tabButtons: document.querySelectorAll('.sidebar-tab'),
+            tagSearch: document.getElementById('tag-search'),
+            tagResults: document.getElementById('tag-results'),
+            fileResults: document.getElementById('file-results')
         }
     };
 
@@ -158,6 +171,17 @@ function initApp() {
         elements.fileTree.innerHTML = '';
         await buildFileTree(dirHandle, elements.fileTree, openFileInPane, state);
 
+        // Build tag index in background
+        state.tags.isIndexing = true;
+        elements.tabs.tagResults.innerHTML = '<div class="search-indexing">Indexing tags...</div>';
+        try {
+            await buildTagIndex(dirHandle);
+            elements.tabs.tagResults.innerHTML = '';
+        } catch (err) {
+            console.error('Error building tag index:', err);
+        }
+        state.tags.isIndexing = false;
+
         // Auto-open today's daily note if configured
         if (config.autoOpenTodayNote !== false) {
             picker.setDate(new Date());
@@ -173,6 +197,111 @@ function initApp() {
         }
     }
 
+    // Setup sidebar tabs and tag search
+    function setupSidebarTabs(elements, state, openFileInPane) {
+        const { tabs } = elements;
+        let searchDebounceTimer = null;
+
+        // Tab switching
+        tabs.tabButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tabName = btn.dataset.tab;
+
+                // Update button states
+                tabs.tabButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                // Show/hide tab content
+                if (tabName === 'files') {
+                    tabs.filesTab.style.display = '';
+                    tabs.searchTab.style.display = 'none';
+                } else {
+                    tabs.filesTab.style.display = 'none';
+                    tabs.searchTab.style.display = '';
+                    tabs.tagSearch.focus();
+                }
+            });
+        });
+
+        // Tag search with debounce
+        tabs.tagSearch.addEventListener('input', (e) => {
+            clearTimeout(searchDebounceTimer);
+            searchDebounceTimer = setTimeout(() => {
+                const query = e.target.value.trim();
+                renderTagResults(query, tabs, state, openFileInPane);
+            }, 150);
+        });
+
+        // Clear file results when search changes
+        tabs.tagSearch.addEventListener('input', () => {
+            state.tags.selectedTag = null;
+            tabs.fileResults.innerHTML = '';
+        });
+    }
+
+    // Render tag search results
+    function renderTagResults(query, tabs, state, openFileInPane) {
+        if (!query) {
+            tabs.tagResults.innerHTML = '';
+            tabs.fileResults.innerHTML = '';
+            return;
+        }
+
+        if (state.tags.isIndexing) {
+            tabs.tagResults.innerHTML = '<div class="search-indexing">Indexing tags...</div>';
+            return;
+        }
+
+        const results = searchTags(query);
+
+        if (results.length === 0) {
+            tabs.tagResults.innerHTML = '<div class="search-empty">No matching tags</div>';
+            tabs.fileResults.innerHTML = '';
+            return;
+        }
+
+        tabs.tagResults.innerHTML = results.map(r =>
+            `<span class="tag-item" data-tag="${r.tag}">${r.tag}<span class="tag-count">${r.count}</span></span>`
+        ).join('');
+
+        // Add click handlers to tag items
+        tabs.tagResults.querySelectorAll('.tag-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const tag = item.dataset.tag;
+
+                // Update active state
+                tabs.tagResults.querySelectorAll('.tag-item').forEach(t => t.classList.remove('active'));
+                item.classList.add('active');
+
+                state.tags.selectedTag = tag;
+                renderFileResults(tag, tabs, state, openFileInPane);
+            });
+        });
+    }
+
+    // Render files for a selected tag
+    function renderFileResults(tag, tabs, state, openFileInPane) {
+        const files = getFilesForTag(tag);
+
+        if (files.length === 0) {
+            tabs.fileResults.innerHTML = '<div class="search-empty">No files with this tag</div>';
+            return;
+        }
+
+        tabs.fileResults.innerHTML = `
+            <div class="file-results-header">Files with #${tag}</div>
+            ${files.map(path => `<div class="file-result-item" data-path="${path}">${path}</div>`).join('')}
+        `;
+
+        // Add click handlers to file items
+        tabs.fileResults.querySelectorAll('.file-result-item').forEach(item => {
+            item.addEventListener('click', async () => {
+                const path = item.dataset.path;
+                await openFileByPath(path, 'left', state, openFileInPane);
+            });
+        });
+    }
+
     // Setup context menu for file operations
     setupContextMenu(state, openFileInPane, refreshFileTree);
 
@@ -182,6 +311,9 @@ function initApp() {
     setupPaneResizer();
     restorePaneWidth(config);
     initQuickLinks();
+
+    // Setup sidebar tabs
+    setupSidebarTabs(elements, state, openFileInPane);
 
     // Set today's date on the calendar
     picker.setDate(new Date());

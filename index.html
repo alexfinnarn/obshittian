@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Minimal MD Editor</title>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- Fuse.js for fuzzy search -->
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0"></script>
     <!-- Pikaday Calendar -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pikaday@1.8.2/css/pikaday.css">
     <script src="https://cdn.jsdelivr.net/npm/pikaday@1.8.2/pikaday.js" onerror="console.error('Failed to load Pikaday from CDN')"></script>
@@ -14,6 +16,7 @@
         import * as CMView from 'https://esm.sh/@codemirror/view@6.26.0?deps=@codemirror/state@6.4.0';
         import {basicSetup} from 'https://esm.sh/codemirror@6.0.1?deps=@codemirror/state@6.4.0,@codemirror/view@6.26.0';
         import {markdown, markdownLanguage} from 'https://esm.sh/@codemirror/lang-markdown@6.2.0?deps=@codemirror/state@6.4.0,@codemirror/view@6.26.0';
+        import {yaml} from 'https://esm.sh/@codemirror/lang-yaml@6.1.1?deps=@codemirror/state@6.4.0,@codemirror/view@6.26.0';
         import {oneDark} from 'https://esm.sh/@codemirror/theme-one-dark@6.1.0?deps=@codemirror/state@6.4.0,@codemirror/view@6.26.0';
 
         // Expose to global scope for use in main script
@@ -23,6 +26,7 @@
             basicSetup,
             markdown,
             markdownLanguage,
+            yaml,
             oneDark
         };
         window.dispatchEvent(new Event('codemirror-ready'));
@@ -51,9 +55,21 @@
             <div class="quick-links" data-testid="quick-links"></div>
         </div>
 
-        <div class="sidebar-section" style="flex: 1; display: flex; flex-direction: column; border-bottom: none;">
-            <div class="sidebar-section-header">Files</div>
-            <div id="file-tree" data-testid="file-tree"></div>
+        <div class="sidebar-section" style="flex: 1; display: flex; flex-direction: column; border-bottom: none; overflow: hidden;">
+            <div class="sidebar-tabs" data-testid="sidebar-tabs">
+                <button class="sidebar-tab active" data-tab="files" data-testid="tab-files">Files</button>
+                <button class="sidebar-tab" data-tab="search" data-testid="tab-search">Search</button>
+            </div>
+            <div class="tab-content" id="files-tab" data-testid="files-tab">
+                <div id="file-tree" data-testid="file-tree"></div>
+            </div>
+            <div class="tab-content" id="search-tab" data-testid="search-tab" style="display: none;">
+                <div class="search-container">
+                    <input type="text" id="tag-search" data-testid="tag-search" placeholder="Search tags...">
+                </div>
+                <div id="tag-results" data-testid="tag-results"></div>
+                <div id="file-results" data-testid="file-results"></div>
+            </div>
         </div>
     </div>
 

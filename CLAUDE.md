@@ -30,6 +30,7 @@ Tests use Vitest with jsdom. Test files are in `tests/` and cover:
 - `marked-config.test.js` - Custom link/list renderers, preview rendering
 - `persistence.test.js` - localStorage helpers
 - `file-tree.test.js` - Path resolution, file opening by path
+- `tags.test.js` - Frontmatter parsing, tag extraction, index operations
 
 #### E2E Tests
 Playwright tests are in `tests/e2e/` and test real browser interactions:
@@ -57,6 +58,7 @@ js/
   daily-notes.js     - Daily note creation/opening
   ui.js              - View toggles, pane resizer, keyboard shortcuts
   marked-config.js   - Custom marked.js renderer configuration
+  tags.js            - Tag extraction from frontmatter, indexing, fuzzy search
 tests/
   mocks/
     file-system.js   - Mock File System Access API for unit testing
@@ -69,10 +71,12 @@ tests/
   file-tree.test.js
   marked-config.test.js
   persistence.test.js
+  tags.test.js
 ```
 
 ### HTML Structure (index.html)
-- Sidebar with calendar widget and file tree
+- Sidebar with calendar widget, quick links, and tabbed file tree/search
+- Tabbed sidebar section: Files tab (file tree) and Search tab (tag search)
 - Two independent editor panes (left for working documents, right for daily notes)
 - Each pane has its own toolbar with filename, unsaved indicator, and view toggle
 
@@ -121,8 +125,11 @@ tests/
 
 **js/ui.js** - UI functionality
 - `savePane(pane, state, elements)` - Saves pane content to filesystem
-- `setupKeyboardShortcuts(state, elements)` - Ctrl/Cmd+S handling
-- `setupViewToggle(elements)` - Edit/Split/Preview toggle
+- `setupKeyboardShortcuts(state, elements)` - Ctrl/Cmd+S (save) and Ctrl/Cmd+E (cycle view) handling
+- `setupViewToggle(elements)` - Edit/Split/Preview toggle button click handlers
+- `getCurrentViewMode(pane)` - Returns current view mode ('edit', 'split', or 'preview') for a pane
+- `setViewMode(pane, view, elements)` - Sets view mode for a pane
+- `cycleViewMode(pane, elements)` - Cycles to next view mode (edit → split → preview → edit)
 - `setupPaneResizer()` - Draggable pane divider
 - `restorePaneWidth(config)` - Restore saved width
 
@@ -132,20 +139,34 @@ tests/
 - Custom `link` renderer adds `target="_blank"` to open links in new tabs
 - Custom `listitem` renderer wraps nested lists in native `<details>`/`<summary>` elements for collapsible behavior
 
+**js/tags.js** - Tag system with fuzzy search
+- `extractFrontmatter(content)` - Parses YAML frontmatter from markdown content
+- `extractTags(content)` - Gets tags array from frontmatter (supports comma-separated, YAML array, YAML list)
+- `buildTagIndex(rootDirHandle)` - Scans all .md files and builds tag index (reads only first 2KB per file)
+- `searchTags(query)` - Fuzzy search tags using Fuse.js
+- `getFilesForTag(tag)` - Returns all file paths containing a specific tag
+- `updateFileInIndex(filePath, content)` - Updates tags for a file (called on save)
+- `removeFileFromIndex(filePath)` - Removes file from index (called on delete)
+- `renameFileInIndex(oldPath, newPath)` - Updates file path in index (called on rename)
+
 **External Libraries (CDN)**
 - `marked.js` - Markdown to HTML parsing (customized via `js/marked-config.js`)
 - `Pikaday` - Calendar widget (see `docs/pikaday.md` for API)
 - `CodeMirror 6` - Code editor with markdown support
+- `Fuse.js` - Fuzzy search library for tag search
 
 ### Key Behaviors
 - Files clicked in tree open in left pane
 - Calendar date clicks open daily notes in right pane
 - Daily notes follow `zzz_Daily Notes/YYYY/MM/YYYY-MM-DD.md` structure
 - `Ctrl/Cmd+S` saves the focused pane (or both if neither focused)
+- `Ctrl/Cmd+E` cycles view mode (edit → split → preview) for focused pane (or both if neither focused)
 - View toggle switches between edit/split/preview modes per pane
 - Pane divider is draggable for resizing
 - Right-click on files/folders opens context menu (New File, New Folder, Rename, Delete)
 - Right-click on empty file tree area creates files/folders in root
+- Search tab provides fuzzy tag search; click tag to see files, click file to open
+- Tag index builds on directory open and updates on file save/rename/delete
 
 ## Configuration
 

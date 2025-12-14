@@ -45,8 +45,58 @@ export function configureMarked() {
 }
 
 /**
- * Render markdown to HTML with collapsible lists
+ * Extract frontmatter from content and return both parts
+ * @param {string} text - The markdown content
+ * @returns {{ frontmatter: string|null, content: string }}
+ */
+function extractFrontmatterForPreview(text) {
+    if (!text || !text.startsWith('---')) {
+        return { frontmatter: null, content: text };
+    }
+
+    // Find the closing ---
+    const endIndex = text.indexOf('---', 3);
+    if (endIndex === -1) {
+        return { frontmatter: null, content: text };
+    }
+
+    const frontmatter = text.substring(3, endIndex).trim();
+    const content = text.substring(endIndex + 3).trimStart();
+
+    return { frontmatter, content };
+}
+
+/**
+ * Render YAML frontmatter as formatted HTML
+ * @param {string} yaml - The YAML content
+ * @returns {string} HTML string
+ */
+function renderFrontmatterHtml(yaml) {
+    // Escape HTML entities
+    const escaped = yaml
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+
+    return `<pre class="frontmatter-yaml"><code>${escaped}</code></pre>`;
+}
+
+/**
+ * Render markdown to HTML with collapsible lists and frontmatter handling
  */
 export function renderPreview(text, previewElement) {
-    previewElement.innerHTML = marked.parse(text);
+    const { frontmatter, content } = extractFrontmatterForPreview(text);
+
+    let html = '';
+
+    if (frontmatter) {
+        html += `<details class="frontmatter-details">
+<summary>Frontmatter</summary>
+${renderFrontmatterHtml(frontmatter)}
+</details>`;
+    }
+
+    html += marked.parse(content);
+
+    previewElement.innerHTML = html;
 }

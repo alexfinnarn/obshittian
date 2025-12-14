@@ -183,6 +183,154 @@ summary::before { content: '📁 '; }
 summary:hover { background: var(--hover); }
 .file-label::before { content: '📄 '; opacity: 0.7; }
 
+/* Sidebar Tabs */
+.sidebar-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    padding: 0;
+    flex-shrink: 0;
+}
+
+.sidebar-tab {
+    flex: 1;
+    padding: 8px 12px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 0.75em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition: color 0.15s, border-color 0.15s;
+}
+
+.sidebar-tab:hover {
+    color: var(--text);
+    background: none;
+}
+
+.sidebar-tab.active {
+    color: var(--text);
+    border-bottom-color: var(--accent);
+}
+
+.tab-content {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Tag Search */
+.search-container {
+    padding: 8px;
+    flex-shrink: 0;
+}
+
+#tag-search {
+    width: 100%;
+    padding: 8px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-size: 0.9em;
+}
+
+#tag-search:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+#tag-search::placeholder {
+    color: var(--text-muted);
+}
+
+/* Tag Results */
+#tag-results {
+    padding: 0 8px;
+    flex-shrink: 0;
+}
+
+.tag-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    margin: 2px;
+    background: var(--hover);
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 0.85em;
+    transition: background 0.15s;
+}
+
+.tag-item:hover {
+    background: var(--accent);
+    color: white;
+}
+
+.tag-item.active {
+    background: var(--accent);
+    color: white;
+}
+
+.tag-count {
+    font-size: 0.8em;
+    opacity: 0.7;
+}
+
+/* File Results */
+#file-results {
+    padding: 8px;
+    flex: 1;
+    overflow-y: auto;
+}
+
+.file-results-header {
+    font-size: 0.75em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+    padding: 0 4px;
+}
+
+.file-result-item {
+    cursor: pointer;
+    padding: 6px 8px;
+    border-radius: 4px;
+    font-size: 0.9em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.file-result-item:hover {
+    background: var(--hover);
+}
+
+.file-result-item::before {
+    content: '📄 ';
+    opacity: 0.7;
+}
+
+.search-empty {
+    padding: 16px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.85em;
+}
+
+.search-indexing {
+    padding: 16px;
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.85em;
+}
+
 /* Main Content Area */
 #main {
     flex: 1;
@@ -334,6 +482,62 @@ summary:hover { background: var(--hover); }
 
 .preview-pane input[type="checkbox"] {
     margin-right: 8px;
+}
+
+/* Frontmatter Details */
+.preview-pane .frontmatter-details {
+    margin: 0 0 1em 0;
+    background: var(--sidebar-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.preview-pane .frontmatter-details > summary {
+    padding: 8px 12px;
+    cursor: pointer;
+    list-style: none;
+    font-size: 0.85em;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: var(--hover);
+    user-select: none;
+}
+
+.preview-pane .frontmatter-details > summary::-webkit-details-marker {
+    display: none;
+}
+
+.preview-pane .frontmatter-details > summary::before {
+    content: '▶';
+    display: inline-block;
+    color: var(--text-muted);
+    font-size: 0.65em;
+    margin-right: 0.5em;
+    transition: transform 0.15s;
+}
+
+.preview-pane .frontmatter-details[open] > summary::before {
+    transform: rotate(90deg);
+}
+
+.preview-pane .frontmatter-details > summary:hover {
+    color: var(--text);
+}
+
+.preview-pane .frontmatter-yaml {
+    margin: 0;
+    padding: 12px;
+    background: var(--sidebar-bg);
+    border-radius: 0;
+    font-size: 0.85em;
+    line-height: 1.5;
+}
+
+.preview-pane .frontmatter-yaml code {
+    background: none;
+    padding: 0;
+    color: var(--text);
 }
 
 /* Buttons */

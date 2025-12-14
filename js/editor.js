@@ -9,7 +9,7 @@ const autoSaveTimers = {
 };
 
 export function createEditor(CM, container, pane, state, elements, config = {}) {
-    const { EditorView, basicSetup, markdown, markdownLanguage, EditorState, oneDark } = CM;
+    const { EditorView, basicSetup, markdown, markdownLanguage, yaml, EditorState, oneDark } = CM;
     const autoSaveDelay = config.autoSaveDelay;
 
     const updateListener = EditorView.updateListener.of((update) => {
@@ -39,7 +39,13 @@ export function createEditor(CM, container, pane, state, elements, config = {}) 
         extensions: [
           basicSetup,
           markdown({
-            base: markdownLanguage
+            base: markdownLanguage,
+            codeLanguages: (info) => {
+              if (info === 'yaml' || info === 'yml') {
+                return yaml().language;
+              }
+              return null;
+            }
           }),
           oneDark,
           updateListener,
