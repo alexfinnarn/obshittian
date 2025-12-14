@@ -29,6 +29,7 @@ export async function buildFileTree(dirHandle, parentElement, openFileInPane, st
             div.className = 'file-item file-label';
             div.textContent = entry.name;
             div.dataset.name = entry.name;
+            div.dataset.testid = `file-item-${entry.name}`;
             div.onclick = (e) => {
                 e.stopPropagation();
                 openFileInPane(entry, dirHandle, 'left', div);
@@ -49,9 +50,11 @@ export async function buildFileTree(dirHandle, parentElement, openFileInPane, st
 
         } else if (entry.kind === 'directory') {
             const details = document.createElement('details');
+            details.dataset.testid = `folder-${entry.name}`;
             const summary = document.createElement('summary');
             summary.textContent = entry.name;
             summary.dataset.name = entry.name;
+            summary.dataset.testid = `folder-summary-${entry.name}`;
             summary.oncontextmenu = (e) => {
                 e.preventDefault();
                 e.stopPropagation();

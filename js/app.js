@@ -120,10 +120,28 @@ function initApp() {
             const dirHandle = await window.showDirectoryPicker();
             await openDirectory(dirHandle);
             await saveDirectoryHandle(dirHandle);
+            // Hide restore button once a folder is open
+            document.getElementById('btnRestoreFolder').style.display = 'none';
         } catch (err) {
             if (err.name !== 'AbortError') {
                 console.error('Error opening folder:', err);
             }
+        }
+    });
+
+    // Restore folder button - requests permission with user gesture
+    document.getElementById('btnRestoreFolder').addEventListener('click', async () => {
+        try {
+            const savedHandle = await getDirectoryHandle();
+            if (savedHandle) {
+                const permission = await savedHandle.requestPermission({ mode: 'readwrite' });
+                if (permission === 'granted') {
+                    await openDirectory(savedHandle);
+                    document.getElementById('btnRestoreFolder').style.display = 'none';
+                }
+            }
+        } catch (err) {
+            console.error('Error restoring folder:', err);
         }
     });
 
@@ -168,20 +186,16 @@ function initApp() {
     // Set today's date on the calendar
     picker.setDate(new Date());
 
-    // Try to restore last opened directory
-    if (config.autoOpenLastDirectory !== false) {
-        (async () => {
-            try {
-                const savedHandle = await getDirectoryHandle();
-                if (savedHandle) {
-                    const permission = await savedHandle.requestPermission({ mode: 'readwrite' });
-                    if (permission === 'granted') {
-                        await openDirectory(savedHandle);
-                    }
-                }
-            } catch (err) {
-                console.log('Could not restore last directory:', err.message);
+    // Check if there's a saved directory handle and show restore button
+    (async () => {
+        try {
+            const savedHandle = await getDirectoryHandle();
+            if (savedHandle) {
+                // Show the restore button so user can restore with one click
+                document.getElementById('btnRestoreFolder').style.display = '';
             }
-        })();
-    }
+        } catch (err) {
+            console.log('Could not check for saved directory:', err.message);
+        }
+    })();
 }

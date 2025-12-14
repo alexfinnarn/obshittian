@@ -33,91 +33,92 @@
 <body>
 
     <!-- Sidebar -->
-    <div id="sidebar">
-        <div class="sidebar-section">
-            <button id="btnOpenFolder" style="width: calc(100% - 16px); margin: 8px;">📂 Open Folder</button>
+    <div id="sidebar" data-testid="sidebar">
+        <div class="sidebar-section sidebar-buttons">
+            <button id="btnOpenFolder" data-testid="btn-open-folder">📂 Open Folder</button>
+            <button id="btnRestoreFolder" data-testid="btn-restore-folder" style="display: none;">🔄 Restore Folder</button>
         </div>
 
         <div class="sidebar-section">
-            <div id="calendar-container"></div>
+            <div id="calendar-container" data-testid="calendar-container"></div>
         </div>
 
         <div class="sidebar-section">
             <div class="sidebar-section-header with-action">
                 <span>Quick Links</span>
-                <button class="configure-btn" id="configure-quick-links" title="Configure links">Configure</button>
+                <button class="configure-btn" id="configure-quick-links" data-testid="btn-configure-quick-links" title="Configure links">Configure</button>
             </div>
-            <div class="quick-links"></div>
+            <div class="quick-links" data-testid="quick-links"></div>
         </div>
 
         <div class="sidebar-section" style="flex: 1; display: flex; flex-direction: column; border-bottom: none;">
             <div class="sidebar-section-header">Files</div>
-            <div id="file-tree"></div>
+            <div id="file-tree" data-testid="file-tree"></div>
         </div>
     </div>
 
     <!-- Main Content: Two Editor Panes -->
-    <div id="main">
+    <div id="main" data-testid="main-content">
         <!-- Left Pane (Working Document) -->
-        <div class="editor-pane" id="left-pane">
-            <div class="pane-toolbar">
-                <span class="pane-filename left" id="left-filename">No file open</span>
-                <span class="unsaved-indicator" id="left-unsaved">●</span>
-                <div class="view-toggle">
-                    <button class="active" data-pane="left" data-view="edit" title="Edit">✏️</button>
-                    <button data-pane="left" data-view="split" title="Split">◫</button>
-                    <button data-pane="left" data-view="preview" title="Preview">👁</button>
+        <div class="editor-pane" id="left-pane" data-testid="left-pane">
+            <div class="pane-toolbar" data-testid="left-toolbar">
+                <span class="pane-filename left" id="left-filename" data-testid="left-filename">No file open</span>
+                <span class="unsaved-indicator" id="left-unsaved" data-testid="left-unsaved">●</span>
+                <div class="view-toggle" data-testid="left-view-toggle">
+                    <button class="active" data-pane="left" data-view="edit" data-testid="left-btn-edit" title="Edit">✏️</button>
+                    <button data-pane="left" data-view="split" data-testid="left-btn-split" title="Split">◫</button>
+                    <button data-pane="left" data-view="preview" data-testid="left-btn-preview" title="Preview">👁</button>
                 </div>
             </div>
-            <div class="pane-content">
-                <div class="editor-container" id="left-editor"></div>
-                <div class="preview-pane" id="left-preview"></div>
+            <div class="pane-content" data-testid="left-pane-content">
+                <div class="editor-container" id="left-editor" data-testid="left-editor"></div>
+                <div class="preview-pane" id="left-preview" data-testid="left-preview"></div>
             </div>
         </div>
 
-        <div class="resizer" id="pane-resizer"></div>
+        <div class="resizer" id="pane-resizer" data-testid="pane-resizer"></div>
 
         <!-- Right Pane (Daily Note) -->
-        <div class="editor-pane" id="right-pane">
-            <div class="pane-toolbar">
-                <span class="pane-filename right" id="right-filename">No daily note</span>
-                <span class="unsaved-indicator" id="right-unsaved">●</span>
-                <div class="view-toggle">
-                    <button class="active" data-pane="right" data-view="edit" title="Edit">✏️</button>
-                    <button data-pane="right" data-view="split" title="Split">◫</button>
-                    <button data-pane="right" data-view="preview" title="Preview">👁</button>
+        <div class="editor-pane" id="right-pane" data-testid="right-pane">
+            <div class="pane-toolbar" data-testid="right-toolbar">
+                <span class="pane-filename right" id="right-filename" data-testid="right-filename">No daily note</span>
+                <span class="unsaved-indicator" id="right-unsaved" data-testid="right-unsaved">●</span>
+                <div class="view-toggle" data-testid="right-view-toggle">
+                    <button class="active" data-pane="right" data-view="edit" data-testid="right-btn-edit" title="Edit">✏️</button>
+                    <button data-pane="right" data-view="split" data-testid="right-btn-split" title="Split">◫</button>
+                    <button data-pane="right" data-view="preview" data-testid="right-btn-preview" title="Preview">👁</button>
                 </div>
             </div>
-            <div class="pane-content">
-                <div class="editor-container" id="right-editor"></div>
-                <div class="preview-pane" id="right-preview"></div>
+            <div class="pane-content" data-testid="right-pane-content">
+                <div class="editor-container" id="right-editor" data-testid="right-editor"></div>
+                <div class="preview-pane" id="right-preview" data-testid="right-preview"></div>
             </div>
         </div>
     </div>
 
     <!-- Context Menu -->
-    <div id="context-menu" class="context-menu">
-        <div class="context-menu-item" data-action="new-file">New File</div>
-        <div class="context-menu-item" data-action="new-folder">New Folder</div>
+    <div id="context-menu" class="context-menu" data-testid="context-menu">
+        <div class="context-menu-item" data-action="new-file" data-testid="context-menu-new-file">New File</div>
+        <div class="context-menu-item" data-action="new-folder" data-testid="context-menu-new-folder">New Folder</div>
         <div class="context-menu-separator"></div>
-        <div class="context-menu-item" data-action="rename">Rename</div>
-        <div class="context-menu-item" data-action="delete">Delete</div>
+        <div class="context-menu-item" data-action="rename" data-testid="context-menu-rename">Rename</div>
+        <div class="context-menu-item" data-action="delete" data-testid="context-menu-delete">Delete</div>
     </div>
 
     <!-- Quick Links Modal -->
-    <div class="modal" id="quick-links-modal">
+    <div class="modal" id="quick-links-modal" data-testid="quick-links-modal">
         <div class="modal-content">
             <div class="modal-header">
                 <span class="modal-title">Configure Quick Links</span>
-                <button class="modal-close">×</button>
+                <button class="modal-close" data-testid="modal-close">×</button>
             </div>
             <div class="modal-body">
-                <div id="quick-links-editor"></div>
-                <button id="quick-links-add" class="btn-add-link">+ Add Link</button>
+                <div id="quick-links-editor" data-testid="quick-links-editor"></div>
+                <button id="quick-links-add" class="btn-add-link" data-testid="btn-add-link">+ Add Link</button>
             </div>
             <div class="modal-footer">
-                <button id="quick-links-cancel">Cancel</button>
-                <button id="quick-links-save" class="btn-primary">Save</button>
+                <button id="quick-links-cancel" data-testid="btn-quick-links-cancel">Cancel</button>
+                <button id="quick-links-save" class="btn-primary" data-testid="btn-quick-links-save">Save</button>
             </div>
         </div>
     </div>

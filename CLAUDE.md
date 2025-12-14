@@ -13,13 +13,17 @@ No build process required. Open `index.html` directly in Chrome or Edge (require
 ### Testing
 
 ```bash
-npm install        # Install dev dependencies
-npm test           # Run tests in watch mode
-npm run test:run   # Run tests once
+npm install              # Install dev dependencies
+npm test                 # Run unit tests in watch mode
+npm run test:run         # Run unit tests once
+npm run test:e2e         # Run Playwright E2E tests
+npm run test:e2e:ui      # Run E2E tests with Playwright UI
+npm run test:e2e:headed  # Run E2E tests in headed browser
 ```
 
 Tests run automatically on pull requests to `main` via GitHub Actions (`.github/workflows/test.yml`).
 
+#### Unit Tests
 Tests use Vitest with jsdom. Test files are in `tests/` and cover:
 - `daily-notes.test.js` - Date formatting, template generation, directory creation
 - `file-operations.test.js` - File/folder create, rename, delete, context menu state
@@ -27,28 +31,39 @@ Tests use Vitest with jsdom. Test files are in `tests/` and cover:
 - `persistence.test.js` - localStorage helpers
 - `file-tree.test.js` - Path resolution, file opening by path
 
+#### E2E Tests
+Playwright tests are in `tests/e2e/` and test real browser interactions:
+- `app.spec.js` - UI elements, view toggles, modals, quick links
+
+Test fixtures for E2E tests are in `tests/data/testing-files/` with sample markdown files and daily notes structure.
+
 ## Architecture
 
 ### File Structure
 ```
-index.html       - HTML structure only, loads ES modules
-style.css        - Dark theme styles
-config.js        - User configuration (window.editorConfig)
+index.html           - HTML structure only, loads ES modules
+style.css            - Dark theme styles
+config.js            - User configuration (window.editorConfig)
+playwright.config.js - Playwright E2E test configuration
 .github/
   workflows/
-    test.yml       - GitHub Actions workflow for PR testing
+    test.yml         - GitHub Actions workflow for PR testing
 js/
-  app.js           - Main entry point, state management, initialization
-  persistence.js   - IndexedDB & localStorage helpers
-  editor.js        - CodeMirror editor setup
-  file-tree.js     - File tree building, navigation & context menu
+  app.js             - Main entry point, state management, initialization
+  persistence.js     - IndexedDB & localStorage helpers
+  editor.js          - CodeMirror editor setup
+  file-tree.js       - File tree building, navigation & context menu
   file-operations.js - File/folder create, rename, delete operations
-  daily-notes.js   - Daily note creation/opening
-  ui.js            - View toggles, pane resizer, keyboard shortcuts
-  marked-config.js - Custom marked.js renderer configuration
+  daily-notes.js     - Daily note creation/opening
+  ui.js              - View toggles, pane resizer, keyboard shortcuts
+  marked-config.js   - Custom marked.js renderer configuration
 tests/
   mocks/
-    file-system.js   - Mock File System Access API for testing
+    file-system.js   - Mock File System Access API for unit testing
+  data/
+    testing-files/   - E2E test fixtures (sample markdown files)
+  e2e/
+    app.spec.js      - Playwright E2E tests
   daily-notes.test.js
   file-operations.test.js
   file-tree.test.js

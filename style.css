@@ -37,6 +37,18 @@ body {
     border-bottom: 1px solid var(--border);
 }
 
+.sidebar-buttons {
+    display: flex;
+    gap: 4px;
+    padding: 8px;
+}
+
+.sidebar-buttons button {
+    flex: 1;
+    padding: 6px 8px;
+    font-size: 0.85em;
+}
+
 .sidebar-section-header {
     padding: 10px 12px;
     font-size: 0.75em;

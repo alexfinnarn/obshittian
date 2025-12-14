@@ -60,11 +60,12 @@ export function initQuickLinks() {
 
 function renderQuickLinks(container) {
     container.innerHTML = '';
-    currentLinks.forEach(link => {
+    currentLinks.forEach((link, index) => {
         const a = document.createElement('a');
         a.href = link.url;
         a.target = '_blank';
         a.textContent = link.name;
+        a.dataset.testid = `quick-link-${index}`;
         container.appendChild(a);
     });
 }
@@ -77,10 +78,12 @@ function renderLinkEditor(container) {
 function addLinkRow(container, link) {
     const row = document.createElement('div');
     row.className = 'link-row';
+    const rowIndex = container.querySelectorAll('.link-row').length;
+    row.dataset.testid = `link-row-${rowIndex}`;
     row.innerHTML = `
-        <input type="text" class="link-name" placeholder="Name" value="${escapeHtml(link.name)}">
-        <input type="text" class="link-url" placeholder="URL" value="${escapeHtml(link.url)}">
-        <button class="link-delete" title="Delete">×</button>
+        <input type="text" class="link-name" placeholder="Name" value="${escapeHtml(link.name)}" data-testid="link-name-${rowIndex}">
+        <input type="text" class="link-url" placeholder="URL" value="${escapeHtml(link.url)}" data-testid="link-url-${rowIndex}">
+        <button class="link-delete" title="Delete" data-testid="link-delete-${rowIndex}">×</button>
     `;
     row.querySelector('.link-delete').addEventListener('click', () => {
         row.remove();
