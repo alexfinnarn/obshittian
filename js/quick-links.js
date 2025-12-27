@@ -1,9 +1,5 @@
 // Quick Links management
-import { saveQuickLinks, getQuickLinks } from './persistence.js';
-
-// Get default links from config
-const config = window.editorConfig || {};
-const DEFAULT_LINKS = config.defaultQuickLinks || [];
+import { getQuickLinks, setQuickLinks } from './vault-config.js';
 
 let currentLinks = [];
 
@@ -17,12 +13,14 @@ export function initQuickLinks() {
     const addBtn = document.getElementById('quick-links-add');
     const linksContainer = document.getElementById('quick-links-editor');
 
-    // Load saved links or use defaults
-    currentLinks = getQuickLinks() || [...DEFAULT_LINKS];
+    // Load links from vault config (already loaded by app.js)
+    currentLinks = getQuickLinks();
     renderQuickLinks(container);
 
     // Configure button opens modal
     configureBtn.addEventListener('click', () => {
+        // Refresh from vault config in case it changed
+        currentLinks = getQuickLinks();
         renderLinkEditor(linksContainer);
         modal.classList.add('visible');
     });
@@ -41,7 +39,7 @@ export function initQuickLinks() {
     });
 
     // Save links
-    saveBtn.addEventListener('click', () => {
+    saveBtn.addEventListener('click', async () => {
         const rows = linksContainer.querySelectorAll('.link-row');
         const newLinks = [];
         rows.forEach(row => {
@@ -52,10 +50,19 @@ export function initQuickLinks() {
             }
         });
         currentLinks = newLinks;
-        saveQuickLinks(currentLinks);
+        await setQuickLinks(currentLinks);
         renderQuickLinks(container);
         closeModal();
     });
+}
+
+// Re-render quick links (call after vault config is loaded)
+export function refreshQuickLinks() {
+    currentLinks = getQuickLinks();
+    const container = document.querySelector('.quick-links');
+    if (container) {
+        renderQuickLinks(container);
+    }
 }
 
 function renderQuickLinks(container) {

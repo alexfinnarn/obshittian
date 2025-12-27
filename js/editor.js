@@ -1,6 +1,7 @@
 // CodeMirror editor setup
 import { savePane } from './ui.js';
 import { renderPreview } from './marked-config.js';
+import { markActiveTabDirty, getActiveTab } from './tabs.js';
 
 // Track auto-save timers per pane
 const autoSaveTimers = {
@@ -9,26 +10,51 @@ const autoSaveTimers = {
 };
 
 export function createEditor(CM, container, pane, state, elements, config = {}) {
-    const { EditorView, basicSetup, markdown, markdownLanguage, yaml, EditorState, oneDark } = CM;
+    const {
+        EditorView, EditorState, basicSetup, markdown, markdownLanguage, yaml, oneDark,
+        keymap, indentWithTab, scrollPastEnd, rectangularSelection, dropCursor, closeBrackets
+    } = CM;
     const autoSaveDelay = config.autoSaveDelay;
 
     const updateListener = EditorView.updateListener.of((update) => {
         if (update.docChanged) {
-            state[pane].isDirty = true;
-            elements[pane].unsaved.style.display = 'inline';
             const text = update.state.doc.toString();
             renderPreview(text, elements[pane].preview);
 
-            // Auto-save after inactivity
-            if (autoSaveDelay && autoSaveDelay > 0) {
-                if (autoSaveTimers[pane]) {
-                    clearTimeout(autoSaveTimers[pane]);
-                }
-                autoSaveTimers[pane] = setTimeout(() => {
-                    if (state[pane].isDirty && state[pane].fileHandle) {
-                        savePane(pane, state, elements);
+            if (pane === 'left') {
+                // Left pane uses tabs - mark active tab as dirty
+                markActiveTabDirty(state, elements);
+
+                // Auto-save after inactivity
+                if (autoSaveDelay && autoSaveDelay > 0) {
+                    if (autoSaveTimers[pane]) {
+                        clearTimeout(autoSaveTimers[pane]);
                     }
-                }, autoSaveDelay);
+                    autoSaveTimers[pane] = setTimeout(() => {
+                        const activeTab = getActiveTab(state);
+                        if (activeTab && activeTab.isDirty) {
+                            savePane(pane, state, elements);
+                        }
+                    }, autoSaveDelay);
+                }
+            } else {
+                // Right pane uses single-file state
+                state[pane].isDirty = true;
+                if (elements[pane].unsaved) {
+                    elements[pane].unsaved.style.display = 'inline';
+                }
+
+                // Auto-save after inactivity
+                if (autoSaveDelay && autoSaveDelay > 0) {
+                    if (autoSaveTimers[pane]) {
+                        clearTimeout(autoSaveTimers[pane]);
+                    }
+                    autoSaveTimers[pane] = setTimeout(() => {
+                        if (state[pane].isDirty && state[pane].fileHandle) {
+                            savePane(pane, state, elements);
+                        }
+                    }, autoSaveDelay);
+                }
             }
         }
     });
@@ -38,6 +64,11 @@ export function createEditor(CM, container, pane, state, elements, config = {}) 
         doc: '',
         extensions: [
           basicSetup,
+          keymap.of([indentWithTab]),
+          closeBrackets(),
+          scrollPastEnd(),
+          rectangularSelection(),
+          dropCursor(),
           markdown({
             base: markdownLanguage,
             codeLanguages: (info) => {

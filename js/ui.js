@@ -4,44 +4,133 @@ import { updateFileInIndex } from './tags.js';
 import { getRelativePath } from './file-tree.js';
 import { registerShortcut } from './keyboard.js';
 import { writeToFile } from './file-operations.js';
+import { updateFrontmatterKey } from './frontmatter.js';
+import {
+    processSync,
+    cleanupTempExports,
+    getSyncMode,
+    isDailyNote,
+    parseDailyNotePath,
+    isDailyNoteModified,
+    SYNC_MODES
+} from './sync.js';
+import { getActiveTab, markActiveTabClean, renderTabs } from './tabs.js';
 
 // View modes in cycle order
-const VIEW_MODES = ['edit', 'split', 'preview'];
+const VIEW_MODES = ['edit', 'view'];
+
+// Track saves in progress to prevent race conditions
+const savesInProgress = { left: false, right: false };
 
 // Save pane content
 export async function savePane(pane, state, elements) {
-    const paneState = state[pane];
-    const paneElements = elements[pane];
-
-    if (!paneState.fileHandle) {
-        console.log('No file open in', pane, 'pane');
+    // Prevent concurrent saves to the same pane
+    if (savesInProgress[pane]) {
+        console.log('Save already in progress for', pane, 'pane');
         return;
     }
 
-    try {
-        const text = paneState.editorView.state.doc.toString();
-        await writeToFile(paneState.fileHandle, text);
+    const paneElements = elements[pane];
+    const config = window.editorConfig || {};
 
-        paneState.isDirty = false;
-        paneState.content = text;
-        paneElements.unsaved.style.display = 'none';
+    // Get file handle based on pane type
+    let fileHandle;
+    let relativePath;
+
+    if (pane === 'left') {
+        // Left pane uses tabs
+        const activeTab = getActiveTab(state);
+        if (!activeTab) {
+            console.log('No file open in left pane');
+            return;
+        }
+        fileHandle = activeTab.fileHandle;
+        relativePath = activeTab.relativePath;
+    } else {
+        // Right pane uses single file
+        if (!state[pane].fileHandle) {
+            console.log('No file open in', pane, 'pane');
+            return;
+        }
+        fileHandle = state[pane].fileHandle;
+        relativePath = await getRelativePath(state.rootDirHandle, fileHandle);
+    }
+
+    savesInProgress[pane] = true;
+
+    try {
+        let text = state[pane].editorView.state.doc.toString();
+
+        // Check for daily note auto-upgrade (sync: delete -> sync: temporary)
+        // Also handles legacy daily notes without frontmatter (syncMode === null)
+        if (relativePath && isDailyNote(relativePath, state.dailyNotesFolder)) {
+            const syncMode = getSyncMode(text);
+
+            if (syncMode === SYNC_MODES.DELETE || syncMode === null) {
+                const date = parseDailyNotePath(relativePath);
+                if (date && isDailyNoteModified(text, date)) {
+                    // Auto-upgrade to temporary
+                    text = updateFrontmatterKey(text, 'sync', 'temporary');
+
+                    // Update editor with new content
+                    state[pane].editorView.dispatch({
+                        changes: {
+                            from: 0,
+                            to: state[pane].editorView.state.doc.length,
+                            insert: text
+                        }
+                    });
+                }
+            }
+        }
+
+        await writeToFile(fileHandle, text);
+
+        if (pane === 'left') {
+            // Update tab state
+            markActiveTabClean(state, elements, text);
+        } else {
+            // Update right pane state
+            state[pane].isDirty = false;
+            state[pane].content = text;
+            if (paneElements.unsaved) {
+                paneElements.unsaved.style.display = 'none';
+            }
+        }
 
         // Update tag index for this file
-        const relativePath = await getRelativePath(state.rootDirHandle, paneState.fileHandle);
         if (relativePath) {
             updateFileInIndex(relativePath, text);
+        }
+
+        // Process sync/export
+        if (relativePath && state.rootDirHandle) {
+            try {
+                const result = await processSync(relativePath, text, state.rootDirHandle, config);
+                if (result.action !== 'none') {
+                    console.log(`Sync: ${result.action} - ${result.path}`);
+                }
+
+                // Run cleanup after each save
+                await cleanupTempExports(state.rootDirHandle, config);
+            } catch (syncErr) {
+                console.error('Sync error:', syncErr);
+                // Don't alert - sync is non-critical
+            }
         }
 
     } catch (err) {
         console.error('Error saving:', err);
         alert('Error saving file: ' + err.message);
+    } finally {
+        savesInProgress[pane] = false;
     }
 }
 
-// Check if a pane's editor is focused
-function isPaneFocused(pane, state) {
-    const editorDom = state[pane].editorView.dom;
-    return editorDom.contains(document.activeElement);
+// Check if a pane (editor or preview) is focused
+function isPaneFocused(pane, elements) {
+    const paneEl = elements[pane].pane;
+    return paneEl.contains(document.activeElement);
 }
 
 // Register UI keyboard shortcuts
@@ -52,32 +141,31 @@ export function registerUIShortcuts(state, elements) {
         description: 'Save file',
         category: 'Editor',
         handler: () => {
-            if (isPaneFocused('left', state)) {
+            if (isPaneFocused('left', elements)) {
                 savePane('left', state, elements);
-            } else if (isPaneFocused('right', state)) {
+            } else if (isPaneFocused('right', elements)) {
                 savePane('right', state, elements);
             } else {
                 // Save both if neither focused
-                if (state.left.isDirty) savePane('left', state, elements);
+                const activeTab = getActiveTab(state);
+                if (activeTab && activeTab.isDirty) savePane('left', state, elements);
                 if (state.right.isDirty) savePane('right', state, elements);
             }
         }
     });
 
-    // Cmd/Ctrl+E: Cycle view mode
+    // Cmd/Ctrl+E: Cycle view mode (only when pane is focused)
     registerShortcut({
         keys: { mod: true, key: 'e' },
-        description: 'Cycle view mode (edit/split/preview)',
+        description: 'Toggle view mode (edit/view)',
         category: 'Editor',
         handler: () => {
-            if (isPaneFocused('left', state)) {
+            if (isPaneFocused('left', elements)) {
                 cycleViewMode('left', elements);
-            } else if (isPaneFocused('right', state)) {
-                cycleViewMode('right', elements);
-            } else {
-                cycleViewMode('left', elements);
+            } else if (isPaneFocused('right', elements)) {
                 cycleViewMode('right', elements);
             }
+            // Do nothing if no pane is focused
         }
     });
 }
@@ -107,15 +195,14 @@ export function setViewMode(pane, view, elements) {
             editorContainer.style.display = 'block';
             preview.classList.remove('visible');
             editorContainer.style.flex = '1';
+            // Focus the editor so keyboard shortcuts continue to work
+            editorContainer.querySelector('.cm-content')?.focus();
             break;
-        case 'split':
-            editorContainer.style.display = 'block';
-            preview.classList.add('visible');
-            editorContainer.style.flex = '1';
-            break;
-        case 'preview':
+        case 'view':
             editorContainer.style.display = 'none';
             preview.classList.add('visible');
+            // Focus the preview so keyboard shortcuts continue to work
+            preview.focus();
             break;
     }
 }
@@ -128,7 +215,7 @@ export function cycleViewMode(pane, elements) {
     setViewMode(pane, VIEW_MODES[nextIndex], elements);
 }
 
-// Setup view toggle buttons (Edit/Split/Preview)
+// Setup view toggle buttons (Edit/View)
 export function setupViewToggle(elements) {
     document.querySelectorAll('.view-toggle button').forEach(btn => {
         btn.addEventListener('click', () => {

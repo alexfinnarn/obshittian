@@ -11,6 +11,9 @@
     <script src="https://cdn.jsdelivr.net/npm/fuse.js@7.0.0"
         onload="window.dispatchEvent(new Event('fuse-ready'))"
         onerror="console.error('Failed to load Fuse.js from CDN')"></script>
+    <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.min.js"
+        onload="window.dispatchEvent(new Event('docx-ready'))"
+        onerror="console.error('Failed to load docx from CDN')"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/pikaday@1.8.2/css/pikaday.css">
     <script src="https://cdn.jsdelivr.net/npm/pikaday@1.8.2/pikaday.js"
         onload="window.dispatchEvent(new Event('pikaday-ready'))"
@@ -23,11 +26,19 @@
         import {markdown, markdownLanguage} from 'https://esm.sh/@codemirror/lang-markdown@6.2.0?deps=@codemirror/state@6.4.0,@codemirror/view@6.26.0';
         import {yaml} from 'https://esm.sh/@codemirror/lang-yaml@6.1.1?deps=@codemirror/state@6.4.0,@codemirror/view@6.26.0';
         import {oneDark} from 'https://esm.sh/@codemirror/theme-one-dark@6.1.0?deps=@codemirror/state@6.4.0,@codemirror/view@6.26.0';
+        import {indentWithTab} from 'https://esm.sh/@codemirror/commands@6.3.0?deps=@codemirror/state@6.4.0,@codemirror/view@6.26.0';
+        import {closeBrackets} from 'https://esm.sh/@codemirror/autocomplete@6.12.0?deps=@codemirror/state@6.4.0,@codemirror/view@6.26.0';
 
         // Expose to global scope for use in main script
         window.CM = {
             EditorView: CMView.EditorView,
             EditorState: CMState.EditorState,
+            keymap: CMView.keymap,
+            scrollPastEnd: CMView.scrollPastEnd,
+            rectangularSelection: CMView.rectangularSelection,
+            dropCursor: CMView.dropCursor,
+            indentWithTab,
+            closeBrackets,
             basicSetup,
             markdown,
             markdownLanguage,
@@ -60,6 +71,14 @@
             <div class="quick-links" data-testid="quick-links"></div>
         </div>
 
+        <div class="sidebar-section">
+            <div class="sidebar-section-header with-action">
+                <span>Quick Files</span>
+                <button class="configure-btn" id="configure-quick-files" data-testid="btn-configure-quick-files" title="Configure files">Configure</button>
+            </div>
+            <div class="quick-files" id="quick-files-list" data-testid="quick-files"></div>
+        </div>
+
         <div class="sidebar-section" style="flex: 1; display: flex; flex-direction: column; border-bottom: none; overflow: hidden;">
             <div class="sidebar-tabs" data-testid="sidebar-tabs">
                 <button class="sidebar-tab active" data-tab="files" data-testid="tab-files">Files</button>
@@ -83,17 +102,17 @@
         <!-- Left Pane (Working Document) -->
         <div class="editor-pane" id="left-pane" data-testid="left-pane">
             <div class="pane-toolbar" data-testid="left-toolbar">
-                <span class="pane-filename left" id="left-filename" data-testid="left-filename">No file open</span>
-                <span class="unsaved-indicator" id="left-unsaved" data-testid="left-unsaved">●</span>
+                <div class="tab-bar" id="left-tab-bar" data-testid="left-tab-bar">
+                    <span class="no-file-open">No file open</span>
+                </div>
                 <div class="view-toggle" data-testid="left-view-toggle">
                     <button class="active" data-pane="left" data-view="edit" data-testid="left-btn-edit" title="Edit">✏️</button>
-                    <button data-pane="left" data-view="split" data-testid="left-btn-split" title="Split">◫</button>
-                    <button data-pane="left" data-view="preview" data-testid="left-btn-preview" title="Preview">👁</button>
+                    <button data-pane="left" data-view="view" data-testid="left-btn-view" title="View">👁</button>
                 </div>
             </div>
             <div class="pane-content" data-testid="left-pane-content">
                 <div class="editor-container" id="left-editor" data-testid="left-editor"></div>
-                <div class="preview-pane" id="left-preview" data-testid="left-preview"></div>
+                <div class="preview-pane" id="left-preview" data-testid="left-preview" tabindex="0"></div>
             </div>
         </div>
 
@@ -106,13 +125,12 @@
                 <span class="unsaved-indicator" id="right-unsaved" data-testid="right-unsaved">●</span>
                 <div class="view-toggle" data-testid="right-view-toggle">
                     <button class="active" data-pane="right" data-view="edit" data-testid="right-btn-edit" title="Edit">✏️</button>
-                    <button data-pane="right" data-view="split" data-testid="right-btn-split" title="Split">◫</button>
-                    <button data-pane="right" data-view="preview" data-testid="right-btn-preview" title="Preview">👁</button>
+                    <button data-pane="right" data-view="view" data-testid="right-btn-view" title="View">👁</button>
                 </div>
             </div>
             <div class="pane-content" data-testid="right-pane-content">
                 <div class="editor-container" id="right-editor" data-testid="right-editor"></div>
-                <div class="preview-pane" id="right-preview" data-testid="right-preview"></div>
+                <div class="preview-pane" id="right-preview" data-testid="right-preview" tabindex="0"></div>
             </div>
         </div>
     </div>
@@ -121,6 +139,7 @@
     <div id="context-menu" class="context-menu" data-testid="context-menu">
         <div class="context-menu-item" data-action="new-file" data-testid="context-menu-new-file">New File</div>
         <div class="context-menu-item" data-action="new-folder" data-testid="context-menu-new-folder">New Folder</div>
+        <div class="context-menu-item" data-action="open-in-tab" data-testid="context-menu-open-in-tab">Open in Tab</div>
         <div class="context-menu-separator"></div>
         <div class="context-menu-item" data-action="rename" data-testid="context-menu-rename">Rename</div>
         <div class="context-menu-item" data-action="delete" data-testid="context-menu-delete">Delete</div>
@@ -140,6 +159,24 @@
             <div class="modal-footer">
                 <button id="quick-links-cancel" data-testid="btn-quick-links-cancel">Cancel</button>
                 <button id="quick-links-save" class="btn-primary" data-testid="btn-quick-links-save">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quick Files Modal -->
+    <div class="modal" id="quick-files-modal" data-testid="quick-files-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <span class="modal-title">Configure Quick Files</span>
+                <button class="modal-close" data-testid="quick-files-modal-close">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="quick-files-editor" data-testid="quick-files-editor"></div>
+                <button id="quick-files-add" class="btn-add-file" data-testid="btn-add-file">+ Add File</button>
+            </div>
+            <div class="modal-footer">
+                <button id="quick-files-cancel" data-testid="btn-quick-files-cancel">Cancel</button>
+                <button id="quick-files-save" class="btn-primary" data-testid="btn-quick-files-save">Save</button>
             </div>
         </div>
     </div>
