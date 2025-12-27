@@ -112,7 +112,10 @@ export function renderFileResults(tag, tabs, state, openFileInPane) {
 
     tabs.fileResults.innerHTML = `
         <div class="file-results-header">Files with #${tag}</div>
-        ${files.map(path => `<div class="file-result-item" data-path="${path}">${path}</div>`).join('')}
+        ${files.map(path => {
+            const filename = path.split('/').pop();
+            return `<div class="file-result-item" data-path="${path}" title="${path}">${filename}</div>`;
+        }).join('')}
     `;
 
     // Add click handlers to file items

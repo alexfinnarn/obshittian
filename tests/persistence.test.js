@@ -3,9 +3,7 @@ import {
   saveLastOpenFile,
   getLastOpenFile,
   savePaneWidth,
-  getPaneWidth,
-  saveQuickLinks,
-  getQuickLinks
+  getPaneWidth
 } from '../js/persistence.js';
 
 describe('persistence', () => {
@@ -71,51 +69,6 @@ describe('persistence', () => {
       });
     });
 
-    describe('saveQuickLinks / getQuickLinks', () => {
-      it('saves and retrieves quick links array', () => {
-        const links = [
-          { path: 'notes/todo.md', name: 'Todo' },
-          { path: 'projects/readme.md', name: 'Readme' }
-        ];
-
-        saveQuickLinks(links);
-
-        const result = getQuickLinks();
-
-        expect(result).toEqual(links);
-      });
-
-      it('returns null when no links have been saved', () => {
-        const result = getQuickLinks();
-
-        expect(result).toBe(null);
-      });
-
-      it('handles empty array', () => {
-        saveQuickLinks([]);
-
-        const result = getQuickLinks();
-
-        expect(result).toEqual([]);
-      });
-
-      it('preserves complex link objects', () => {
-        const links = [
-          {
-            path: 'folder/file.md',
-            name: 'My File',
-            metadata: { created: '2024-01-01', tags: ['important', 'work'] }
-          }
-        ];
-
-        saveQuickLinks(links);
-
-        const result = getQuickLinks();
-
-        expect(result).toEqual(links);
-        expect(result[0].metadata.tags).toEqual(['important', 'work']);
-      });
-    });
   });
 
   // Note: IndexedDB tests are more complex and would require mocking

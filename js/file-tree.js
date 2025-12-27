@@ -6,6 +6,10 @@ import {
     getContextMenuState, setContextMenuState, showContextMenu, hideContextMenu, promptFilename
 } from './file-operations.js';
 import { removeFileFromIndex, renameFileInIndex } from './tags.js';
+import {
+    createTab, addTab, replaceCurrentTab, removeTab, getActiveTab,
+    renderTabs, findTabByPath, saveEditorStateToTab
+} from './tabs.js';
 
 // Build file tree recursively
 export async function buildFileTree(dirHandle, parentElement, openFileInPane, state, depth = 0) {
@@ -31,9 +35,37 @@ export async function buildFileTree(dirHandle, parentElement, openFileInPane, st
             div.textContent = entry.name;
             div.dataset.name = entry.name;
             div.dataset.testid = `file-item-${entry.name}`;
+
+            // Track click timer for distinguishing single vs double click
+            let clickTimer = null;
+
             div.onclick = (e) => {
                 e.stopPropagation();
-                openFileInPane(entry, dirHandle, 'left', div);
+
+                // Ctrl/Cmd+click always opens in new tab immediately
+                if (e.ctrlKey || e.metaKey) {
+                    if (clickTimer) clearTimeout(clickTimer);
+                    openFileInPane(entry, dirHandle, 'left', div, true);
+                    return;
+                }
+
+                // For regular clicks, delay single-click to allow double-click detection
+                if (clickTimer) clearTimeout(clickTimer);
+                clickTimer = setTimeout(() => {
+                    clickTimer = null;
+                    openFileInPane(entry, dirHandle, 'left', div, false);
+                }, 200); // 200ms window for double-click
+            };
+
+            div.ondblclick = (e) => {
+                e.stopPropagation();
+                // Cancel the pending single-click
+                if (clickTimer) {
+                    clearTimeout(clickTimer);
+                    clickTimer = null;
+                }
+                // Open in new tab
+                openFileInPane(entry, dirHandle, 'left', div, true);
             };
             div.oncontextmenu = (e) => {
                 e.preventDefault();
@@ -119,6 +151,11 @@ export function setupContextMenu(state, openFileInPane, refreshFileTree) {
                     break;
                 case 'new-folder':
                     await handleNewFolder(ctx, refreshFileTree);
+                    break;
+                case 'open-in-tab':
+                    if (!ctx.isDirectory) {
+                        await openFileInPane(ctx.targetHandle, ctx.parentDirHandle, 'left', ctx.targetElement, true);
+                    }
                     break;
                 case 'rename':
                     await handleRename(ctx, state, refreshFileTree);
@@ -220,16 +257,22 @@ async function handleDelete(ctx, state, refreshFileTree) {
 
     // Clear editor if the deleted file was open
     if (!ctx.isDirectory) {
-        for (const pane of ['left', 'right']) {
-            if (state[pane].fileHandle?.name === name) {
-                state[pane].fileHandle = null;
-                state[pane].dirHandle = null;
-                state[pane].content = '';
-                state[pane].isDirty = false;
-                state[pane].editorView.dispatch({
-                    changes: { from: 0, to: state[pane].editorView.state.doc.length, insert: '' }
-                });
-            }
+        // Handle left pane (tabs)
+        const tabIndex = state.left.tabs.findIndex(tab => tab.filename === name);
+        if (tabIndex >= 0) {
+            // Remove the tab without confirmation (already confirmed delete)
+            removeTab(state, { left: { tabBar: document.getElementById('left-tab-bar') } }, tabIndex, true);
+        }
+
+        // Handle right pane (single file)
+        if (state.right.fileHandle?.name === name) {
+            state.right.fileHandle = null;
+            state.right.dirHandle = null;
+            state.right.content = '';
+            state.right.isDirty = false;
+            state.right.editorView.dispatch({
+                changes: { from: 0, to: state.right.editorView.state.doc.length, insert: '' }
+            });
         }
     }
 
@@ -301,8 +344,12 @@ function updateEditorContent(pane, state, text) {
 // Update pane UI elements (filename, preview, unsaved indicator)
 function updatePaneUI(pane, elements, filename, text) {
     renderPreview(text, elements[pane].preview);
-    elements[pane].filename.textContent = filename;
-    elements[pane].unsaved.style.display = 'none';
+    if (elements[pane].filename) {
+        elements[pane].filename.textContent = filename;
+    }
+    if (elements[pane].unsaved) {
+        elements[pane].unsaved.style.display = 'none';
+    }
 }
 
 // Update file tree highlighting for active file
@@ -321,15 +368,15 @@ async function handleLeftPaneDefaults(state, fileHandle) {
         saveLastOpenFile(relativePath);
     }
 
-    // Set left pane to preview mode by default
-    const previewBtn = document.querySelector('.view-toggle button[data-pane="left"][data-view="preview"]');
-    if (previewBtn) {
-        previewBtn.click();
+    // Set left pane to view mode by default
+    const viewBtn = document.querySelector('.view-toggle button[data-pane="left"][data-view="view"]');
+    if (viewBtn) {
+        viewBtn.click();
     }
 }
 
 // Open file in specified pane
-export async function openFileInPane(fileHandle, parentDirHandle, pane, state, elements, uiElement = null) {
+export async function openFileInPane(fileHandle, parentDirHandle, pane, state, elements, uiElement = null, openInNewTab = false) {
     try {
         if (!await requestFilePermission(fileHandle)) {
             console.error('Permission denied');
@@ -339,13 +386,42 @@ export async function openFileInPane(fileHandle, parentDirHandle, pane, state, e
         const file = await fileHandle.getFile();
         const text = await file.text();
 
-        updatePaneState(pane, state, fileHandle, parentDirHandle, text);
-        updateEditorContent(pane, state, text);
-        updatePaneUI(pane, elements, file.name, text);
-        updateFileTreeHighlight(pane, uiElement);
-
         if (pane === 'left') {
-            await handleLeftPaneDefaults(state, fileHandle);
+            // Handle tabs for left pane
+            const relativePath = await getRelativePath(state.rootDirHandle, fileHandle);
+
+            // Create tab object
+            const tab = createTab(fileHandle, parentDirHandle, text, file.name);
+
+            if (openInNewTab) {
+                // Add as new tab
+                addTab(state, elements, tab, relativePath);
+            } else {
+                // Replace current tab (or add first tab)
+                replaceCurrentTab(state, elements, tab, relativePath);
+            }
+
+            // Save last open file
+            if (relativePath) {
+                saveLastOpenFile(relativePath);
+            }
+
+            // Update file tree highlight
+            updateFileTreeHighlight(pane, uiElement);
+
+            // Set view mode by default for left pane
+            const viewBtn = document.querySelector('.view-toggle button[data-pane="left"][data-view="view"]');
+            if (viewBtn) {
+                viewBtn.click();
+            }
+        } else {
+            // Right pane uses original single-file behavior
+            updatePaneState(pane, state, fileHandle, parentDirHandle, text);
+            updateEditorContent(pane, state, text);
+            // Reset isDirty after editor update (updateEditorContent triggers docChanged which sets isDirty=true)
+            state[pane].isDirty = false;
+            updatePaneUI(pane, elements, file.name, text);
+            updateFileTreeHighlight(pane, uiElement);
         }
 
     } catch (err) {

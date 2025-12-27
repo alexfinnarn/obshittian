@@ -58,7 +58,11 @@ export function generateDailyNoteTemplate(date) {
     const { year, month, day } = formatDailyNotePath(date);
     const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
 
-    return `# ${year}-${month}-${day}
+    return `---
+sync: delete
+---
+
+# ${year}-${month}-${day}
 
 ## ${dayName}
 

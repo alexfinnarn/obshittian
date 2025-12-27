@@ -2,6 +2,9 @@
 // Edit these values to customize your editor experience
 
 window.editorConfig = {
+    // Full path to Obsidian vault (used by Claude Code workflows)
+    obsidianVaultPath: '/Users/alexfinnarn/Documents/Obsidian Vault',
+
     // Folder name for daily notes (created under root directory)
     dailyNotesFolder: 'zzz_Daily Notes',
 
@@ -34,7 +37,11 @@ window.editorConfig = {
     // Set to false to disable, or a number like 7000 for 7 seconds
     autoSaveDelay: 2000,
 
-    // Default quick links (shown when no saved links exist)
+    // Sync/Export settings for Google Drive
+    syncDirectory: 'zzzz_exports',  // Export folder name (in root)
+    syncTempLimit: 7,               // Number of temporary exports to keep
+
+    // Default quick links (fallback when no .editor-config.json in vault)
     defaultQuickLinks: [
         { name: 'NWS', url: 'https://forecast.weather.gov/MapClick.php?lat=39.9103&lon=-82.7916&unit=0&lg=english&FcstType=graphical' },
         { name: 'Weather', url: 'https://www.wunderground.com/forecast/us/oh/pickerington' },
@@ -44,5 +51,16 @@ window.editorConfig = {
         { name: 'Meetup', url: 'https://www.meetup.com/find/?source=EVENTS&eventType=inPerson&sortField=DATETIME&distance=twentyFiveMiles&location=us--oh--Brice' },
         { name: 'Cringe', url: 'https://cringe.com/' },
         { name: 'Cbus', url: 'https://www.experiencecolumbus.com/events/festivals-and-annual-events/' }
-    ]
+    ],
+
+    // Default quick files (fallback when no .editor-config.json in vault)
+    // These appear as tabs in the left pane toolbar
+    defaultQuickFiles: [
+        { name: 'Know It', path: '00_Know It.md' },
+        { name: 'Todo', path: '01_Todo.md' },
+        { name: 'Links', path: '02_Links.md' }
+    ],
+
+    // Maximum number of quick file tabs
+    quickFilesLimit: 5
 };

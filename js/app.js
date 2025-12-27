@@ -4,12 +4,16 @@ import { createEditor } from './editor.js';
 import { buildFileTree, openFileByPath, openFileInPane as openFileInPaneBase, setupContextMenu, getRelativePath } from './file-tree.js';
 import { openDailyNote as openDailyNoteBase, registerDailyNoteShortcuts } from './daily-notes.js';
 import { registerUIShortcuts, setupViewToggle, setupPaneResizer, restorePaneWidth } from './ui.js';
-import { initQuickLinks } from './quick-links.js';
+import { initQuickLinks, refreshQuickLinks } from './quick-links.js';
+import { initQuickFiles, refreshQuickFiles } from './quick-files.js';
+import { loadVaultConfig } from './vault-config.js';
 import { configureMarked } from './marked-config.js';
 import { buildTagIndex } from './tags.js';
 import { initKeyboardShortcuts } from './keyboard.js';
 import { setupSidebarTabs, showIndexingStatus, clearIndexingStatus } from './sidebar.js';
 import { whenAllReady } from './dependencies.js';
+import { cleanupTempExports } from './sync.js';
+import { renderTabs, getTabsFromStorage } from './tabs.js';
 
 // Wait for all external libraries to load before initializing
 whenAllReady()
@@ -34,10 +38,8 @@ function initApp() {
         rootDirHandle: null,
         dailyNotesFolder: config.dailyNotesFolder || 'zzz_Daily Notes',
         left: {
-            fileHandle: null,
-            dirHandle: null,
-            content: '',
-            isDirty: false,
+            tabs: [],              // Array of tab objects
+            activeTabIndex: -1,    // Index of currently active tab (-1 = no tabs)
             editorView: null
         },
         right: {
@@ -59,8 +61,7 @@ function initApp() {
         left: {
             editorContainer: document.getElementById('left-editor'),
             preview: document.getElementById('left-preview'),
-            filename: document.getElementById('left-filename'),
-            unsaved: document.getElementById('left-unsaved'),
+            tabBar: document.getElementById('left-tab-bar'),
             pane: document.getElementById('left-pane')
         },
         right: {
@@ -81,8 +82,8 @@ function initApp() {
     };
 
     // Create bound versions of functions that need state/elements
-    const openFileInPane = (fileHandle, parentDirHandle, pane, uiElement = null) => {
-        return openFileInPaneBase(fileHandle, parentDirHandle, pane, state, elements, uiElement);
+    const openFileInPane = (fileHandle, parentDirHandle, pane, uiElement = null, openInNewTab = false) => {
+        return openFileInPaneBase(fileHandle, parentDirHandle, pane, state, elements, uiElement, openInNewTab);
     };
 
     const openDailyNote = (date) => {
@@ -155,6 +156,16 @@ function initApp() {
     async function openDirectory(dirHandle) {
         state.rootDirHandle = dirHandle;
         elements.fileTree.innerHTML = '';
+
+        // Load vault config first (Quick Links and Quick Files)
+        await loadVaultConfig(dirHandle);
+
+        // Refresh Quick Links with vault config
+        refreshQuickLinks();
+
+        // Refresh Quick Files with vault config
+        refreshQuickFiles();
+
         await buildFileTree(dirHandle, elements.fileTree, openFileInPane, state);
 
         // Build tag index in background
@@ -167,6 +178,13 @@ function initApp() {
             console.error('Error building tag index:', err);
         }
         state.tags.isIndexing = false;
+
+        // Run sync cleanup on directory open
+        try {
+            await cleanupTempExports(dirHandle, config);
+        } catch (err) {
+            console.error('Error during sync cleanup:', err);
+        }
 
         // Auto-open today's daily note if configured
         if (config.autoOpenTodayNote !== false) {
@@ -195,6 +213,7 @@ function initApp() {
     setupPaneResizer();
     restorePaneWidth(config);
     initQuickLinks();
+    initQuickFiles(state, elements, openFileInPane);
 
     // Setup sidebar tabs
     setupSidebarTabs(elements, state, openFileInPane);

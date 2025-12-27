@@ -55,12 +55,14 @@ export function getPaneWidth() {
     return localStorage.getItem('editorPaneWidth');
 }
 
-// Quick Links helpers
-export function saveQuickLinks(links) {
-    localStorage.setItem('editorQuickLinks', JSON.stringify(links));
+// Temporary exports tracking (for sync cleanup)
+const TEMP_EXPORTS_KEY = 'editorTempExports';
+
+export function saveTempExports(exports) {
+    localStorage.setItem(TEMP_EXPORTS_KEY, JSON.stringify(exports));
 }
 
-export function getQuickLinks() {
-    const stored = localStorage.getItem('editorQuickLinks');
-    return stored ? JSON.parse(stored) : null;
+export function getTempExports() {
+    const stored = localStorage.getItem(TEMP_EXPORTS_KEY);
+    return stored ? JSON.parse(stored) : {};
 }

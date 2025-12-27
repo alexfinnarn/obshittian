@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
     extractFrontmatterRaw,
     parseFrontmatter,
-    splitFrontmatter
+    splitFrontmatter,
+    getFrontmatterValue,
+    updateFrontmatterKey
 } from '../js/frontmatter.js';
 
 describe('frontmatter', () => {
@@ -28,6 +30,22 @@ describe('frontmatter', () => {
             const result = extractFrontmatterRaw(content);
             expect(result.raw).toBe('tags: one, two\ntitle: Test');
             expect(result.endIndex).toBe(content.indexOf('---', 3) + 3);
+            expect(result.bomOffset).toBe(0);
+        });
+
+        it('handles BOM at start of file', () => {
+            const content = '\uFEFF---\ntags: test\n---\n\n# Content';
+            const result = extractFrontmatterRaw(content);
+            expect(result.raw).toBe('tags: test');
+            expect(result.bomOffset).toBe(1);
+            // endIndex should account for BOM so substring(endIndex) gives correct body
+            expect(result.endIndex).toBe(19); // Position after closing ---
+            expect(content.substring(result.endIndex)).toBe('\n\n# Content');
+        });
+
+        it('returns null for BOM without frontmatter', () => {
+            const content = '\uFEFF# Just content';
+            expect(extractFrontmatterRaw(content)).toBeNull();
         });
     });
 
@@ -127,6 +145,98 @@ describe('frontmatter', () => {
             const content = '---\ntags: test\n---\n\n\n# Content';
             const result = splitFrontmatter(content);
             expect(result.body).toBe('# Content');
+        });
+    });
+
+    describe('getFrontmatterValue', () => {
+        it('returns value for existing key', () => {
+            const content = '---\nsync: permanent\ntags: one, two\n---\n\n# Content';
+            expect(getFrontmatterValue(content, 'sync')).toBe('permanent');
+        });
+
+        it('returns array for array value', () => {
+            const content = '---\ntags: one, two, three\n---\n\n# Content';
+            expect(getFrontmatterValue(content, 'tags')).toEqual(['one', 'two', 'three']);
+        });
+
+        it('returns null for non-existent key', () => {
+            const content = '---\ntags: test\n---\n\n# Content';
+            expect(getFrontmatterValue(content, 'sync')).toBeNull();
+        });
+
+        it('returns null for content without frontmatter', () => {
+            const content = '# Just content';
+            expect(getFrontmatterValue(content, 'sync')).toBeNull();
+        });
+    });
+
+    describe('updateFrontmatterKey', () => {
+        it('updates existing key', () => {
+            const content = '---\nsync: delete\n---\n\n# Content';
+            const result = updateFrontmatterKey(content, 'sync', 'temporary');
+            expect(result).toContain('sync: temporary');
+            expect(result).not.toContain('sync: delete');
+        });
+
+        it('adds new key to existing frontmatter', () => {
+            const content = '---\ntags: test\n---\n\n# Content';
+            const result = updateFrontmatterKey(content, 'sync', 'permanent');
+            expect(result).toContain('tags: test');
+            expect(result).toContain('sync: permanent');
+        });
+
+        it('creates frontmatter when none exists', () => {
+            const content = '# Just content';
+            const result = updateFrontmatterKey(content, 'sync', 'temporary');
+            expect(result).toBe('---\nsync: temporary\n---\n\n# Just content');
+        });
+
+        it('preserves body content', () => {
+            const content = '---\nsync: delete\n---\n\n# Title\n\nSome paragraph.';
+            const result = updateFrontmatterKey(content, 'sync', 'temporary');
+            expect(result).toContain('# Title');
+            expect(result).toContain('Some paragraph.');
+        });
+
+        it('handles multiple keys', () => {
+            const content = '---\ntitle: Test\nsync: delete\ntags: one\n---\n\n# Content';
+            const result = updateFrontmatterKey(content, 'sync', 'permanent');
+            expect(result).toContain('title: Test');
+            expect(result).toContain('sync: permanent');
+            expect(result).toContain('tags: one');
+        });
+
+        it('handles BOM when creating frontmatter', () => {
+            const content = '\uFEFF# Just content';
+            const result = updateFrontmatterKey(content, 'sync', 'temporary');
+            // BOM should be preserved at the start
+            expect(result.charCodeAt(0)).toBe(0xFEFF);
+            expect(result).toBe('\uFEFF---\nsync: temporary\n---\n\n# Just content');
+        });
+
+        it('handles BOM when updating existing frontmatter', () => {
+            const content = '\uFEFF---\nsync: delete\n---\n\n# Content';
+            const result = updateFrontmatterKey(content, 'sync', 'temporary');
+            // BOM should be preserved at the start
+            expect(result.charCodeAt(0)).toBe(0xFEFF);
+            expect(result).toContain('sync: temporary');
+            expect(result).not.toContain('sync: delete');
+        });
+
+        it('does not add BOM when none exists', () => {
+            const content = '---\nsync: delete\n---\n\n# Content';
+            const result = updateFrontmatterKey(content, 'sync', 'temporary');
+            // No BOM should be added
+            expect(result.charCodeAt(0)).toBe('-'.charCodeAt(0));
+        });
+
+        it('prevents duplicate frontmatter when called on content with BOM-prefixed frontmatter', () => {
+            // This simulates the bug scenario: content has frontmatter but BOM made it undetectable
+            const contentWithBom = '\uFEFF---\nsync: delete\n---\n\n# Content';
+            const result = updateFrontmatterKey(contentWithBom, 'sync', 'temporary');
+            // Should update existing frontmatter, not create duplicate
+            const frontmatterCount = (result.match(/---/g) || []).length;
+            expect(frontmatterCount).toBe(2); // Opening and closing --- only
         });
     });
 });

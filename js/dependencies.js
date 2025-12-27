@@ -26,7 +26,8 @@ const libs = {
     CM: { timeout: 10000 },        // CodeMirror - larger due to multiple module imports
     Pikaday: { timeout: 5000 },    // Calendar widget
     marked: { timeout: 5000 },     // Markdown parser
-    Fuse: { timeout: 5000 }        // Fuzzy search
+    Fuse: { timeout: 5000 },       // Fuzzy search
+    docx: { timeout: 5000 }        // Word document generation for sync
 };
 
 /**

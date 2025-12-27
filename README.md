@@ -4,10 +4,10 @@ A browser-based Markdown editor designed as a lightweight Obsidian alternative. 
 
 ## Features
 
-- **Dual-pane editing**: Work on two documents simultaneously with a resizable split view
+- **Dual-pane editing**: Work on two documents simultaneously with resizable panes
 - **Daily notes with calendar**: Click any date to create/open a daily note in `YYYY/MM/YYYY-MM-DD.md` format
 - **Tag system with fuzzy search**: Add tags via YAML frontmatter and find notes by tag
-- **Live preview**: Toggle between edit, split (editor + preview), or preview-only modes per pane
+- **Live preview**: Toggle between edit and view modes per pane
 - **Native file access**: Read and write directly to your filesystem (no file copying)
 - **File tree navigation**: Browse `.md` and `.txt` files with collapsible folder structure
 - **File management**: Right-click context menu to create, rename, and delete files/folders
@@ -26,7 +26,7 @@ A browser-based Markdown editor designed as a lightweight Obsidian alternative. 
 | Shortcut | Action |
 |----------|--------|
 | `Ctrl/Cmd+S` | Save focused pane (or both if neither focused) |
-| `Ctrl/Cmd+E` | Cycle view mode: edit → split → preview |
+| `Ctrl/Cmd+E` | Toggle view mode (edit/view) for focused pane |
 | `Meta/Ctrl+←` | Previous day (daily notes) |
 | `Meta/Ctrl+→` | Next day (daily notes) |
 | `Meta/Ctrl+↑` | Previous week (daily notes) |

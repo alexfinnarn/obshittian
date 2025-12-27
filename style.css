@@ -153,6 +153,27 @@ body {
     background: var(--hover);
 }
 
+/* Quick Files */
+.quick-files {
+    padding: 8px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 10px;
+}
+
+.quick-files a {
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 0.85em;
+    padding: 2px 6px;
+    border-radius: 3px;
+    transition: background 0.15s;
+}
+
+.quick-files a:hover {
+    background: var(--hover);
+}
+
 /* File Tree */
 .file-item {
     cursor: pointer;
@@ -303,9 +324,8 @@ summary:hover { background: var(--hover); }
     padding: 6px 8px;
     border-radius: 4px;
     font-size: 0.9em;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 .file-result-item:hover {
@@ -376,6 +396,100 @@ summary:hover { background: var(--hover); }
     color: #eebb00;
     font-size: 0.9em;
     display: none;
+}
+
+/* Tab Bar (Left Pane) */
+.tab-bar {
+    display: flex;
+    gap: 2px;
+    overflow-x: auto;
+    flex: 1;
+    min-width: 0;
+    align-items: center;
+}
+
+.tab-bar::-webkit-scrollbar {
+    height: 4px;
+}
+
+.tab-bar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.tab-bar::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 2px;
+}
+
+.no-file-open {
+    color: var(--text-muted);
+    font-size: 0.85em;
+    font-style: italic;
+}
+
+.tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-bottom: none;
+    border-radius: 4px 4px 0 0;
+    cursor: pointer;
+    max-width: 150px;
+    min-width: 60px;
+    flex-shrink: 0;
+    transition: background 0.15s;
+}
+
+.tab:hover {
+    background: var(--hover);
+}
+
+.tab.active {
+    background: var(--sidebar-bg);
+    border-color: var(--accent);
+    border-bottom: 1px solid var(--sidebar-bg);
+    margin-bottom: -1px;
+}
+
+.tab-filename {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.8em;
+    color: var(--accent);
+}
+
+.tab.active .tab-filename {
+    font-weight: 500;
+}
+
+.tab-unsaved {
+    color: #eebb00;
+    font-size: 0.7em;
+    flex-shrink: 0;
+}
+
+.tab-close {
+    opacity: 0;
+    cursor: pointer;
+    font-size: 1em;
+    padding: 0 2px;
+    line-height: 1;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    transition: opacity 0.15s, color 0.15s;
+}
+
+.tab:hover .tab-close {
+    opacity: 0.6;
+}
+
+.tab-close:hover {
+    opacity: 1 !important;
+    color: #ff6b6b;
 }
 
 .pane-content {
@@ -822,4 +936,85 @@ button:hover { background: #444; }
     color: var(--text);
     font-size: 0.9em;
     outline: none;
+}
+
+/* Quick Files Modal - File Row */
+.file-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    align-items: center;
+}
+
+.file-row input {
+    padding: 6px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-size: 0.9em;
+}
+
+.file-row input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.file-row .file-name {
+    flex: 0 0 100px;
+}
+
+.file-row .file-path {
+    flex: 1;
+    padding: 6px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-muted);
+    font-size: 0.9em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.file-browse {
+    background: var(--hover);
+    border: 1px solid var(--border);
+    padding: 5px 10px;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+.file-browse:hover {
+    background: var(--active);
+}
+
+.file-delete {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.2em;
+    cursor: pointer;
+    padding: 4px 8px;
+    line-height: 1;
+}
+
+.file-delete:hover {
+    color: #e55;
+    background: transparent;
+}
+
+.btn-add-file {
+    margin-top: 8px;
+    width: 100%;
+    background: transparent;
+    border: 1px dashed var(--border);
+    color: var(--text-muted);
+}
+
+.btn-add-file:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: transparent;
 }

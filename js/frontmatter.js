@@ -3,10 +3,21 @@
 /**
  * Extract raw frontmatter boundaries from markdown content
  * @param {string} content - The markdown file content
- * @returns {{ raw: string, endIndex: number } | null} Raw frontmatter text and end position, or null if not found
+ * @returns {{ raw: string, endIndex: number, bomOffset: number } | null} Raw frontmatter text and end position, or null if not found
  */
 export function extractFrontmatterRaw(content) {
-    if (!content || !content.startsWith('---')) {
+    if (!content) {
+        return null;
+    }
+
+    // Handle BOM (Byte Order Mark) at start of file
+    let bomOffset = 0;
+    if (content.charCodeAt(0) === 0xFEFF) {
+        bomOffset = 1;
+        content = content.slice(1);
+    }
+
+    if (!content.startsWith('---')) {
         return null;
     }
 
@@ -17,7 +28,8 @@ export function extractFrontmatterRaw(content) {
 
     return {
         raw: content.substring(3, endIndex).trim(),
-        endIndex: endIndex + 3
+        endIndex: endIndex + 3 + bomOffset,
+        bomOffset
     };
 }
 
@@ -98,4 +110,60 @@ export function splitFrontmatter(content) {
         frontmatter: extracted.raw,
         body: content.substring(extracted.endIndex).trimStart()
     };
+}
+
+/**
+ * Get a specific frontmatter value
+ * @param {string} content - Full file content
+ * @param {string} key - Frontmatter key to get
+ * @returns {string|Array|null} Value or null if not found
+ */
+export function getFrontmatterValue(content, key) {
+    const fm = parseFrontmatter(content);
+    return fm[key] ?? null;
+}
+
+/**
+ * Update or insert a key in frontmatter
+ * @param {string} content - Full file content
+ * @param {string} key - Frontmatter key to update
+ * @param {string} value - New value
+ * @returns {string} Updated content
+ */
+export function updateFrontmatterKey(content, key, value) {
+    const extracted = extractFrontmatterRaw(content);
+
+    if (!extracted) {
+        // No frontmatter exists, create it
+        // Preserve BOM if present at start of content
+        const bom = content && content.charCodeAt(0) === 0xFEFF ? '\uFEFF' : '';
+        const cleanContent = bom ? content.slice(1) : content;
+        return `${bom}---\n${key}: ${value}\n---\n\n${cleanContent}`;
+    }
+
+    const lines = extracted.raw.split('\n');
+    let found = false;
+
+    const updatedLines = lines.map(line => {
+        const colonIndex = line.indexOf(':');
+        if (colonIndex > 0) {
+            const lineKey = line.substring(0, colonIndex).trim();
+            if (lineKey === key) {
+                found = true;
+                return `${key}: ${value}`;
+            }
+        }
+        return line;
+    });
+
+    if (!found) {
+        updatedLines.push(`${key}: ${value}`);
+    }
+
+    const newFrontmatter = updatedLines.join('\n');
+    const body = content.substring(extracted.endIndex).trimStart();
+
+    // Preserve BOM if it was present
+    const bom = extracted.bomOffset > 0 ? '\uFEFF' : '';
+    return `${bom}---\n${newFrontmatter}\n---\n\n${body}`;
 }
