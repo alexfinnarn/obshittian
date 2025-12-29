@@ -120,9 +120,77 @@ test.describe('Quick Files', () => {
     await expect(page.getByTestId('files-editor')).toBeVisible();
   });
 
-  test.skip('should display quick file links from mock config', async ({ page }) => {
-    // Note: This test requires vault config to be loaded from .editor-config.json
-    // which may have timing issues with mock filesystem
-    await expect(page.getByTestId('quick-file-0')).toBeVisible();
+  test('should display quick file links from mock config', async ({ page }) => {
+    // Wait for quick files to load from .editor-config.json
+    await expect(page.getByTestId('quick-file-0')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId('quick-file-1')).toBeVisible();
+
+    // Verify correct content from mock filesystem's .editor-config.json
+    // Mock has: { name: 'README', path: 'README.md' }, { name: 'Notes', path: 'notes.md' }
+    await expect(page.getByTestId('quick-file-0')).toHaveText('README');
+    await expect(page.getByTestId('quick-file-1')).toHaveText('Notes');
+  });
+});
+
+test.describe('Quick Links Persistence', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByTestId('app-container')).toBeVisible();
+  });
+
+  test('should load quick links from .editor-config.json', async ({ page }) => {
+    // Wait for quick links to load from config
+    await expect(page.getByTestId('quick-link-0')).toBeVisible({ timeout: 5000 });
+
+    // Verify content from mock filesystem's .editor-config.json
+    // Mock has: { name: 'Test Link', url: 'https://example.com' }
+    await expect(page.getByTestId('quick-link-0')).toHaveText('Test Link');
+  });
+
+  test('should add and save new quick link', async ({ page }) => {
+    // Open the configure modal
+    await page.getByTestId('quick-links-section').hover();
+    await page.getByTestId('configure-quick-links').click();
+    await expect(page.getByTestId('modal')).toBeVisible();
+
+    // Add a new link
+    await page.getByTestId('add-link').click();
+
+    // The new link row should appear - find the last one
+    const linkRows = page.locator('[data-testid^="link-row-"]');
+    const count = await linkRows.count();
+    const lastIndex = count - 1;
+
+    // Fill in the new link details
+    await page.getByTestId(`link-name-${lastIndex}`).fill('New Test Link');
+    await page.getByTestId(`link-url-${lastIndex}`).fill('https://newtest.example.com');
+
+    // Save
+    await page.getByTestId('save-links').click();
+    await expect(page.getByTestId('modal')).not.toBeVisible();
+
+    // Verify the new link appears in the UI after save
+    await expect(page.getByTestId(`quick-link-${lastIndex}`)).toBeVisible();
+    await expect(page.getByTestId(`quick-link-${lastIndex}`)).toHaveText('New Test Link');
+
+    // Note: Cross-page persistence cannot be tested with mock filesystem
+    // as it resets on page reload. Real persistence is verified by:
+    // 1. saveVaultConfig() writes to .editor-config.json (tested in unit tests)
+    // 2. loadVaultConfig() reads from .editor-config.json (tested above)
+  });
+});
+
+test.describe('Quick Files Persistence', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByTestId('app-container')).toBeVisible();
+  });
+
+  test('should load quick files from .editor-config.json', async ({ page }) => {
+    // Wait for quick files to load from config
+    await expect(page.getByTestId('quick-file-0')).toBeVisible({ timeout: 5000 });
+
+    // Verify content from mock filesystem
+    await expect(page.getByTestId('quick-file-0')).toHaveText('README');
   });
 });

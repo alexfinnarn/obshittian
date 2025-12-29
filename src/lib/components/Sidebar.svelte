@@ -1,8 +1,10 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   import QuickLinks from './QuickLinks.svelte';
   import QuickFiles from './QuickFiles.svelte';
   import SidebarTabs from './SidebarTabs.svelte';
   import Calendar from './Calendar.svelte';
+  import { on, type AppEvents } from '$lib/utils/eventBus';
 
   interface Props {
     /** Callback when a date is selected in the calendar */
@@ -14,12 +16,22 @@
   // Calendar component reference for keyboard navigation
   let calendarComponent: Calendar | null = $state(null);
 
+  // Listen for calendar:navigate events (from keyboard shortcuts)
+  const unsubscribeNavigate = on('calendar:navigate', (data: AppEvents['calendar:navigate']) => {
+    calendarComponent?.navigateDays(data.days);
+  });
+
+  onDestroy(() => {
+    unsubscribeNavigate();
+  });
+
   function handleDateSelect(date: Date) {
     ondateselect?.(date);
   }
 
   /**
    * Navigate calendar by days (for keyboard shortcuts).
+   * @deprecated Use calendar:navigate event instead
    */
   export function navigateCalendar(days: number): void {
     calendarComponent?.navigateDays(days);

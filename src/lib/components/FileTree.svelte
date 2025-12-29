@@ -95,7 +95,8 @@
 
   function closeContextMenu() {
     contextMenuVisible = false;
-    contextMenuTarget = null;
+    // Don't clear contextMenuTarget - it's still needed by action handlers
+    // It will be overwritten when the next context menu opens
   }
 
   // Build context menu items based on target

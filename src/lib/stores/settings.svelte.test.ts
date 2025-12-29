@@ -14,7 +14,6 @@ describe('settings store', () => {
       expect(settings.autoOpenTodayNote).toBe(true);
       expect(settings.restoreLastOpenFile).toBe(true);
       expect(settings.restorePaneWidth).toBe(true);
-      expect(settings.syncTempLimit).toBe(7);
       expect(settings.quickFilesLimit).toBe(5);
     });
   });
@@ -26,8 +25,8 @@ describe('settings store', () => {
     });
 
     it('updates multiple settings at once', () => {
-      updateSettings({ syncTempLimit: 14, quickFilesLimit: 10 });
-      expect(settings.syncTempLimit).toBe(14);
+      updateSettings({ autoOpenTodayNote: false, quickFilesLimit: 10 });
+      expect(settings.autoOpenTodayNote).toBe(false);
       expect(settings.quickFilesLimit).toBe(10);
     });
 
@@ -42,24 +41,22 @@ describe('settings store', () => {
     it('resets all settings to defaults', () => {
       updateSettings({
         autoOpenTodayNote: false,
-        syncTempLimit: 100,
         quickFilesLimit: 20,
       });
       resetSettings();
       expect(settings.autoOpenTodayNote).toBe(true);
-      expect(settings.syncTempLimit).toBe(7);
       expect(settings.quickFilesLimit).toBe(5);
     });
   });
 
   describe('saveSettings / loadSettings', () => {
     it('saves settings to localStorage', () => {
-      updateSettings({ syncTempLimit: 14 });
+      updateSettings({ quickFilesLimit: 14 });
       saveSettings();
       const stored = localStorage.getItem('editorSettings');
       expect(stored).not.toBeNull();
       const parsed = JSON.parse(stored!);
-      expect(parsed.syncTempLimit).toBe(14);
+      expect(parsed.quickFilesLimit).toBe(14);
     });
 
     it('loads settings from localStorage', () => {

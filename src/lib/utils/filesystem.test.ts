@@ -4,8 +4,6 @@ import {
   getLastOpenFile,
   savePaneWidth,
   getPaneWidth,
-  saveTempExports,
-  getTempExports,
 } from './filesystem';
 
 describe('filesystem utilities', () => {
@@ -44,27 +42,6 @@ describe('filesystem utilities', () => {
     it('handles decimal values', () => {
       savePaneWidth(350.5);
       expect(getPaneWidth()).toBe(350.5);
-    });
-  });
-
-  describe('saveTempExports / getTempExports', () => {
-    it('saves and retrieves temp exports', () => {
-      const exports = {
-        'folder/file1.md': 1702500000000,
-        'folder/file2.md': 1702600000000,
-      };
-      saveTempExports(exports);
-      expect(getTempExports()).toEqual(exports);
-    });
-
-    it('returns empty object when no exports saved', () => {
-      expect(getTempExports()).toEqual({});
-    });
-
-    it('overwrites previous exports', () => {
-      saveTempExports({ 'old.md': 1000 });
-      saveTempExports({ 'new.md': 2000 });
-      expect(getTempExports()).toEqual({ 'new.md': 2000 });
     });
   });
 });

@@ -92,31 +92,6 @@ export function getPaneWidth(): number | null {
 }
 
 // ============================================================================
-// Temporary exports tracking (for sync cleanup)
-// ============================================================================
-
-const TEMP_EXPORTS_KEY = 'editorTempExports';
-
-export interface TempExports {
-  [filePath: string]: number; // timestamp
-}
-
-/**
- * Save temporary exports tracking data
- */
-export function saveTempExports(exports: TempExports): void {
-  localStorage.setItem(TEMP_EXPORTS_KEY, JSON.stringify(exports));
-}
-
-/**
- * Get temporary exports tracking data
- */
-export function getTempExports(): TempExports {
-  const stored = localStorage.getItem(TEMP_EXPORTS_KEY);
-  return stored ? JSON.parse(stored) : {};
-}
-
-// ============================================================================
 // File operations
 // ============================================================================
 

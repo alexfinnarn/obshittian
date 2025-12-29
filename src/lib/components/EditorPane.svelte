@@ -1,8 +1,9 @@
 <script lang="ts">
+  import { onDestroy } from 'svelte';
   import CodeMirrorEditor from './CodeMirrorEditor.svelte';
   import MarkdownPreview from './MarkdownPreview.svelte';
   import TabBar from './TabBar.svelte';
-  import { emit } from '$lib/utils/eventBus';
+  import { on, emit, type AppEvents } from '$lib/utils/eventBus';
   import { setFocusedPane, type PaneId } from '$lib/stores/editor.svelte';
   import { tabsStore, getActiveTab } from '$lib/stores/tabs.svelte';
   import type { Tab } from '$lib/types/tabs';
@@ -11,6 +12,8 @@
     pane: PaneId;
     /** Display mode: 'single' for right pane, 'tabs' for left pane */
     mode?: 'single' | 'tabs';
+    /** Initial view mode: 'edit' or 'view' */
+    initialViewMode?: 'edit' | 'view';
     /** Filename (used in single mode) */
     filename?: string;
     /** Content (used in single mode) */
@@ -24,6 +27,7 @@
   let {
     pane,
     mode = 'single',
+    initialViewMode = 'edit',
     filename = '',
     content = '',
     isDirty = false,
@@ -31,10 +35,21 @@
   }: Props = $props();
 
   // View mode: 'edit' | 'view'
-  let viewMode = $state<'edit' | 'view'>('edit');
+  let viewMode = $state<'edit' | 'view'>(initialViewMode);
 
   // Reference to editor component for focus tracking
   let editorComponent: CodeMirrorEditor | null = $state(null);
+
+  // Listen for pane:toggleView events
+  const unsubscribeToggleView = on('pane:toggleView', (data: AppEvents['pane:toggleView']) => {
+    if (data.pane === pane) {
+      toggleViewMode();
+    }
+  });
+
+  onDestroy(() => {
+    unsubscribeToggleView();
+  });
 
   // Derive effective values based on mode
   // In tabs mode, these come from the active tab
