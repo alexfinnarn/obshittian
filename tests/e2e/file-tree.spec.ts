@@ -48,9 +48,9 @@ test.describe('File Tree', () => {
     // Should create a tab
     await expect(page.locator('[data-testid^="tab-"]').first()).toBeVisible();
 
-    // Editor should be visible in left pane
+    // Left pane should show markdown preview (starts in view mode)
     const leftPane = page.getByTestId('editor-pane-left');
-    await expect(leftPane.getByTestId('codemirror-editor')).toBeVisible();
+    await expect(leftPane.getByTestId('markdown-preview')).toBeVisible();
   });
 
   test('should sort folders before files', async ({ page }) => {

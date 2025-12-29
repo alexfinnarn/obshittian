@@ -31,10 +31,10 @@ body {
 }
 
 /* Remove list styles on ul, ol elements */
-ul,
-ol {
-  list-style: none;
-}
+/*ul,*/
+/*ol {*/
+/*  list-style: none;*/
+/*}*/
 
 /* Set shorter line heights on headings */
 h1,

@@ -1,29 +1,42 @@
 /**
  * Settings Store - Svelte 5 runes-based store for user preferences
  *
- * These settings correspond to the config.js options in the vanilla JS version.
- * Settings are persisted to localStorage when changed.
+ * Default values come from src/lib/config.ts.
+ * User overrides are persisted to localStorage.
  */
+
+import {
+  defaultConfig,
+  type KeyboardShortcuts,
+  type EditorConfig,
+} from '$lib/config';
 
 export interface Settings {
   autoOpenLastDirectory: boolean;
   autoOpenTodayNote: boolean;
   restoreLastOpenFile: boolean;
   restorePaneWidth: boolean;
-  syncTempLimit: number;
   quickFilesLimit: number;
+  shortcuts: KeyboardShortcuts;
+  // Vault-related settings from config
+  dailyNotesFolder: string;
+  defaultQuickLinks: EditorConfig['defaultQuickLinks'];
+  defaultQuickFiles: EditorConfig['defaultQuickFiles'];
 }
 
 /**
- * Default settings values
+ * Default settings values (from config.ts)
  */
 const DEFAULT_SETTINGS: Settings = {
-  autoOpenLastDirectory: true,
-  autoOpenTodayNote: true,
-  restoreLastOpenFile: true,
-  restorePaneWidth: true,
-  syncTempLimit: 7,
-  quickFilesLimit: 5,
+  autoOpenLastDirectory: defaultConfig.autoOpenLastDirectory,
+  autoOpenTodayNote: defaultConfig.autoOpenTodayNote,
+  restoreLastOpenFile: defaultConfig.restoreLastOpenFile,
+  restorePaneWidth: defaultConfig.restorePaneWidth,
+  quickFilesLimit: defaultConfig.quickFilesLimit,
+  shortcuts: { ...defaultConfig.shortcuts },
+  dailyNotesFolder: defaultConfig.dailyNotesFolder,
+  defaultQuickLinks: defaultConfig.defaultQuickLinks,
+  defaultQuickFiles: defaultConfig.defaultQuickFiles,
 };
 
 /**
@@ -33,17 +46,32 @@ const DEFAULT_SETTINGS: Settings = {
 export const settings = $state<Settings>({ ...DEFAULT_SETTINGS });
 
 /**
- * Update multiple settings at once
+ * Update multiple settings at once.
+ * Does a shallow merge for top-level and deep merge for shortcuts.
  */
 export function updateSettings(newSettings: Partial<Settings>): void {
-  Object.assign(settings, newSettings);
+  // Deep merge shortcuts if provided
+  if (newSettings.shortcuts) {
+    settings.shortcuts = {
+      ...settings.shortcuts,
+      ...newSettings.shortcuts,
+    };
+    // Remove shortcuts from newSettings to avoid overwriting
+    const { shortcuts: _, ...rest } = newSettings;
+    Object.assign(settings, rest);
+  } else {
+    Object.assign(settings, newSettings);
+  }
 }
 
 /**
  * Reset all settings to defaults
  */
 export function resetSettings(): void {
-  Object.assign(settings, DEFAULT_SETTINGS);
+  Object.assign(settings, {
+    ...DEFAULT_SETTINGS,
+    shortcuts: { ...DEFAULT_SETTINGS.shortcuts },
+  });
 }
 
 /**
@@ -59,6 +87,13 @@ export function loadSettings(): void {
   } catch {
     // Ignore errors, use defaults
   }
+}
+
+/**
+ * Get a specific shortcut binding
+ */
+export function getShortcut(name: keyof KeyboardShortcuts) {
+  return settings.shortcuts[name];
 }
 
 /**

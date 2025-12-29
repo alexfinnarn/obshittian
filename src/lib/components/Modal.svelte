@@ -1,6 +1,7 @@
 <script lang="ts">
   import { fade } from 'svelte/transition';
   import type { Snippet } from 'svelte';
+  import { blockShortcuts } from '$lib/stores/shortcuts.svelte';
 
   interface Props {
     visible?: boolean;
@@ -17,6 +18,22 @@
     children,
     footer,
   }: Props = $props();
+
+  // Track the unblock function outside of $effect to avoid reactivity issues
+  let currentUnblock: (() => void) | null = null;
+
+  // Block shortcuts when modal becomes visible
+  $effect.pre(() => {
+    const wasBlocked = currentUnblock !== null;
+    const shouldBlock = visible;
+
+    if (shouldBlock && !wasBlocked) {
+      currentUnblock = blockShortcuts('modal');
+    } else if (!shouldBlock && wasBlocked) {
+      currentUnblock?.();
+      currentUnblock = null;
+    }
+  });
 
   function handleKeydown(event: KeyboardEvent) {
     if (event.key === 'Escape' && visible && onclose) {

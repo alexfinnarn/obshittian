@@ -3,6 +3,14 @@
  * Mocks browser APIs not available in happy-dom
  */
 
+import { afterEach } from 'vitest';
+import { clearAllBlocks } from './lib/stores/shortcuts.svelte';
+
+// Clear shortcuts store between tests to prevent state leakage
+afterEach(() => {
+  clearAllBlocks();
+});
+
 // Mock Web Animations API for Svelte transitions
 Element.prototype.animate = function () {
   const animation = {

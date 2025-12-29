@@ -26,21 +26,12 @@ export function formatDailyNotePath(date: Date): {
 
 /**
  * Generate default template for a new daily note.
- * Includes sync: delete frontmatter (auto-upgrades to temporary when edited).
  */
 export function generateDailyNoteTemplate(date: Date): string {
   const { year, month, day } = formatDailyNotePath(date);
   const dayName = date.toLocaleDateString('en-US', { weekday: 'long' });
 
-  return `---
-sync: delete
----
-
-# ${year}-${month}-${day}
-
-## ${dayName}
-
-- [ ]
+  return `# ${dayName} - ${year}-${month}-${day}
 
 ## Notes
 

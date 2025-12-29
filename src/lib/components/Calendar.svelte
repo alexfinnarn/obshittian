@@ -15,6 +15,9 @@
   let container: HTMLDivElement;
   let picker: Pikaday | null = $state(null);
 
+  // Store reference to remove Pikaday's keyboard handler
+  let pikadayKeyHandler: ((e: KeyboardEvent) => void) | null = null;
+
   onMount(() => {
     picker = new Pikaday({
       bound: false,
@@ -26,6 +29,15 @@
       },
     });
     container.appendChild(picker.el);
+
+    // Disable Pikaday's built-in keyboard navigation
+    // We handle keyboard nav in App.svelte with Cmd+Arrow shortcuts
+    // Pikaday stores its handler as _onKeyChange and registers it on document
+    const pickerAny = picker as unknown as { _onKeyChange?: (e: KeyboardEvent) => void };
+    if (pickerAny._onKeyChange) {
+      pikadayKeyHandler = pickerAny._onKeyChange;
+      document.removeEventListener('keydown', pikadayKeyHandler, true);
+    }
   });
 
   onDestroy(() => {

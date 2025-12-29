@@ -6,10 +6,11 @@
  * to allow reactive updates across the app.
  */
 
+import { defaultConfig } from '$lib/config';
+
 export interface VaultState {
   rootDirHandle: FileSystemDirectoryHandle | null;
   dailyNotesFolder: string;
-  syncDirectory: string;
 }
 
 /**
@@ -18,8 +19,7 @@ export interface VaultState {
  */
 export const vault = $state<VaultState>({
   rootDirHandle: null,
-  dailyNotesFolder: 'zzz_Daily Notes',
-  syncDirectory: 'zzzz_exports',
+  dailyNotesFolder: defaultConfig.dailyNotesFolder,
 });
 
 /**
@@ -50,8 +50,5 @@ export function closeVault(): void {
 export function updateVaultConfig(config: Partial<Omit<VaultState, 'rootDirHandle'>>): void {
   if (config.dailyNotesFolder !== undefined) {
     vault.dailyNotesFolder = config.dailyNotesFolder;
-  }
-  if (config.syncDirectory !== undefined) {
-    vault.syncDirectory = config.syncDirectory;
   }
 }

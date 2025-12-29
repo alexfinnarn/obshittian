@@ -1,49 +1,40 @@
 <script lang="ts">
   // Minimal MD Editor - Svelte 5 Migration
-  // Phase 9: Sync & Persistence
   import { onMount, onDestroy } from 'svelte';
   import Sidebar from '$lib/components/Sidebar.svelte';
   import EditorPane from '$lib/components/EditorPane.svelte';
   import PaneResizer from '$lib/components/PaneResizer.svelte';
   import VaultPicker from '$lib/components/VaultPicker.svelte';
+  import TodoList from '$lib/components/TodoList.svelte';
   import { on, emit, type AppEvents } from '$lib/utils/eventBus';
   import { vault, openVault, getIsVaultOpen } from '$lib/stores/vault.svelte';
   import { settings, loadSettings } from '$lib/stores/settings.svelte';
-  import {
-    editor,
-    openFileInPane,
-    updatePaneContent,
-    markPaneClean,
-    getFocusedPane,
-    type PaneId,
-  } from '$lib/stores/editor.svelte';
+  import { editor, updatePaneContent } from '$lib/stores/editor.svelte';
   import {
     tabsStore,
     getActiveTab,
-    addTab,
-    replaceCurrentTab,
-    removeTab,
     switchTab,
     updateTabContent,
-    markTabClean,
-    findTabByPath,
     getTabsFromStorage,
-    setTabs,
     saveTabsToStorage,
   } from '$lib/stores/tabs.svelte';
-  import { createTab, type Tab } from '$lib/types/tabs';
-  import { writeToFile, getRelativePath } from '$lib/utils/fileOperations';
+  import { shortcut } from '$lib/actions/shortcut';
+  import {
+    handleSave,
+    handleToggleView,
+    handleCloseTab,
+    handleNextTab,
+    handlePrevTab,
+    createCalendarNavigator,
+  } from '$lib/services/shortcutHandlers';
   import {
     savePaneWidth,
     getPaneWidth,
     getDirectoryHandle,
     saveLastOpenFile,
-    getLastOpenFile,
   } from '$lib/utils/filesystem';
-  import { getOrCreateDailyNote } from '$lib/utils/dailyNotes';
   import {
     buildTagIndex,
-    updateFileInIndex,
     removeFileFromIndex,
     renameFileInIndex,
     initializeFuseFromIndex,
@@ -51,19 +42,12 @@
   import {
     setIndexing,
     loadTagIndexFromStorage,
-    isIndexBuilt,
   } from '$lib/stores/tags.svelte';
-  import {
-    processSync,
-    cleanupTempExports,
-    getSyncMode,
-    isDailyNote,
-    parseDailyNotePath,
-    isDailyNoteModified,
-    SYNC_MODES,
-  } from '$lib/utils/sync';
-  import { updateFrontmatterKey } from '$lib/utils/frontmatter';
+  import { loadVaultConfig } from '$lib/stores/vaultConfig.svelte';
+  import { loadTodos, loadShowCompleted, resetTodos } from '$lib/stores/todos.svelte';
   import { isTestMode, getMockVaultHandle } from '$lib/utils/mockFilesystem';
+  import { openFileInTabs, openFileInSinglePane, openDailyNote } from '$lib/services/fileOpen';
+  import { saveFile } from '$lib/services/fileSave';
 
   // Event bus subscriptions
   let unsubscribers: (() => void)[] = [];
@@ -74,10 +58,6 @@
   // Vault restoration state
   let isRestoringVault = $state(true); // Start true to avoid flash of VaultPicker
 
-  // Component references
-  let leftPaneComponent: EditorPane | null = $state(null);
-  let rightPaneComponent: EditorPane | null = $state(null);
-  let sidebarComponent: Sidebar | null = $state(null);
 
   onMount(async () => {
     // Load settings first
@@ -101,9 +81,9 @@
       on('file:open', async (data: AppEvents['file:open']) => {
         const pane = data.pane ?? 'left';
         if (pane === 'left') {
-          await handleFileOpenInTabs(data.path, data.openInNewTab ?? false);
+          await openFileInTabs(data.path, data.openInNewTab ?? false);
         } else {
-          await handleFileOpen(data.path, pane);
+          await openFileInSinglePane(data.path, pane);
         }
       })
     );
@@ -111,7 +91,7 @@
     // Listen for file:save events
     unsubscribers.push(
       on('file:save', async (data: AppEvents['file:save']) => {
-        await handleFileSave(data.pane);
+        await saveFile(data.pane);
       })
     );
 
@@ -132,12 +112,9 @@
     // Listen for daily note open events
     unsubscribers.push(
       on('dailynote:open', async (data: AppEvents['dailynote:open']) => {
-        await handleDailyNoteOpen(data.date);
+        await openDailyNote(data.date);
       })
     );
-
-    // Register keyboard shortcuts
-    window.addEventListener('keydown', handleKeydown);
   });
 
   // Auto-save tabs when they change
@@ -202,19 +179,16 @@
 
     if (!vault.rootDirHandle) return;
 
-    // Run sync cleanup
-    try {
-      const deleted = await cleanupTempExports(
-        vault.rootDirHandle,
-        vault.syncDirectory,
-        settings.syncTempLimit
-      );
-      if (deleted > 0) {
-        console.log(`Sync: Cleaned up ${deleted} old temporary export(s)`);
-      }
-    } catch (err) {
-      console.error('Sync cleanup error:', err);
-    }
+    // Load vault config (Quick Links, Quick Files) from .editor-config.json
+    // Falls back to defaults from src/lib/config.ts via settings store
+    await loadVaultConfig(vault.rootDirHandle, {
+      quickLinks: settings.defaultQuickLinks,
+      quickFiles: settings.defaultQuickFiles,
+    });
+
+    // Load todos from vault
+    loadShowCompleted();
+    await loadTodos();
 
     // Initialize tag index
     await initializeTagIndex();
@@ -224,7 +198,7 @@
 
     // Open today's note if configured
     if (settings.autoOpenTodayNote) {
-      await handleDailyNoteOpen(new Date());
+      await openDailyNote(new Date());
     }
   }
 
@@ -238,7 +212,7 @@
     // Re-open each stored tab
     for (const tabData of storedTabs.tabs) {
       try {
-        await handleFileOpenInTabs(tabData.relativePath, true);
+        await openFileInTabs(tabData.relativePath, true);
       } catch (err) {
         console.error('Failed to restore tab:', tabData.relativePath, err);
       }
@@ -289,319 +263,13 @@
   onDestroy(() => {
     // Cleanup event bus subscriptions
     unsubscribers.forEach((unsubscribe) => unsubscribe());
-
-    // Remove keyboard listener
-    window.removeEventListener('keydown', handleKeydown);
   });
-
-  /**
-   * Load a file by path and return handles + content
-   */
-  async function loadFile(relativePath: string): Promise<{
-    fileHandle: FileSystemFileHandle;
-    dirHandle: FileSystemDirectoryHandle;
-    content: string;
-  }> {
-    if (!vault.rootDirHandle) {
-      throw new Error('No vault open');
-    }
-
-    const pathParts = relativePath.split('/');
-    const filename = pathParts.pop()!;
-    let currentDir = vault.rootDirHandle;
-
-    for (const part of pathParts) {
-      currentDir = await currentDir.getDirectoryHandle(part);
-    }
-
-    const fileHandle = await currentDir.getFileHandle(filename);
-    const file = await fileHandle.getFile();
-    const content = await file.text();
-
-    return { fileHandle, dirHandle: currentDir, content };
-  }
-
-  /**
-   * Open a file in the left pane using tabs
-   * @param relativePath - Path to file from vault root
-   * @param openInNewTab - If true, always open in new tab. If false, replace current tab.
-   */
-  async function handleFileOpenInTabs(relativePath: string, openInNewTab: boolean) {
-    try {
-      // Check if already open
-      const existingIndex = findTabByPath(relativePath);
-      if (existingIndex >= 0) {
-        switchTab(existingIndex);
-        return;
-      }
-
-      // Load file content
-      const { fileHandle, dirHandle, content } = await loadFile(relativePath);
-
-      // Create tab
-      const tab = createTab(fileHandle, dirHandle, content, relativePath);
-
-      if (openInNewTab) {
-        // Add as new tab
-        addTab(tab);
-      } else {
-        // Replace current tab
-        replaceCurrentTab(tab);
-      }
-    } catch (err) {
-      console.error('Failed to open file:', err);
-    }
-  }
-
-  /**
-   * Open a file by path in the right pane (single-file mode)
-   */
-  async function handleFileOpen(relativePath: string, pane: PaneId) {
-    try {
-      const { fileHandle, dirHandle, content } = await loadFile(relativePath);
-      openFileInPane(pane, fileHandle, dirHandle, content, relativePath);
-    } catch (err) {
-      console.error('Failed to open file:', err);
-    }
-  }
-
-  /**
-   * Open a daily note for the given date in the right pane.
-   */
-  async function handleDailyNoteOpen(date: Date) {
-    if (!vault.rootDirHandle) {
-      console.error('No vault open');
-      return;
-    }
-
-    try {
-      const { fileHandle, dirHandle, relativePath, content, isNew } =
-        await getOrCreateDailyNote(
-          vault.rootDirHandle,
-          vault.dailyNotesFolder,
-          date
-        );
-
-      // Open in right pane (single-file mode for daily notes)
-      openFileInPane('right', fileHandle, dirHandle, content, relativePath);
-
-      if (isNew) {
-        emit('file:created', { path: relativePath });
-        // Refresh file tree to show the new file
-        emit('tree:refresh', undefined as unknown as void);
-      }
-    } catch (err) {
-      console.error('Failed to open daily note:', err);
-    }
-  }
 
   /**
    * Handle date selection from calendar.
    */
   function handleDateSelect(date: Date) {
     emit('dailynote:open', { date });
-  }
-
-  /**
-   * Save the file in the specified pane
-   */
-  async function handleFileSave(pane: PaneId) {
-    if (pane === 'left') {
-      // Use tabs for left pane
-      const activeTab = getActiveTab();
-      if (!activeTab || !activeTab.isDirty) {
-        return;
-      }
-
-      let content = activeTab.editorContent;
-      const relativePath = activeTab.relativePath;
-
-      // Auto-upgrade daily notes from delete to temporary when modified
-      if (relativePath && isDailyNote(relativePath, vault.dailyNotesFolder)) {
-        const syncMode = getSyncMode(content);
-        if (syncMode === SYNC_MODES.DELETE || syncMode === null) {
-          const date = parseDailyNotePath(relativePath);
-          if (date && isDailyNoteModified(content, date)) {
-            content = updateFrontmatterKey(content, 'sync', 'temporary');
-            updateTabContent(tabsStore.activeTabIndex, content);
-          }
-        }
-      }
-
-      try {
-        await writeToFile(activeTab.fileHandle, content);
-        markTabClean(tabsStore.activeTabIndex, content);
-        console.log('File saved:', activeTab.filename);
-
-        // Update tag index after save
-        if (relativePath) {
-          updateFileInIndex(relativePath, content);
-        }
-
-        // Process sync
-        if (relativePath && vault.rootDirHandle) {
-          const result = await processSync(
-            relativePath,
-            content,
-            vault.rootDirHandle,
-            vault.syncDirectory
-          );
-          if (result.action !== 'none') {
-            console.log(`Sync: ${result.action} - ${result.path}`);
-          }
-
-          // Cleanup after each save
-          await cleanupTempExports(
-            vault.rootDirHandle,
-            vault.syncDirectory,
-            settings.syncTempLimit
-          );
-        }
-      } catch (err) {
-        console.error('Failed to save file:', err);
-      }
-    } else {
-      // Use editor store for right pane (daily notes)
-      const state = editor[pane];
-      if (!state.fileHandle || !state.isDirty) {
-        return;
-      }
-
-      let content = state.content;
-      const relativePath = state.relativePath;
-
-      // Auto-upgrade daily notes from delete to temporary when modified
-      if (relativePath && isDailyNote(relativePath, vault.dailyNotesFolder)) {
-        const syncMode = getSyncMode(content);
-        if (syncMode === SYNC_MODES.DELETE || syncMode === null) {
-          const date = parseDailyNotePath(relativePath);
-          if (date && isDailyNoteModified(content, date)) {
-            content = updateFrontmatterKey(content, 'sync', 'temporary');
-            updatePaneContent(pane, content);
-          }
-        }
-      }
-
-      try {
-        await writeToFile(state.fileHandle, content);
-        markPaneClean(pane, content);
-        console.log('File saved:', state.fileHandle.name);
-
-        // Update tag index after save
-        if (relativePath) {
-          updateFileInIndex(relativePath, content);
-        }
-
-        // Process sync
-        if (relativePath && vault.rootDirHandle) {
-          const result = await processSync(
-            relativePath,
-            content,
-            vault.rootDirHandle,
-            vault.syncDirectory
-          );
-          if (result.action !== 'none') {
-            console.log(`Sync: ${result.action} - ${result.path}`);
-          }
-
-          // Cleanup after each save
-          await cleanupTempExports(
-            vault.rootDirHandle,
-            vault.syncDirectory,
-            settings.syncTempLimit
-          );
-        }
-      } catch (err) {
-        console.error('Failed to save file:', err);
-      }
-    }
-  }
-
-  /**
-   * Handle keyboard shortcuts
-   */
-  function handleKeydown(event: KeyboardEvent) {
-    const isMod = event.metaKey || event.ctrlKey;
-
-    // Cmd/Ctrl+S - Save
-    if (isMod && event.key === 's') {
-      event.preventDefault();
-      const focused = getFocusedPane();
-      if (focused) {
-        emit('file:save', { pane: focused });
-      } else {
-        // Save both panes if neither is focused
-        const activeTab = getActiveTab();
-        if (activeTab?.isDirty) emit('file:save', { pane: 'left' });
-        if (editor.right.isDirty) emit('file:save', { pane: 'right' });
-      }
-    }
-
-    // Cmd/Ctrl+E - Toggle view mode
-    if (isMod && event.key === 'e') {
-      event.preventDefault();
-      const focused = getFocusedPane();
-      if (focused === 'left') {
-        leftPaneComponent?.toggleViewMode();
-      } else if (focused === 'right') {
-        rightPaneComponent?.toggleViewMode();
-      }
-    }
-
-    // Cmd/Ctrl+W - Close current tab (left pane only)
-    if (isMod && event.key === 'w') {
-      event.preventDefault();
-      const focused = getFocusedPane();
-      if (focused === 'left' && tabsStore.tabs.length > 0) {
-        removeTab(tabsStore.activeTabIndex);
-      }
-    }
-
-    // Cmd/Ctrl+Tab - Next tab
-    if (isMod && event.key === 'Tab' && !event.shiftKey) {
-      event.preventDefault();
-      if (tabsStore.tabs.length > 1) {
-        const nextIndex = (tabsStore.activeTabIndex + 1) % tabsStore.tabs.length;
-        switchTab(nextIndex);
-      }
-    }
-
-    // Cmd/Ctrl+Shift+Tab - Previous tab
-    if (isMod && event.key === 'Tab' && event.shiftKey) {
-      event.preventDefault();
-      if (tabsStore.tabs.length > 1) {
-        const prevIndex = (tabsStore.activeTabIndex - 1 + tabsStore.tabs.length) % tabsStore.tabs.length;
-        switchTab(prevIndex);
-      }
-    }
-
-    // Daily note navigation (only when right pane is focused)
-    const focused = getFocusedPane();
-    if (focused === 'right' && isMod) {
-      // Cmd/Ctrl+Left - Previous day
-      if (event.key === 'ArrowLeft') {
-        event.preventDefault();
-        sidebarComponent?.navigateCalendar(-1);
-      }
-
-      // Cmd/Ctrl+Right - Next day
-      if (event.key === 'ArrowRight') {
-        event.preventDefault();
-        sidebarComponent?.navigateCalendar(1);
-      }
-
-      // Cmd/Ctrl+Up - Previous week
-      if (event.key === 'ArrowUp') {
-        event.preventDefault();
-        sidebarComponent?.navigateCalendar(-7);
-      }
-
-      // Cmd/Ctrl+Down - Next week
-      if (event.key === 'ArrowDown') {
-        event.preventDefault();
-        sidebarComponent?.navigateCalendar(7);
-      }
-    }
   }
 
   /**
@@ -635,15 +303,27 @@
 {:else if !getIsVaultOpen()}
   <VaultPicker onopen={onVaultOpened} />
 {:else}
-  <div class="app" data-testid="app-container">
-    <Sidebar bind:this={sidebarComponent} ondateselect={handleDateSelect} />
+  <div
+    class="app"
+    data-testid="app-container"
+    use:shortcut={{ binding: 'save', handler: handleSave }}
+    use:shortcut={{ binding: 'toggleView', handler: handleToggleView }}
+    use:shortcut={{ binding: 'closeTab', handler: handleCloseTab }}
+    use:shortcut={{ binding: 'nextTab', handler: handleNextTab }}
+    use:shortcut={{ binding: 'prevTab', handler: handlePrevTab }}
+    use:shortcut={{ binding: 'prevDay', handler: createCalendarNavigator(-1), when: { focusedPane: 'right' } }}
+    use:shortcut={{ binding: 'nextDay', handler: createCalendarNavigator(1), when: { focusedPane: 'right' } }}
+    use:shortcut={{ binding: 'prevWeek', handler: createCalendarNavigator(-7), when: { focusedPane: 'right' } }}
+    use:shortcut={{ binding: 'nextWeek', handler: createCalendarNavigator(7), when: { focusedPane: 'right' } }}
+  >
+    <Sidebar ondateselect={handleDateSelect} />
 
     <main class="editor-area" data-testid="editor-area">
       <div class="pane left-pane" style="flex: {leftPaneWidthPercent}" data-testid="left-pane">
         <EditorPane
-          bind:this={leftPaneComponent}
           pane="left"
           mode="tabs"
+          initialViewMode="view"
           oncontentchange={handleLeftContentChange}
         />
       </div>
@@ -651,15 +331,17 @@
       <PaneResizer onresize={handlePaneResize} />
 
       <div class="pane right-pane" style="flex: {100 - leftPaneWidthPercent}" data-testid="right-pane">
-        <EditorPane
-          bind:this={rightPaneComponent}
-          pane="right"
-          mode="single"
-          filename={editor.right.fileHandle?.name ?? ''}
-          content={editor.right.content}
-          isDirty={editor.right.isDirty}
-          oncontentchange={handleRightContentChange}
-        />
+        <TodoList />
+        <div class="right-pane-editor">
+          <EditorPane
+            pane="right"
+            mode="single"
+            filename={editor.right.fileHandle?.name ?? ''}
+            content={editor.right.content}
+            isDirty={editor.right.isDirty}
+            oncontentchange={handleRightContentChange}
+          />
+        </div>
       </div>
     </main>
   </div>
@@ -688,5 +370,12 @@
     flex-direction: column;
     min-width: 0;
     background: var(--editor-bg, #1e1e1e);
+  }
+
+  .right-pane-editor {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
   }
 </style>

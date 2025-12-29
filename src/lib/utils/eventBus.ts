@@ -31,6 +31,10 @@ export interface AppEvents {
   'modal:open': { id: string };
   'modal:close': { id: string };
   'tags:reindex': ReindexEventData;
+  /** Toggle view mode (edit/preview) for a specific pane */
+  'pane:toggleView': { pane: 'left' | 'right' };
+  /** Navigate the calendar by a number of days */
+  'calendar:navigate': { days: number };
 }
 
 // Event listeners storage

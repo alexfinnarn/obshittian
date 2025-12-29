@@ -6,7 +6,6 @@ describe('vault store', () => {
     // Reset vault state before each test
     closeVault();
     vault.dailyNotesFolder = 'zzz_Daily Notes';
-    vault.syncDirectory = 'zzzz_exports';
   });
 
   describe('initial state', () => {
@@ -16,10 +15,6 @@ describe('vault store', () => {
 
     it('has default dailyNotesFolder', () => {
       expect(vault.dailyNotesFolder).toBe('zzz_Daily Notes');
-    });
-
-    it('has default syncDirectory', () => {
-      expect(vault.syncDirectory).toBe('zzzz_exports');
     });
 
     it('getIsVaultOpen() returns false initially', () => {
@@ -62,22 +57,6 @@ describe('vault store', () => {
     it('updates dailyNotesFolder', () => {
       updateVaultConfig({ dailyNotesFolder: 'Daily' });
       expect(vault.dailyNotesFolder).toBe('Daily');
-    });
-
-    it('updates syncDirectory', () => {
-      updateVaultConfig({ syncDirectory: 'exports' });
-      expect(vault.syncDirectory).toBe('exports');
-    });
-
-    it('updates multiple properties at once', () => {
-      updateVaultConfig({ dailyNotesFolder: 'Notes', syncDirectory: 'sync' });
-      expect(vault.dailyNotesFolder).toBe('Notes');
-      expect(vault.syncDirectory).toBe('sync');
-    });
-
-    it('does not affect unspecified properties', () => {
-      updateVaultConfig({ dailyNotesFolder: 'Daily' });
-      expect(vault.syncDirectory).toBe('zzzz_exports');
     });
   });
 });

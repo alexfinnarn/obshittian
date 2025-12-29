@@ -43,33 +43,11 @@ describe('dailyNotes utilities', () => {
   });
 
   describe('generateDailyNoteTemplate', () => {
-    it('includes the formatted date in heading', () => {
-      const date = new Date(2024, 11, 25);
-      const template = generateDailyNoteTemplate(date);
-
-      expect(template).toContain('# 2024-12-25');
-    });
-
-    it('includes the day name', () => {
+    it('includes day name and date in heading', () => {
       const date = new Date(2024, 11, 25); // Wednesday
       const template = generateDailyNoteTemplate(date);
 
-      expect(template).toContain('## Wednesday');
-    });
-
-    it('includes sync: delete frontmatter', () => {
-      const date = new Date(2024, 11, 25);
-      const template = generateDailyNoteTemplate(date);
-
-      expect(template).toContain('---');
-      expect(template).toContain('sync: delete');
-    });
-
-    it('includes empty task checkbox', () => {
-      const date = new Date(2024, 11, 25);
-      const template = generateDailyNoteTemplate(date);
-
-      expect(template).toContain('- [ ]');
+      expect(template).toContain('# Wednesday - 2024-12-25');
     });
 
     it('includes Notes section', () => {
@@ -77,6 +55,13 @@ describe('dailyNotes utilities', () => {
       const template = generateDailyNoteTemplate(date);
 
       expect(template).toContain('## Notes');
+    });
+
+    it('does not include task checkbox placeholder', () => {
+      const date = new Date(2024, 11, 25);
+      const template = generateDailyNoteTemplate(date);
+
+      expect(template).not.toContain('- [ ]');
     });
   });
 
@@ -162,8 +147,7 @@ describe('dailyNotes utilities', () => {
       const result = await getOrCreateDailyNote(mockRootHandle, 'zzz_Daily Notes', date);
 
       expect(result.isNew).toBe(true);
-      expect(result.content).toContain('sync: delete');
-      expect(result.content).toContain('# 2024-12-25');
+      expect(result.content).toContain('# Wednesday - 2024-12-25');
       expect(mockWritable.write).toHaveBeenCalled();
       expect(mockWritable.close).toHaveBeenCalled();
     });
