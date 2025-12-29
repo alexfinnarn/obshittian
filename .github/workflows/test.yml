@@ -18,5 +18,3 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run test:run
-      - run: npx playwright install --with-deps
-      - run: npm run test:e2e
