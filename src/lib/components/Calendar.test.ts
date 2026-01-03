@@ -2,51 +2,87 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/svelte';
 import Calendar from './Calendar.svelte';
 
-// Store options for inspection
-let lastPikadayOptions: Record<string, unknown> | null = null;
+// Use vi.hoisted to ensure mockState is available to the mock factory
+const mockState = vi.hoisted(() => ({
+  lastCalendarOptions: null as Record<string, unknown> | null,
+  mockCalendarInstance: null as {
+    selectedDates: string[];
+    selectedMonth: number;
+    selectedYear: number;
+    set: (options: Record<string, unknown>) => void;
+    update: () => void;
+    simulateDateClick: () => void;
+  } | null,
+}));
 
-// Mock Pikaday since it manipulates the DOM directly
-// Using a class to satisfy the 'new' constructor call
-vi.mock('pikaday', () => {
-  class MockPikaday {
-    el: HTMLElement;
-    private currentDate: Date;
-    private onSelectCallback?: (date: Date) => void;
+// Mock Vanilla Calendar Pro since it manipulates the DOM directly
+vi.mock('vanilla-calendar-pro', () => {
+  class MockVanillaCalendar {
+    selectedDates: string[];
+    selectedMonth: number;
+    selectedYear: number;
+    private container: HTMLElement;
+    private onClickDateCallback?: (self: MockVanillaCalendar) => void;
 
-    constructor(options: Record<string, unknown>) {
-      lastPikadayOptions = options;
-      this.el = document.createElement('div');
-      this.el.className = 'pika-single';
-      this.el.innerHTML = '<div class="pika-lendar">Mock Calendar</div>';
-      this.currentDate = (options.defaultDate as Date) || new Date();
-      this.onSelectCallback = options.onSelect as ((date: Date) => void) | undefined;
+    constructor(container: HTMLElement, options: Record<string, unknown>) {
+      mockState.lastCalendarOptions = options;
+      this.container = container;
+      this.selectedDates = (options.selectedDates as string[]) || [];
+      this.selectedMonth = (options.selectedMonth as number) ?? new Date().getMonth();
+      this.selectedYear = (options.selectedYear as number) ?? new Date().getFullYear();
+      this.onClickDateCallback = options.onClickDate as ((self: MockVanillaCalendar) => void) | undefined;
+      mockState.mockCalendarInstance = this as unknown as typeof mockState.mockCalendarInstance;
     }
 
-    destroy() {}
-
-    getDate(): Date {
-      return this.currentDate;
+    init() {
+      // Create mock calendar DOM
+      const calendarEl = document.createElement('div');
+      calendarEl.className = 'vc-calendar';
+      calendarEl.innerHTML = '<div class="vc-dates">Mock Calendar</div>';
+      this.container.appendChild(calendarEl);
     }
 
-    setDate(date: Date) {
-      this.currentDate = date;
-      if (this.onSelectCallback) {
-        this.onSelectCallback(date);
+    destroy() {
+      // Don't actually manipulate DOM in tests to avoid happy-dom issues
+    }
+
+    set(options: Record<string, unknown>) {
+      if (options.selectedDates) {
+        this.selectedDates = options.selectedDates as string[];
+      }
+      if (options.selectedMonth !== undefined) {
+        this.selectedMonth = options.selectedMonth as number;
+      }
+      if (options.selectedYear !== undefined) {
+        this.selectedYear = options.selectedYear as number;
       }
     }
 
-    gotoDate() {}
+    update() {
+      // No-op in mock
+    }
+
+    // Helper for tests to simulate date click
+    simulateDateClick() {
+      if (this.onClickDateCallback) {
+        this.onClickDateCallback(this);
+      }
+    }
   }
 
-  return { default: MockPikaday };
+  return {
+    Calendar: MockVanillaCalendar,
+  };
 });
 
-// Mock Pikaday CSS import
-vi.mock('pikaday/css/pikaday.css', () => ({}));
+// Mock Vanilla Calendar Pro CSS import
+vi.mock('vanilla-calendar-pro/styles/index.css', () => ({}));
 
 describe('Calendar component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockState.lastCalendarOptions = null;
+    mockState.mockCalendarInstance = null;
   });
 
   afterEach(() => {
@@ -59,94 +95,74 @@ describe('Calendar component', () => {
     expect(container).toBeTruthy();
   });
 
-  it('renders Pikaday calendar element', () => {
+  it('renders Vanilla Calendar Pro element', () => {
     render(Calendar);
-    const pikadayEl = document.querySelector('.pika-single');
-    expect(pikadayEl).toBeTruthy();
-  });
-
-  it('calls onselect when date is selected via setDate', async () => {
-    const onselect = vi.fn();
-    const { component } = render(Calendar, { props: { onselect } });
-
-    const testDate = new Date(2024, 11, 25);
-    component.gotoDate(testDate);
-
-    expect(onselect).toHaveBeenCalledWith(testDate);
+    const calendarEl = document.querySelector('.vc-calendar');
+    expect(calendarEl).toBeTruthy();
   });
 
   it('getDate returns current selection', () => {
-    const { component } = render(Calendar);
+    const startDate = new Date(2024, 11, 25);
+    const { component } = render(Calendar, {
+      props: { selectedDate: startDate },
+    });
     const date = component.getDate();
     expect(date).toBeInstanceOf(Date);
+    expect(date?.getDate()).toBe(25);
   });
 
-  it('navigateDays moves selection forward', () => {
-    const onselect = vi.fn();
+  it('gotoDate updates calendar selection', () => {
     const startDate = new Date(2024, 11, 25);
     const { component } = render(Calendar, {
-      props: { selectedDate: startDate, onselect },
+      props: { selectedDate: startDate },
     });
-
-    component.navigateDays(1);
-
-    expect(onselect).toHaveBeenCalled();
-    const calledDate = onselect.mock.calls[0][0];
-    expect(calledDate.getDate()).toBe(26);
-  });
-
-  it('navigateDays moves selection backward', () => {
-    const onselect = vi.fn();
-    const startDate = new Date(2024, 11, 25);
-    const { component } = render(Calendar, {
-      props: { selectedDate: startDate, onselect },
-    });
-
-    component.navigateDays(-1);
-
-    expect(onselect).toHaveBeenCalled();
-    const calledDate = onselect.mock.calls[0][0];
-    expect(calledDate.getDate()).toBe(24);
-  });
-
-  it('navigateDays handles week navigation', () => {
-    const onselect = vi.fn();
-    const startDate = new Date(2024, 11, 25);
-    const { component } = render(Calendar, {
-      props: { selectedDate: startDate, onselect },
-    });
-
-    component.navigateDays(7);
-
-    expect(onselect).toHaveBeenCalled();
-    const calledDate = onselect.mock.calls[0][0];
-    expect(calledDate.getMonth()).toBe(0); // January (next month)
-    expect(calledDate.getDate()).toBe(1);
-  });
-
-  it('gotoDate sets specific date', () => {
-    const onselect = vi.fn();
-    const { component } = render(Calendar, { props: { onselect } });
 
     const targetDate = new Date(2024, 5, 15);
     component.gotoDate(targetDate);
 
-    expect(onselect).toHaveBeenCalledWith(targetDate);
+    // Verify the mock calendar was updated
+    expect(mockState.mockCalendarInstance?.selectedDates).toContain('2024-06-15');
+    expect(mockState.mockCalendarInstance?.selectedMonth).toBe(5);
+    expect(mockState.mockCalendarInstance?.selectedYear).toBe(2024);
   });
 
   it('uses default date when selectedDate prop is not provided', () => {
     render(Calendar);
 
-    expect(lastPikadayOptions).not.toBeNull();
-    expect(lastPikadayOptions!.defaultDate).toBeInstanceOf(Date);
-    expect(lastPikadayOptions!.setDefaultDate).toBe(true);
+    expect(mockState.lastCalendarOptions).not.toBeNull();
+    expect(mockState.lastCalendarOptions!.selectedDates).toBeDefined();
+    expect(mockState.lastCalendarOptions!.selectedTheme).toBe('dark');
   });
 
-  it('uses provided selectedDate as default', () => {
+  it('uses provided selectedDate as initial date', () => {
     const customDate = new Date(2024, 6, 4);
     render(Calendar, { props: { selectedDate: customDate } });
 
-    expect(lastPikadayOptions).not.toBeNull();
-    expect(lastPikadayOptions!.defaultDate).toEqual(customDate);
+    expect(mockState.lastCalendarOptions).not.toBeNull();
+    expect(mockState.lastCalendarOptions!.selectedDates).toContain('2024-07-04');
+    expect(mockState.lastCalendarOptions!.selectedMonth).toBe(6);
+    expect(mockState.lastCalendarOptions!.selectedYear).toBe(2024);
+  });
+
+  it('configures calendar with disableAllDates and enableDates', () => {
+    const datesWithEntries = ['2024-12-20', '2024-12-22'];
+    render(Calendar, { props: { datesWithEntries } });
+
+    expect(mockState.lastCalendarOptions).not.toBeNull();
+    expect(mockState.lastCalendarOptions!.disableAllDates).toBe(true);
+    expect(mockState.lastCalendarOptions!.enableDates).toBeDefined();
+    // Should include today and dates with entries
+    const enableDates = mockState.lastCalendarOptions!.enableDates as string[];
+    expect(enableDates).toContain('2024-12-20');
+    expect(enableDates).toContain('2024-12-22');
+  });
+
+  it('enables today even without entries', () => {
+    render(Calendar, { props: { datesWithEntries: [] } });
+
+    expect(mockState.lastCalendarOptions).not.toBeNull();
+    const enableDates = mockState.lastCalendarOptions!.enableDates as string[];
+    // Today should always be enabled
+    expect(enableDates.length).toBe(1);
   });
 });

@@ -56,12 +56,6 @@ Element.prototype.animate = function () {
 // Mock alert for tests
 globalThis.alert = () => {};
 
-// Mock showOpenFilePicker for File System Access API tests
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-(globalThis as any).showOpenFilePicker = async (): Promise<FileSystemFileHandle[]> => {
-  throw new DOMException('User cancelled', 'AbortError');
-};
-
 // Mock matchMedia for responsive queries
 Object.defineProperty(window, 'matchMedia', {
   writable: true,

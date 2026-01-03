@@ -11,7 +11,7 @@ application.
 ```
 plans/
 ├── README.md
-├── _archived/
+├── zzz_archived/
 │   └── README.md
 ├── MAIN_PLAN.md              # Main plan overview
 ├── main_plan-phase-01-start.md
@@ -99,8 +99,8 @@ Detailed outline of what will be created/changed.
 
 When all phases are complete:
 
-1. Create a directory in `_archived/` named after the plan (lowercase with hyphens)
+1. Create a directory in `zzz_archived/` named after the plan (lowercase with hyphens)
 2. Move all phase files into that directory
 3. Optionally keep or remove the main plan file
 
-See [_archived/README.md](_archived/README.md) for archive structure details.
+See [zzz_archived/README.md](zzz_archived/README.md) for archive structure details.

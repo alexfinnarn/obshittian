@@ -77,25 +77,3 @@ export function handlePrevTab(): void {
     switchTab(prevIndex);
   }
 }
-
-/**
- * Create a calendar navigation handler
- *
- * Returns a handler function that emits a calendar:navigate event
- * with the specified number of days to navigate.
- *
- * @param days - Number of days to navigate (negative for past, positive for future)
- * @returns Handler function for the shortcut
- *
- * @example
- * // Navigate to previous day
- * createCalendarNavigator(-1)
- *
- * // Navigate to next week
- * createCalendarNavigator(7)
- */
-export function createCalendarNavigator(days: number): () => void {
-  return () => {
-    emit('calendar:navigate', { days });
-  };
-}

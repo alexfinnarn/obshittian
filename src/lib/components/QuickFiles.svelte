@@ -39,39 +39,11 @@
     editingFiles[index].path = path;
   }
 
-  async function browseFile(index: number) {
-    if (!vault.rootDirHandle) {
-      alert('Please open a folder first');
-      return;
-    }
-
-    try {
-      // Use showOpenFilePicker to select a file
-      const [fileHandle] = await window.showOpenFilePicker({
-        types: [{
-          description: 'Markdown files',
-          accept: { 'text/markdown': ['.md'] }
-        }],
-        multiple: false
-      });
-
-      // Get relative path from root
-      const pathParts = await vault.rootDirHandle.resolve(fileHandle);
-      if (pathParts) {
-        const path = pathParts.join('/');
-        updateFilePath(index, path);
-        // Auto-fill name if empty
-        if (!editingFiles[index].name) {
-          const filename = pathParts[pathParts.length - 1];
-          editingFiles[index].name = filename.replace(/\.md$/, '');
-        }
-      } else {
-        alert('Selected file must be within the opened folder');
-      }
-    } catch (err) {
-      if ((err as DOMException)?.name !== 'AbortError') {
-        console.error('Error picking file:', err);
-      }
+  function autoFillName(index: number) {
+    const path = editingFiles[index].path;
+    if (!editingFiles[index].name && path) {
+      const filename = path.split('/').pop() || '';
+      editingFiles[index].name = filename.replace(/\.md$/, '');
     }
   }
 
@@ -137,17 +109,15 @@
           oninput={(e) => updateFileName(i, e.currentTarget.value)}
           data-testid="file-name-{i}"
         />
-        <span class="file-path" data-testid="file-path-{i}" title={file.path}>
-          {file.path || 'No file selected'}
-        </span>
-        <button
-          class="file-browse"
-          onclick={() => browseFile(i)}
-          title="Browse"
-          data-testid="file-browse-{i}"
-        >
-          &#128193;
-        </button>
+        <input
+          type="text"
+          class="file-path-input"
+          placeholder="File path (e.g., notes/todo.md)"
+          value={file.path}
+          oninput={(e) => updateFilePath(i, e.currentTarget.value)}
+          onblur={() => autoFillName(i)}
+          data-testid="file-path-{i}"
+        />
         <button
           class="file-delete"
           onclick={() => removeFile(i)}
@@ -274,32 +244,19 @@
     border-color: var(--accent-color, #0078d4);
   }
 
-  .file-path {
+  .file-path-input {
     flex: 2;
     min-width: 150px;
     padding: 0.5rem;
     background: var(--input-bg, #1e1e1e);
     border: 1px solid var(--border-color, #444);
     border-radius: 4px;
-    color: var(--text-muted, #888);
-    font-size: 0.75rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .file-browse {
-    background: none;
-    border: 1px solid var(--border-color, #444);
-    color: var(--text-muted, #888);
-    font-size: 1rem;
-    cursor: pointer;
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-  }
-
-  .file-browse:hover {
     color: var(--text-color, #fff);
+    font-size: 0.875rem;
+  }
+
+  .file-path-input:focus {
+    outline: none;
     border-color: var(--accent-color, #0078d4);
   }
 

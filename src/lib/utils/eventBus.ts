@@ -33,8 +33,8 @@ export interface AppEvents {
   'tags:reindex': ReindexEventData;
   /** Toggle view mode (edit/preview) for a specific pane */
   'pane:toggleView': { pane: 'left' | 'right' };
-  /** Navigate the calendar by a number of days */
-  'calendar:navigate': { days: number };
+  /** Navigate to a specific journal entry from tag search */
+  'journal:scrollToEntry': { date: string; entryId: string };
 }
 
 // Event listeners storage

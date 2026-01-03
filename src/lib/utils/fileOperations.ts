@@ -1,38 +1,33 @@
 /**
  * File Operations Utility
  *
- * Port of js/file-operations.js for the Svelte 5 migration.
- * Handles file/folder creation, renaming, and deletion using File System Access API.
+ * Handles file/folder creation, renaming, and deletion using fileService.
  */
 
+import { fileService } from '$lib/services/fileService';
+import type { DirectoryEntry } from '$lib/server/fileTypes';
+
 /**
- * Write content to a file handle
+ * Write content to a file
  */
-export async function writeToFile(
-  fileHandle: FileSystemFileHandle,
-  content: string
-): Promise<void> {
+export async function writeToFile(filePath: string, content: string): Promise<void> {
   try {
-    const writable = await fileHandle.createWritable();
-    await writable.write(content);
-    await writable.close();
+    await fileService.writeFile(filePath, content);
   } catch (err) {
+    const filename = filePath.split('/').pop() ?? filePath;
     const message = err instanceof Error ? err.message : String(err);
-    throw new Error(`Failed to write to file "${fileHandle.name}": ${message}`);
+    throw new Error(`Failed to write to file "${filename}": ${message}`);
   }
 }
 
 /**
  * Create a new file in the given directory
  */
-export async function createFile(
-  parentDirHandle: FileSystemDirectoryHandle,
-  filename: string
-): Promise<FileSystemFileHandle> {
+export async function createFile(parentPath: string, filename: string): Promise<string> {
+  const filePath = parentPath ? `${parentPath}/${filename}` : filename;
   try {
-    const fileHandle = await parentDirHandle.getFileHandle(filename, { create: true });
-    await writeToFile(fileHandle, '');
-    return fileHandle;
+    await fileService.createFile(filePath, '');
+    return filePath;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     throw new Error(`Failed to create file "${filename}": ${message}`);
@@ -42,12 +37,11 @@ export async function createFile(
 /**
  * Create a new folder in the given directory
  */
-export async function createFolder(
-  parentDirHandle: FileSystemDirectoryHandle,
-  folderName: string
-): Promise<FileSystemDirectoryHandle> {
+export async function createFolder(parentPath: string, folderName: string): Promise<string> {
+  const folderPath = parentPath ? `${parentPath}/${folderName}` : folderName;
   try {
-    return await parentDirHandle.getDirectoryHandle(folderName, { create: true });
+    await fileService.createDirectory(folderPath);
+    return folderPath;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     throw new Error(`Failed to create folder "${folderName}": ${message}`);
@@ -55,24 +49,19 @@ export async function createFolder(
 }
 
 /**
- * Rename a file (copy to new name, delete old)
- * File System Access API doesn't have native rename, so we copy and delete.
+ * Rename a file
  */
 export async function renameFile(
-  dirHandle: FileSystemDirectoryHandle,
+  parentPath: string,
   oldName: string,
   newName: string
-): Promise<FileSystemFileHandle> {
+): Promise<string> {
+  const oldPath = parentPath ? `${parentPath}/${oldName}` : oldName;
+  const newPath = parentPath ? `${parentPath}/${newName}` : newName;
+
   try {
-    const oldHandle = await dirHandle.getFileHandle(oldName);
-    const file = await oldHandle.getFile();
-    const content = await file.text();
-
-    const newHandle = await dirHandle.getFileHandle(newName, { create: true });
-    await writeToFile(newHandle, content);
-
-    await dirHandle.removeEntry(oldName);
-    return newHandle;
+    await fileService.rename(oldPath, newPath);
+    return newPath;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     throw new Error(`Failed to rename "${oldName}" to "${newName}": ${message}`);
@@ -80,48 +69,19 @@ export async function renameFile(
 }
 
 /**
- * Helper: recursively copy directory contents
- */
-async function copyDirectoryContents(
-  srcDir: FileSystemDirectoryHandle,
-  destDir: FileSystemDirectoryHandle
-): Promise<void> {
-  try {
-    for await (const entry of srcDir.values()) {
-      if (entry.kind === 'file') {
-        const fileHandle = entry as FileSystemFileHandle;
-        const file = await fileHandle.getFile();
-        const content = await file.text();
-        const newFile = await destDir.getFileHandle(entry.name, { create: true });
-        await writeToFile(newFile, content);
-      } else if (entry.kind === 'directory') {
-        const dirHandle = entry as FileSystemDirectoryHandle;
-        const newSubDir = await destDir.getDirectoryHandle(entry.name, { create: true });
-        await copyDirectoryContents(dirHandle, newSubDir);
-      }
-    }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    throw new Error(`Failed to copy directory contents: ${message}`);
-  }
-}
-
-/**
- * Rename a folder (recursively copy contents, delete old)
+ * Rename a folder
  */
 export async function renameFolder(
-  parentDirHandle: FileSystemDirectoryHandle,
+  parentPath: string,
   oldName: string,
   newName: string
-): Promise<FileSystemDirectoryHandle> {
+): Promise<string> {
+  const oldPath = parentPath ? `${parentPath}/${oldName}` : oldName;
+  const newPath = parentPath ? `${parentPath}/${newName}` : newName;
+
   try {
-    const oldDir = await parentDirHandle.getDirectoryHandle(oldName);
-    const newDir = await parentDirHandle.getDirectoryHandle(newName, { create: true });
-
-    await copyDirectoryContents(oldDir, newDir);
-    await parentDirHandle.removeEntry(oldName, { recursive: true });
-
-    return newDir;
+    await fileService.rename(oldPath, newPath);
+    return newPath;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     throw new Error(`Failed to rename folder "${oldName}" to "${newName}": ${message}`);
@@ -132,15 +92,17 @@ export async function renameFolder(
  * Delete an entry (file or folder)
  */
 export async function deleteEntry(
-  parentDirHandle: FileSystemDirectoryHandle,
+  parentPath: string,
   name: string,
   isDirectory: boolean
 ): Promise<void> {
+  const fullPath = parentPath ? `${parentPath}/${name}` : name;
+
   try {
     if (isDirectory) {
-      await parentDirHandle.removeEntry(name, { recursive: true });
+      await fileService.deleteDirectory(fullPath, true);
     } else {
-      await parentDirHandle.removeEntry(name);
+      await fileService.deleteFile(fullPath);
     }
   } catch (err) {
     const type = isDirectory ? 'folder' : 'file';
@@ -150,25 +112,9 @@ export async function deleteEntry(
 }
 
 /**
- * Get relative path from root directory to a file
- */
-export async function getRelativePath(
-  rootDirHandle: FileSystemDirectoryHandle,
-  fileHandle: FileSystemFileHandle
-): Promise<string | null> {
-  if (!rootDirHandle) return null;
-  try {
-    const path = await rootDirHandle.resolve(fileHandle);
-    return path ? path.join('/') : null;
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Sort entries: folders first, then alphabetically by name
  */
-export function sortEntries(entries: FileSystemHandle[]): FileSystemHandle[] {
+export function sortEntries(entries: DirectoryEntry[]): DirectoryEntry[] {
   return [...entries].sort((a, b) => {
     if (a.kind !== b.kind) return a.kind === 'directory' ? -1 : 1;
     return a.name.localeCompare(b.name);
@@ -179,7 +125,7 @@ export function sortEntries(entries: FileSystemHandle[]): FileSystemHandle[] {
  * Check if an entry should be visible in the file tree
  * Filters out hidden files (starting with .) and non-markdown/txt files
  */
-export function isVisibleEntry(entry: FileSystemHandle): boolean {
+export function isVisibleEntry(entry: DirectoryEntry): boolean {
   // Hide dotfiles
   if (entry.name.startsWith('.')) return false;
 
@@ -193,16 +139,7 @@ export function isVisibleEntry(entry: FileSystemHandle): boolean {
 /**
  * Get all visible entries from a directory, sorted
  */
-export async function getVisibleEntries(
-  dirHandle: FileSystemDirectoryHandle
-): Promise<FileSystemHandle[]> {
-  const entries: FileSystemHandle[] = [];
-
-  for await (const entry of dirHandle.values()) {
-    if (isVisibleEntry(entry)) {
-      entries.push(entry);
-    }
-  }
-
-  return sortEntries(entries);
+export async function getVisibleEntries(dirPath: string): Promise<DirectoryEntry[]> {
+  const entries = await fileService.listDirectory(dirPath);
+  return sortEntries(entries.filter(isVisibleEntry));
 }

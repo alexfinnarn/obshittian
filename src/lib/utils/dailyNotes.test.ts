@@ -5,8 +5,33 @@ import {
   getDailyNoteRelativePath,
   getOrCreateDailyNote,
 } from './dailyNotes';
+import { fileService } from '$lib/services/fileService';
+
+// Mock the fileService
+vi.mock('$lib/services/fileService', () => ({
+  fileService: {
+    setVaultPath: vi.fn(),
+    getVaultPath: vi.fn(() => '/mock/vault'),
+    readFile: vi.fn(),
+    writeFile: vi.fn(),
+    exists: vi.fn(),
+    createFile: vi.fn(),
+    createDirectory: vi.fn(),
+    deleteFile: vi.fn(),
+    deleteDirectory: vi.fn(),
+    listDirectory: vi.fn(),
+    rename: vi.fn(),
+    stat: vi.fn(),
+  },
+}));
+
+const mockFileService = vi.mocked(fileService);
 
 describe('dailyNotes utilities', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   describe('formatDailyNotePath', () => {
     it('returns correct components for a date', () => {
       const date = new Date(2024, 11, 25); // December 25, 2024
@@ -82,95 +107,57 @@ describe('dailyNotes utilities', () => {
   });
 
   describe('getOrCreateDailyNote', () => {
-    let mockRootHandle: FileSystemDirectoryHandle;
-    let mockDailyDir: FileSystemDirectoryHandle;
-    let mockYearDir: FileSystemDirectoryHandle;
-    let mockMonthDir: FileSystemDirectoryHandle;
-    let mockFileHandle: FileSystemFileHandle;
-    let mockWritable: FileSystemWritableFileStream;
-
-    beforeEach(() => {
-      // Create mock writable stream
-      mockWritable = {
-        write: vi.fn().mockResolvedValue(undefined),
-        close: vi.fn().mockResolvedValue(undefined),
-      } as unknown as FileSystemWritableFileStream;
-
-      // Create mock file handle
-      mockFileHandle = {
-        getFile: vi.fn().mockResolvedValue({
-          text: vi.fn().mockResolvedValue('existing content'),
-        }),
-        createWritable: vi.fn().mockResolvedValue(mockWritable),
-        name: '2024-12-25.md',
-      } as unknown as FileSystemFileHandle;
-
-      // Create mock directory handles
-      mockMonthDir = {
-        getFileHandle: vi.fn(),
-        getDirectoryHandle: vi.fn(),
-      } as unknown as FileSystemDirectoryHandle;
-
-      mockYearDir = {
-        getDirectoryHandle: vi.fn().mockResolvedValue(mockMonthDir),
-      } as unknown as FileSystemDirectoryHandle;
-
-      mockDailyDir = {
-        getDirectoryHandle: vi.fn().mockResolvedValue(mockYearDir),
-      } as unknown as FileSystemDirectoryHandle;
-
-      mockRootHandle = {
-        getDirectoryHandle: vi.fn().mockResolvedValue(mockDailyDir),
-      } as unknown as FileSystemDirectoryHandle;
-    });
-
     it('opens existing daily note', async () => {
       // File exists
-      (mockMonthDir.getFileHandle as ReturnType<typeof vi.fn>).mockResolvedValue(mockFileHandle);
+      mockFileService.exists.mockResolvedValue({ exists: true, kind: 'file' });
+      mockFileService.readFile.mockResolvedValue('existing content');
 
       const date = new Date(2024, 11, 25);
-      const result = await getOrCreateDailyNote(mockRootHandle, 'zzz_Daily Notes', date);
+      const result = await getOrCreateDailyNote('zzz_Daily Notes', date);
 
-      expect(result.fileHandle).toBe(mockFileHandle);
       expect(result.content).toBe('existing content');
       expect(result.isNew).toBe(false);
       expect(result.relativePath).toBe('zzz_Daily Notes/2024/12/2024-12-25.md');
     });
 
     it('creates new daily note when file does not exist', async () => {
-      // File doesn't exist on first call, then we create it
-      (mockMonthDir.getFileHandle as ReturnType<typeof vi.fn>)
-        .mockRejectedValueOnce(new Error('File not found'))
-        .mockResolvedValueOnce(mockFileHandle);
+      // File doesn't exist
+      mockFileService.exists
+        .mockResolvedValueOnce({ exists: false }) // file doesn't exist
+        .mockResolvedValueOnce({ exists: true, kind: 'directory' }) // year dir exists
+        .mockResolvedValueOnce({ exists: true, kind: 'directory' }); // month dir exists
+      mockFileService.createFile.mockResolvedValue(undefined);
 
       const date = new Date(2024, 11, 25);
-      const result = await getOrCreateDailyNote(mockRootHandle, 'zzz_Daily Notes', date);
+      const result = await getOrCreateDailyNote('zzz_Daily Notes', date);
 
       expect(result.isNew).toBe(true);
       expect(result.content).toContain('# Wednesday - 2024-12-25');
-      expect(mockWritable.write).toHaveBeenCalled();
-      expect(mockWritable.close).toHaveBeenCalled();
+      expect(mockFileService.createFile).toHaveBeenCalled();
     });
 
     it('creates nested directory structure', async () => {
-      (mockMonthDir.getFileHandle as ReturnType<typeof vi.fn>).mockResolvedValue(mockFileHandle);
+      // File and directories don't exist
+      mockFileService.exists.mockResolvedValue({ exists: false });
+      mockFileService.createDirectory.mockResolvedValue(undefined);
+      mockFileService.createFile.mockResolvedValue(undefined);
 
       const date = new Date(2024, 11, 25);
-      await getOrCreateDailyNote(mockRootHandle, 'zzz_Daily Notes', date);
+      await getOrCreateDailyNote('zzz_Daily Notes', date);
 
-      // Check that directories were accessed/created with { create: true }
-      expect(mockRootHandle.getDirectoryHandle).toHaveBeenCalledWith('zzz_Daily Notes', { create: true });
-      expect(mockDailyDir.getDirectoryHandle).toHaveBeenCalledWith('2024', { create: true });
-      expect(mockYearDir.getDirectoryHandle).toHaveBeenCalledWith('12', { create: true });
+      // Check that directories were created
+      expect(mockFileService.createDirectory).toHaveBeenCalledWith('zzz_Daily Notes/2024');
+      expect(mockFileService.createDirectory).toHaveBeenCalledWith('zzz_Daily Notes/2024/12');
     });
 
-    it('returns correct directory handle', async () => {
-      (mockMonthDir.getFileHandle as ReturnType<typeof vi.fn>).mockResolvedValue(mockFileHandle);
+    it('returns correct relative path', async () => {
+      mockFileService.exists.mockResolvedValue({ exists: true, kind: 'file' });
+      mockFileService.readFile.mockResolvedValue('content');
 
       const date = new Date(2024, 11, 25);
-      const result = await getOrCreateDailyNote(mockRootHandle, 'zzz_Daily Notes', date);
+      const result = await getOrCreateDailyNote('zzz_Daily Notes', date);
 
-      expect(result.dirHandle).toBe(mockMonthDir);
+      expect(result.relativePath).toBe('zzz_Daily Notes/2024/12/2024-12-25.md');
     });
   });
 });

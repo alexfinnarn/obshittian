@@ -27,5 +27,10 @@ interface FileSystemHandle {
   queryPermission(descriptor?: { mode?: 'read' | 'readwrite' }): Promise<PermissionState>;
 }
 
-// Extend globalThis for test setup
-declare var showOpenFilePicker: typeof window.showOpenFilePicker;
+// Extend FileSystemDirectoryHandle with async iteration methods
+interface FileSystemDirectoryHandle {
+  values(): AsyncIterableIterator<FileSystemHandle>;
+  keys(): AsyncIterableIterator<string>;
+  entries(): AsyncIterableIterator<[string, FileSystemHandle]>;
+  [Symbol.asyncIterator](): AsyncIterableIterator<[string, FileSystemHandle]>;
+}

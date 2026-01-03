@@ -101,7 +101,7 @@ Declarative keyboard shortcuts with blocking contexts and focus conditions.
 ```svelte
 <script>
   import { shortcut } from '$lib/actions/shortcut';
-  import { handleSave, createCalendarNavigator } from '$lib/services/shortcutHandlers';
+  import { handleSave, handleToggleView, handleCloseTab } from '$lib/services/shortcutHandlers';
 </script>
 
 <!-- Basic shortcut -->
@@ -111,8 +111,8 @@ Declarative keyboard shortcuts with blocking contexts and focus conditions.
 
 <!-- Shortcut with focus condition -->
 <div use:shortcut={{
-  binding: 'prevDay',
-  handler: createCalendarNavigator(-1),
+  binding: 'toggleView',
+  handler: handleToggleView,
   when: { focusedPane: 'right' }
 }}>
   App content
@@ -181,10 +181,6 @@ Shortcuts are defined in `src/lib/config.ts`:
 | `closeTab` | Cmd/Ctrl+W | Close current tab |
 | `nextTab` | Cmd/Ctrl+Tab | Next tab |
 | `prevTab` | Cmd/Ctrl+Shift+Tab | Previous tab |
-| `prevDay` | Cmd/Ctrl+Left | Previous daily note |
-| `nextDay` | Cmd/Ctrl+Right | Next daily note |
-| `prevWeek` | Cmd/Ctrl+Up | Previous week |
-| `nextWeek` | Cmd/Ctrl+Down | Next week |
 
 ## Creating New Actions
 
@@ -310,7 +306,6 @@ Handler functions for keyboard shortcuts live in `src/lib/services/shortcutHandl
 | `handleCloseTab()` | Close current tab (left pane focused) |
 | `handleNextTab()` | Switch to next tab |
 | `handlePrevTab()` | Switch to previous tab |
-| `createCalendarNavigator(days)` | Create handler that emits `calendar:navigate` |
 
 ### Usage
 
@@ -318,10 +313,9 @@ Handler functions for keyboard shortcuts live in `src/lib/services/shortcutHandl
 import {
   handleSave,
   handleToggleView,
-  createCalendarNavigator,
 } from '$lib/services/shortcutHandlers';
 
 // In App.svelte with use:shortcut
 use:shortcut={{ binding: 'save', handler: handleSave }}
-use:shortcut={{ binding: 'prevDay', handler: createCalendarNavigator(-1) }}
+use:shortcut={{ binding: 'toggleView', handler: handleToggleView }}
 ```

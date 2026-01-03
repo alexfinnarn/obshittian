@@ -33,7 +33,7 @@
   aria-selected={isActive}
   data-testid="tab-{tab.id}"
 >
-  <span class="tab-filename" title={tab.relativePath}>{tab.filename}</span>
+  <span class="tab-filename" title={tab.filePath}>{tab.filename}</span>
   {#if tab.isDirty}
     <span class="tab-unsaved" data-testid="tab-unsaved-{tab.id}">●</span>
   {/if}

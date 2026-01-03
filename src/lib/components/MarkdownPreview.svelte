@@ -4,9 +4,10 @@
 
   interface Props {
     content: string;
+    inline?: boolean;
   }
 
-  let { content }: Props = $props();
+  let { content, inline = false }: Props = $props();
 
   // Configure marked once on mount
   onMount(() => {
@@ -17,7 +18,7 @@
   const rendered = $derived(renderMarkdown(content));
 </script>
 
-<div class="preview" data-testid="markdown-preview">
+<div class="preview" class:inline data-testid="markdown-preview">
   {#if rendered.frontmatterHtml}
     <details class="frontmatter-details">
       <summary>Frontmatter</summary>
@@ -34,6 +35,20 @@
     padding: 16px;
     color: var(--text-color, #e0e0e0);
     line-height: 1.6;
+  }
+
+  .preview.inline {
+    height: auto;
+    overflow: visible;
+    padding: 0;
+  }
+
+  .preview.inline :global(p:first-child) {
+    margin-top: 0;
+  }
+
+  .preview.inline :global(p:last-child) {
+    margin-bottom: 0;
   }
 
   .preview :global(h1),

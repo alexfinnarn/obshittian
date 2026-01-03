@@ -1,11 +1,30 @@
 {
-    "quickLinks": [
-        { "name": "Test Link 1", "url": "https://example.com" },
-        { "name": "Test Link 2", "url": "https://test.example.com" }
-    ],
-    "quickFiles": [
-        { "name": "Sample", "path": "sample-note.md" },
-        { "name": "Another", "path": "another-note.md" },
-        { "name": "Nested", "path": "subfolder/nested-note.md" }
-    ]
+  "quickLinks": [
+    {
+      "name": "Test Link",
+      "url": "https://example.com"
+    },
+    {
+      "name": "New Test Link",
+      "url": "https://newtest.example.com"
+    },
+    {
+      "name": "New Test Link",
+      "url": "https://newtest.example.com"
+    },
+    {
+      "name": "New Test Link",
+      "url": "https://newtest.example.com"
+    }
+  ],
+  "quickFiles": [
+    {
+      "name": "README",
+      "path": "README.md"
+    },
+    {
+      "name": "Notes",
+      "path": "notes.md"
+    }
+  ]
 }

@@ -5,7 +5,7 @@
  * and file creation/retrieval.
  */
 
-import { getOrCreateDirectory } from './filesystem';
+import { fileService } from '$lib/services/fileService';
 
 /**
  * Format a date into daily note path components.
@@ -41,55 +41,55 @@ export function generateDailyNoteTemplate(date: Date): string {
 /**
  * Get the relative path for a daily note.
  */
-export function getDailyNoteRelativePath(
-  dailyNotesFolder: string,
-  date: Date
-): string {
+export function getDailyNoteRelativePath(dailyNotesFolder: string, date: Date): string {
   const { year, month, filename } = formatDailyNotePath(date);
   return `${dailyNotesFolder}/${year}/${month}/${filename}`;
 }
 
 /**
  * Open or create a daily note for the given date.
- * Returns the file handle, directory handle, relative path, content, and whether it was newly created.
+ * Returns the relative path, content, and whether it was newly created.
  */
 export async function getOrCreateDailyNote(
-  rootDirHandle: FileSystemDirectoryHandle,
   dailyNotesFolder: string,
   date: Date
 ): Promise<{
-  fileHandle: FileSystemFileHandle;
-  dirHandle: FileSystemDirectoryHandle;
   relativePath: string;
   content: string;
   isNew: boolean;
 }> {
-  const { year, month, filename } = formatDailyNotePath(date);
   const relativePath = getDailyNoteRelativePath(dailyNotesFolder, date);
 
-  // Navigate to or create: dailyNotesFolder/YYYY/MM/
-  const dailyDir = await getOrCreateDirectory(rootDirHandle, dailyNotesFolder);
-  const yearDir = await getOrCreateDirectory(dailyDir, year);
-  const monthDir = await getOrCreateDirectory(yearDir, month);
+  // Check if file exists
+  const existsResult = await fileService.exists(relativePath);
 
-  // Get or create the daily note file
-  let fileHandle: FileSystemFileHandle;
-  let content: string;
-  let isNew = false;
-
-  try {
-    fileHandle = await monthDir.getFileHandle(filename);
-    const file = await fileHandle.getFile();
-    content = await file.text();
-  } catch {
+  if (existsResult.exists) {
+    // File exists, read it
+    const content = await fileService.readFile(relativePath);
+    return { relativePath, content, isNew: false };
+  } else {
     // File doesn't exist, create it with template
-    fileHandle = await monthDir.getFileHandle(filename, { create: true });
-    content = generateDailyNoteTemplate(date);
-    const writable = await fileHandle.createWritable();
-    await writable.write(content);
-    await writable.close();
-    isNew = true;
-  }
+    const content = generateDailyNoteTemplate(date);
 
-  return { fileHandle, dirHandle: monthDir, relativePath, content, isNew };
+    // Create parent directories and file
+    const { year, month } = formatDailyNotePath(date);
+    const yearPath = `${dailyNotesFolder}/${year}`;
+    const monthPath = `${yearPath}/${month}`;
+
+    // Ensure directories exist
+    const yearExists = await fileService.exists(yearPath);
+    if (!yearExists.exists) {
+      await fileService.createDirectory(yearPath);
+    }
+
+    const monthExists = await fileService.exists(monthPath);
+    if (!monthExists.exists) {
+      await fileService.createDirectory(monthPath);
+    }
+
+    // Create the file
+    await fileService.createFile(relativePath, content);
+
+    return { relativePath, content, isNew: true };
+  }
 }

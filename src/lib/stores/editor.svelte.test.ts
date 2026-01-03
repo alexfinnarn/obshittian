@@ -18,39 +18,6 @@ import {
   resetEditorState,
 } from './editor.svelte';
 
-// Mock file handles
-function createMockFileHandle(name: string): FileSystemFileHandle {
-  return {
-    name,
-    kind: 'file',
-    isSameEntry: async () => false,
-    getFile: async () => new File([], name),
-    createWritable: async () => ({} as FileSystemWritableFileStream),
-    queryPermission: async () => 'granted' as PermissionState,
-    requestPermission: async () => 'granted' as PermissionState,
-  } as FileSystemFileHandle;
-}
-
-function createMockDirHandle(name: string): FileSystemDirectoryHandle {
-  return {
-    name,
-    kind: 'directory',
-    isSameEntry: async () => false,
-    getFileHandle: async () => createMockFileHandle('file.md'),
-    getDirectoryHandle: async () => ({} as FileSystemDirectoryHandle),
-    removeEntry: async () => {},
-    resolve: async () => null,
-    keys: () => ({} as AsyncIterableIterator<string>),
-    values: () => ({} as AsyncIterableIterator<FileSystemHandle>),
-    entries: () =>
-      ({} as AsyncIterableIterator<[string, FileSystemHandle]>),
-    [Symbol.asyncIterator]: () =>
-      ({} as AsyncIterableIterator<[string, FileSystemHandle]>),
-    queryPermission: async () => 'granted' as PermissionState,
-    requestPermission: async () => 'granted' as PermissionState,
-  } as FileSystemDirectoryHandle;
-}
-
 describe('editor store', () => {
   beforeEach(() => {
     resetEditorState();
@@ -58,13 +25,13 @@ describe('editor store', () => {
 
   describe('initial state', () => {
     it('should have empty left pane', () => {
-      expect(editor.left.fileHandle).toBeNull();
+      expect(editor.left.filePath).toBeNull();
       expect(editor.left.content).toBe('');
       expect(editor.left.isDirty).toBe(false);
     });
 
     it('should have empty right pane', () => {
-      expect(editor.right.fileHandle).toBeNull();
+      expect(editor.right.filePath).toBeNull();
       expect(editor.right.content).toBe('');
       expect(editor.right.isDirty).toBe(false);
     });
@@ -76,47 +43,32 @@ describe('editor store', () => {
 
   describe('openFileInPane', () => {
     it('should open file in left pane', () => {
-      const fileHandle = createMockFileHandle('test.md');
-      const dirHandle = createMockDirHandle('folder');
+      openFileInPane('left', 'folder/test.md', '# Content');
 
-      openFileInPane('left', fileHandle, dirHandle, '# Content', 'folder/test.md');
-
-      expect(editor.left.fileHandle?.name).toBe(fileHandle.name);
-      expect(editor.left.dirHandle?.name).toBe(dirHandle.name);
+      expect(editor.left.filePath).toBe('folder/test.md');
       expect(editor.left.content).toBe('# Content');
       expect(editor.left.isDirty).toBe(false);
-      expect(editor.left.relativePath).toBe('folder/test.md');
     });
 
     it('should open file in right pane', () => {
-      const fileHandle = createMockFileHandle('daily.md');
-      const dirHandle = createMockDirHandle('daily');
+      openFileInPane('right', 'daily/daily.md', '# Daily');
 
-      openFileInPane('right', fileHandle, dirHandle, '# Daily', 'daily/daily.md');
-
-      expect(editor.right.fileHandle?.name).toBe(fileHandle.name);
+      expect(editor.right.filePath).toBe('daily/daily.md');
       expect(editor.right.content).toBe('# Daily');
     });
 
     it('should replace existing file in pane', () => {
-      const fileHandle1 = createMockFileHandle('first.md');
-      const fileHandle2 = createMockFileHandle('second.md');
-      const dirHandle = createMockDirHandle('folder');
+      openFileInPane('left', 'first.md', 'First');
+      openFileInPane('left', 'second.md', 'Second');
 
-      openFileInPane('left', fileHandle1, dirHandle, 'First', 'first.md');
-      openFileInPane('left', fileHandle2, dirHandle, 'Second', 'second.md');
-
-      expect(editor.left.fileHandle?.name).toBe(fileHandle2.name);
+      expect(editor.left.filePath).toBe('second.md');
       expect(editor.left.content).toBe('Second');
     });
   });
 
   describe('updatePaneContent', () => {
     it('should update content and mark as dirty', () => {
-      const fileHandle = createMockFileHandle('test.md');
-      const dirHandle = createMockDirHandle('folder');
-
-      openFileInPane('left', fileHandle, dirHandle, 'Original', 'test.md');
+      openFileInPane('left', 'test.md', 'Original');
       updatePaneContent('left', 'Modified');
 
       expect(editor.left.content).toBe('Modified');
@@ -145,10 +97,7 @@ describe('editor store', () => {
     });
 
     it('should update content when provided', () => {
-      const fileHandle = createMockFileHandle('test.md');
-      const dirHandle = createMockDirHandle('folder');
-
-      openFileInPane('left', fileHandle, dirHandle, 'Original', 'test.md');
+      openFileInPane('left', 'test.md', 'Original');
       markPaneDirty('left');
       markPaneClean('left', 'Updated');
 
@@ -159,13 +108,10 @@ describe('editor store', () => {
 
   describe('closePaneFile', () => {
     it('should reset pane state', () => {
-      const fileHandle = createMockFileHandle('test.md');
-      const dirHandle = createMockDirHandle('folder');
-
-      openFileInPane('left', fileHandle, dirHandle, 'Content', 'test.md');
+      openFileInPane('left', 'test.md', 'Content');
       closePaneFile('left');
 
-      expect(editor.left.fileHandle).toBeNull();
+      expect(editor.left.filePath).toBeNull();
       expect(editor.left.content).toBe('');
       expect(editor.left.isDirty).toBe(false);
     });
@@ -193,10 +139,7 @@ describe('editor store', () => {
     });
 
     it('should return true when file is open', () => {
-      const fileHandle = createMockFileHandle('test.md');
-      const dirHandle = createMockDirHandle('folder');
-
-      openFileInPane('left', fileHandle, dirHandle, 'Content', 'test.md');
+      openFileInPane('left', 'test.md', 'Content');
 
       expect(isPaneFileOpen('left')).toBe(true);
     });
@@ -208,10 +151,7 @@ describe('editor store', () => {
     });
 
     it('should return filename when file is open', () => {
-      const fileHandle = createMockFileHandle('my-file.md');
-      const dirHandle = createMockDirHandle('folder');
-
-      openFileInPane('left', fileHandle, dirHandle, 'Content', 'my-file.md');
+      openFileInPane('left', 'folder/my-file.md', 'Content');
 
       expect(getPaneFilename('left')).toBe('my-file.md');
     });
@@ -219,13 +159,10 @@ describe('editor store', () => {
 
   describe('getPaneState', () => {
     it('should return pane state', () => {
-      const fileHandle = createMockFileHandle('test.md');
-      const dirHandle = createMockDirHandle('folder');
-
-      openFileInPane('left', fileHandle, dirHandle, 'Content', 'test.md');
+      openFileInPane('left', 'test.md', 'Content');
 
       const state = getPaneState('left');
-      expect(state.fileHandle?.name).toBe(fileHandle.name);
+      expect(state.filePath).toBe('test.md');
       expect(state.content).toBe('Content');
     });
   });
