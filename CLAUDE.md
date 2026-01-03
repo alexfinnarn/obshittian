@@ -27,7 +27,9 @@ npm run test:e2e:ui   # Run E2E tests with Playwright UI
 npm run test:e2e:headed  # Run E2E tests in headed browser
 ```
 
-Tests run automatically on pull requests to `main` via GitHub Actions (`.github/workflows/test.yml`).
+Tests run automatically on pull requests to `main` via GitHub Actions:
+- **Unit tests**: `.github/workflows/test.yml` - runs `npm run check` and `npm run test:run`
+- **E2E tests**: `.github/workflows/playwright.yml` - runs Playwright tests with 4-shard parallelization
 
 ### Unit Tests
 Tests use Vitest with happy-dom. Unit tests are colocated with source files in `src/lib/`:
@@ -188,7 +190,8 @@ svelte.config.js         - Svelte configuration
 playwright.config.ts     - Playwright E2E test configuration
 .github/
   workflows/
-    test.yml             - GitHub Actions workflow for PR testing
+    test.yml             - Unit tests workflow (type check + vitest)
+    playwright.yml       - E2E tests workflow (4-shard parallelization)
     deploy.yml           - CI/CD pipeline for VPS deployment
 config/
   deploy.yml             - Kamal deployment configuration
