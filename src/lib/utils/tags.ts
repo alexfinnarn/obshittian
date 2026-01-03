@@ -6,6 +6,7 @@
  */
 
 import Fuse, { type IFuseOptions } from 'fuse.js';
+import yaml from 'js-yaml';
 import { parseFrontmatter } from './frontmatter';
 import {
   tagsStore,
@@ -18,6 +19,11 @@ import {
   getTagIndexMeta,
 } from '$lib/stores/tags.svelte';
 import { emit } from './eventBus';
+import type { JournalData } from '$lib/types/journal';
+import { fileService } from '$lib/services/fileService';
+
+// Journal source key prefix
+const JOURNAL_PREFIX = 'journal:';
 
 // Fuse.js configuration for fuzzy matching
 const FUSE_OPTIONS: IFuseOptions<TagEntry> = {
@@ -103,29 +109,26 @@ export function extractTags(content: string): string[] {
 /**
  * Recursively scan directory and build tag index
  */
-async function scanDirectory(
-  dirHandle: FileSystemDirectoryHandle,
-  basePath: string = ''
-): Promise<void> {
-  for await (const entry of dirHandle.values()) {
+async function scanDirectory(basePath: string = ''): Promise<void> {
+  const entries = await fileService.listDirectory(basePath);
+
+  for (const entry of entries) {
     const entryPath = basePath ? `${basePath}/${entry.name}` : entry.name;
 
     if (entry.kind === 'directory') {
       // Skip hidden directories
       if (entry.name.startsWith('.')) continue;
 
-      const subDirHandle = await dirHandle.getDirectoryHandle(entry.name);
-      await scanDirectory(subDirHandle, entryPath);
+      await scanDirectory(entryPath);
     } else if (entry.kind === 'file' && entry.name.endsWith('.md')) {
       try {
-        const fileHandle = await dirHandle.getFileHandle(entry.name);
-        const file = await fileHandle.getFile();
+        // Read file content (fileService handles reading)
+        const text = await fileService.readFile(entryPath);
 
-        // Only read first 2KB for frontmatter (performance optimization)
-        const slice = file.slice(0, 2048);
-        const text = await slice.text();
+        // Only use first 2KB for frontmatter extraction (performance optimization)
+        const frontmatterText = text.slice(0, 2048);
 
-        const tags = extractTags(text);
+        const tags = extractTags(frontmatterText);
         if (tags.length > 0) {
           tagsStore.index.files[entryPath] = tags;
           addFileTagReferences(entryPath, tags);
@@ -138,12 +141,20 @@ async function scanDirectory(
 }
 
 /**
- * Build the tag index from a root directory
+ * Build the tag index from the vault
+ * Scans both markdown files and journal entries
  */
-export async function buildTagIndex(rootDirHandle: FileSystemDirectoryHandle): Promise<TagIndex> {
+export async function buildTagIndex(
+  dailyNotesFolder: string = 'zzz_Daily Notes'
+): Promise<TagIndex> {
   resetTagIndex();
 
-  await scanDirectory(rootDirHandle);
+  // Scan markdown files for frontmatter tags
+  await scanDirectory('');
+
+  // Scan journal files for entry tags
+  await scanJournalForTags(dailyNotesFolder);
+
   rebuildSearchIndex();
 
   // Update store metadata
@@ -277,4 +288,140 @@ export function renameFileInIndex(oldPath: string, newPath: string): void {
     meta: getTagIndexMeta(),
   };
   emit('tags:reindex', eventData);
+}
+
+// ============================================================================
+// Journal Tag Integration
+// ============================================================================
+
+/**
+ * Check if a source key is a journal entry
+ */
+export function isJournalSource(key: string): boolean {
+  return key.startsWith(JOURNAL_PREFIX);
+}
+
+/**
+ * Parse a journal source key into date and entry ID
+ */
+export function parseJournalSource(key: string): { date: string; entryId: string } | null {
+  if (!isJournalSource(key)) return null;
+
+  const match = key.match(/^journal:(\d{4}-\d{2}-\d{2})#(.+)$/);
+  if (!match) return null;
+
+  return { date: match[1], entryId: match[2] };
+}
+
+/**
+ * Create a journal source key from date and entry ID
+ */
+export function createJournalSourceKey(date: string, entryId: string): string {
+  return `${JOURNAL_PREFIX}${date}#${entryId}`;
+}
+
+/**
+ * Scan journal files and add their tags to the index
+ */
+export async function scanJournalForTags(
+  dailyNotesFolder: string = 'zzz_Daily Notes'
+): Promise<void> {
+  try {
+    // Check if daily notes folder exists
+    const dailyExists = await fileService.exists(dailyNotesFolder);
+    if (!dailyExists.exists) return;
+
+    // List year folders
+    const yearEntries = await fileService.listDirectory(dailyNotesFolder);
+
+    for (const yearEntry of yearEntries) {
+      if (yearEntry.kind !== 'directory') continue;
+      if (!/^\d{4}$/.test(yearEntry.name)) continue;
+
+      const yearPath = `${dailyNotesFolder}/${yearEntry.name}`;
+      const monthEntries = await fileService.listDirectory(yearPath);
+
+      for (const monthEntry of monthEntries) {
+        if (monthEntry.kind !== 'directory') continue;
+        if (!/^\d{2}$/.test(monthEntry.name)) continue;
+
+        const monthPath = `${yearPath}/${monthEntry.name}`;
+        const fileEntries = await fileService.listDirectory(monthPath);
+
+        // Look for .yaml journal files
+        for (const fileEntry of fileEntries) {
+          if (fileEntry.kind !== 'file') continue;
+          if (!fileEntry.name.endsWith('.yaml')) continue;
+
+          // Extract date from filename (YYYY-MM-DD.yaml)
+          const dateMatch = fileEntry.name.match(/^(\d{4}-\d{2}-\d{2})\.yaml$/);
+          if (!dateMatch) continue;
+
+          const dateStr = dateMatch[1];
+
+          try {
+            const filePath = `${monthPath}/${fileEntry.name}`;
+            const text = await fileService.readFile(filePath);
+            const data = yaml.load(text) as JournalData;
+
+            if (data?.entries) {
+              for (const entry of data.entries) {
+                if (entry.tags && entry.tags.length > 0) {
+                  const sourceKey = createJournalSourceKey(dateStr, entry.id);
+                  tagsStore.index.files[sourceKey] = entry.tags;
+                  addFileTagReferences(sourceKey, entry.tags);
+                }
+              }
+            }
+          } catch (err) {
+            console.warn(`Error reading journal file ${fileEntry.name}:`, err);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('Error scanning journal for tags:', (err as Error).message);
+  }
+}
+
+/**
+ * Update a journal entry in the tag index
+ */
+export function updateJournalEntryInIndex(date: string, entryId: string, tags: string[]): void {
+  const sourceKey = createJournalSourceKey(date, entryId);
+
+  const oldTags = tagsStore.index.files[sourceKey] || [];
+  const removedTags = removeFileTagReferences(sourceKey);
+
+  let addedTags: string[] = [];
+
+  if (tags.length > 0) {
+    tagsStore.index.files[sourceKey] = tags;
+    addedTags = addFileTagReferences(sourceKey, tags);
+  } else {
+    delete tagsStore.index.files[sourceKey];
+  }
+
+  rebuildSearchIndex();
+  setTagIndex(tagsStore.index);
+  saveTagIndexToStorage();
+
+  // Emit reindex event
+  const eventData: ReindexEventData = {
+    type: 'update',
+    filesAdded: tags.length > 0 ? [sourceKey] : undefined,
+    filesRemoved: oldTags.length > 0 && tags.length === 0 ? [sourceKey] : undefined,
+    tagsAdded: addedTags.length > 0 ? addedTags : undefined,
+    tagsRemoved: removedTags.length > 0 ? removedTags : undefined,
+    meta: getTagIndexMeta(),
+  };
+  emit('tags:reindex', eventData);
+}
+
+/**
+ * Remove a journal entry from the tag index
+ */
+export function removeJournalEntryFromIndex(date: string, entryId: string): void {
+  const sourceKey = createJournalSourceKey(date, entryId);
+  removeFileFromIndex(sourceKey);
 }

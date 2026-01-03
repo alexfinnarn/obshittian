@@ -1,10 +1,9 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
   import QuickLinks from './QuickLinks.svelte';
   import QuickFiles from './QuickFiles.svelte';
   import SidebarTabs from './SidebarTabs.svelte';
   import Calendar from './Calendar.svelte';
-  import { on, type AppEvents } from '$lib/utils/eventBus';
+  import { getDatesWithEntries } from '$lib/stores/journal.svelte';
 
   interface Props {
     /** Callback when a date is selected in the calendar */
@@ -13,28 +12,11 @@
 
   let { ondateselect }: Props = $props();
 
-  // Calendar component reference for keyboard navigation
+  // Calendar component reference
   let calendarComponent: Calendar | null = $state(null);
-
-  // Listen for calendar:navigate events (from keyboard shortcuts)
-  const unsubscribeNavigate = on('calendar:navigate', (data: AppEvents['calendar:navigate']) => {
-    calendarComponent?.navigateDays(data.days);
-  });
-
-  onDestroy(() => {
-    unsubscribeNavigate();
-  });
 
   function handleDateSelect(date: Date) {
     ondateselect?.(date);
-  }
-
-  /**
-   * Navigate calendar by days (for keyboard shortcuts).
-   * @deprecated Use calendar:navigate event instead
-   */
-  export function navigateCalendar(days: number): void {
-    calendarComponent?.navigateDays(days);
   }
 
   /**
@@ -50,7 +32,11 @@
     <header class="section-header">
       <h3>Calendar</h3>
     </header>
-    <Calendar bind:this={calendarComponent} onselect={handleDateSelect} />
+    <Calendar
+      bind:this={calendarComponent}
+      onselect={handleDateSelect}
+      datesWithEntries={getDatesWithEntries()}
+    />
   </div>
 
   <QuickLinks />

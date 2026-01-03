@@ -5,20 +5,8 @@ import { tabsStore, addTab, resetTabsStore } from '$lib/stores/tabs.svelte';
 import { createTab, type Tab } from '$lib/types/tabs';
 
 // Create a mock tab
-function createMockTab(filename: string, relativePath: string): Tab {
-  const mockFileHandle = {
-    kind: 'file' as const,
-    name: filename,
-    getFile: async () => new File([''], filename),
-    createWritable: async () => ({} as FileSystemWritableFileStream),
-  } as unknown as FileSystemFileHandle;
-
-  const mockDirHandle = {
-    kind: 'directory' as const,
-    name: 'test-dir',
-  } as unknown as FileSystemDirectoryHandle;
-
-  return createTab(mockFileHandle, mockDirHandle, '', relativePath);
+function createMockTab(filename: string, filePath: string): Tab {
+  return createTab(filePath, '');
 }
 
 describe('TabBar', () => {

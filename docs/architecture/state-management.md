@@ -43,11 +43,11 @@ Svelte 5's `$derived` cannot be exported from modules. The workaround is getter 
 
 ```typescript
 // Won't work - $derived can't be exported
-export const isOpen = $derived(vault.rootDirHandle !== null);
+export const isOpen = $derived(vault.path !== null);
 
 // Works - getter function
 export function getIsVaultOpen(): boolean {
-  return vault.rootDirHandle !== null;
+  return vault.path !== null;
 }
 ```
 
@@ -55,25 +55,26 @@ export function getIsVaultOpen(): boolean {
 
 | Store | File | Purpose | Persistence |
 |-------|------|---------|-------------|
-| `vault` | [vault.svelte.ts](../../src/lib/stores/vault.svelte.ts) | Root directory handle, vault paths | IndexedDB |
+| `vault` | [vault.svelte.ts](../../src/lib/stores/vault.svelte.ts) | Vault path, daily notes folder | localStorage |
 | `settings` | [settings.svelte.ts](../../src/lib/stores/settings.svelte.ts) | User preferences, shortcuts | localStorage |
 | `vaultConfig` | [vaultConfig.svelte.ts](../../src/lib/stores/vaultConfig.svelte.ts) | Quick links/files | `.editor-config.json` |
 | `editor` | [editor.svelte.ts](../../src/lib/stores/editor.svelte.ts) | Dual-pane state, focus tracking | None (session) |
 | `tabsStore` | [tabs.svelte.ts](../../src/lib/stores/tabs.svelte.ts) | Left pane tabs | localStorage |
 | `tagsStore` | [tags.svelte.ts](../../src/lib/stores/tags.svelte.ts) | Tag index, search state | localStorage |
-| `todosStore` | [todos.svelte.ts](../../src/lib/stores/todos.svelte.ts) | Global todo list | `data/todos.json` |
+| `journalStore` | [journal.svelte.ts](../../src/lib/stores/journal.svelte.ts) | Journal entries | YAML files in vault |
+| `tagVocabulary` | [tagVocabulary.svelte.ts](../../src/lib/stores/tagVocabulary.svelte.ts) | Tag autocomplete vocabulary | `.editor-tags.yaml` |
 | `shortcutsStore` | [shortcuts.svelte.ts](../../src/lib/stores/shortcuts.svelte.ts) | Shortcut blocking contexts | None (session) |
 
 ## Store Reference
 
 ### vault
 
-Tracks the root directory handle and vault-level paths. The directory handle requires IndexedDB because it's a non-serializable object.
+Tracks the vault path and vault-level configuration.
 
 **State Shape:**
 ```typescript
 interface VaultState {
-  rootDirHandle: FileSystemDirectoryHandle | null;
+  path: string | null;
   dailyNotesFolder: string;
 }
 ```
@@ -83,11 +84,11 @@ interface VaultState {
 | Function | Purpose |
 |----------|---------|
 | `getIsVaultOpen()` | Check if vault is open |
-| `openVault(handle)` | Set root directory handle |
+| `openVault(path)` | Set vault path |
 | `closeVault()` | Clear vault state |
 | `updateVaultConfig(config)` | Update paths (dailyNotesFolder) |
 
-**Persistence:** Directory handle saved to IndexedDB via [filesystem.ts](../../src/lib/utils/filesystem.ts) `saveDirectoryHandle()`. Called by `VaultPicker.svelte` after successful open.
+**Persistence:** Vault path saved to localStorage via [filesystem.ts](../../src/lib/utils/filesystem.ts) `saveVaultPath()`. Called by `VaultPicker.svelte` after successful open.
 
 ---
 
@@ -120,7 +121,7 @@ interface Settings {
 | `saveSettings()` | Persist to localStorage |
 | `getShortcut(name)` | Get a specific shortcut binding |
 
-**Persistence:** localStorage key `editorSettings`. Loaded in `App.svelte` `onMount`.
+**Persistence:** localStorage key `editorSettings`. Loaded in `+page.svelte` `onMount`.
 
 ---
 
@@ -142,17 +143,17 @@ interface VaultConfig {
 |----------|---------|
 | `getQuickLinks()` / `setQuickLinks(links)` | Get/set quick links |
 | `getQuickFiles()` / `setQuickFiles(files)` | Get/set quick files |
-| `loadVaultConfig(handle?, defaults?)` | Load from `.editor-config.json` |
+| `loadVaultConfig(defaults?)` | Load from `.editor-config.json` |
 | `saveVaultConfig()` | Save to `.editor-config.json` |
 | `resetVaultConfig()` | Clear to empty arrays |
 
-**Persistence:** JSON file `.editor-config.json` in vault root. Auto-saved on `setQuickLinks`/`setQuickFiles`.
+**Persistence:** JSON file `.editor-config.json` in vault root. Auto-saved on `setQuickLinks`/`setQuickFiles`. Uses `fileService` for I/O.
 
 ---
 
 ### editor
 
-Session-only state for the dual-pane editor. Tracks file handles, content, dirty state, and focus.
+Session-only state for the dual-pane editor. Tracks file paths, content, dirty state, and focus.
 
 **State Shape:**
 ```typescript
@@ -163,11 +164,9 @@ interface EditorState {
 }
 
 interface PaneState {
-  fileHandle: FileSystemFileHandle | null;
-  dirHandle: FileSystemDirectoryHandle | null;
+  filePath: string | null;
   content: string;
   isDirty: boolean;
-  relativePath: string;
 }
 ```
 
@@ -175,14 +174,15 @@ interface PaneState {
 
 | Function | Purpose |
 |----------|---------|
-| `openFileInPane(pane, fileHandle, dirHandle, content, path)` | Open file in pane |
+| `openFileInPane(pane, filePath, content)` | Open file in pane |
 | `updatePaneContent(pane, content)` | Update content (marks dirty) |
 | `markPaneDirty(pane)` / `markPaneClean(pane, content?)` | Dirty state |
 | `closePaneFile(pane)` | Clear pane |
 | `setFocusedPane(pane)` / `getFocusedPane()` | Focus tracking |
 | `isPaneFileOpen(pane)` | Check if pane has file |
+| `getPaneFilename(pane)` | Get filename for display |
 
-**Persistence:** None. The right pane (daily notes) is transient. Left pane uses `tabsStore` for persistence.
+**Persistence:** None. The right pane (journal) is transient. Left pane uses `tabsStore` for persistence.
 
 ---
 
@@ -199,10 +199,9 @@ interface TabsState {
 
 // Tab interface in src/lib/types/tabs.ts
 interface Tab {
-  relativePath: string;
+  id: string;
+  filePath: string;
   filename: string;
-  fileHandle: FileSystemFileHandle;
-  dirHandle: FileSystemDirectoryHandle;
   savedContent: string;
   editorContent: string;
   isDirty: boolean;
@@ -224,7 +223,7 @@ interface Tab {
 
 **Constants:** `TAB_LIMIT = 5`
 
-**Persistence:** localStorage key `editorLeftPaneTabs`. Stores `{ tabs: [{relativePath, filename}], activeIndex }`. Content reloaded from disk on restore.
+**Persistence:** localStorage key `editorLeftPaneTabs`. Stores `{ tabs: [{filePath, filename}], activeIndex }`. Content reloaded from disk on restore via `fileService`.
 
 ---
 
@@ -271,25 +270,26 @@ interface TagIndexMeta {
 
 ---
 
-### todosStore
+### journalStore
 
-Global todo list with Kanban-like status workflow. Stored in vault as user content (not configuration).
+Journal entries for daily notes with YAML file persistence.
 
 **State Shape:**
 ```typescript
-interface TodosState {
-  todos: Todo[];
+interface JournalState {
+  entries: JournalEntry[];
+  selectedDate: Date | null;
   isLoading: boolean;
-  showCompleted: boolean;
+  datesWithEntries: Set<string>;  // 'YYYY-MM-DD' format
 }
 
-// Todo interface in src/lib/types/todos.ts
-interface Todo {
+interface JournalEntry {
   id: string;
   text: string;
-  status: TodoStatus;  // 'new' | 'backlog' | 'todo' | 'in-progress' | 'in-review' | 'complete'
-  createdAt: string;   // ISO timestamp
-  updatedAt: string;   // ISO timestamp
+  tags: string[];
+  order: number;
+  createdAt: string;
+  updatedAt: string;
 }
 ```
 
@@ -297,28 +297,52 @@ interface Todo {
 
 | Function | Purpose |
 |----------|---------|
-| `getTodos()` | Get all todos |
-| `getTodosByStatus(status)` | Filter by status |
-| `getActiveTodos()` / `getCompletedTodos()` | Filter by completion |
-| `getVisibleTodos()` | Respects showCompleted setting |
-| `addTodo(text, status?)` | Add todo (auto-saves) |
-| `removeTodo(id)` | Remove todo (auto-saves) |
-| `updateTodoText(id, text)` | Update text (auto-saves) |
-| `updateTodoStatus(id, status)` | Update status (auto-saves) |
-| `loadTodos()` / `saveTodos()` | File persistence |
-| `setShowCompleted(show)` / `loadShowCompleted()` | UI preference |
-| `resetTodos()` | Clear state (for testing) |
+| `getEntries()` | Get entries for selected date |
+| `getSelectedDate()` / `getSelectedDateString()` | Get selected date |
+| `getDatesWithEntries()` | Get array of dates with entries |
+| `hasEntriesForDate(dateStr)` | Check if date has entries |
+| `addEntry(text, tags?)` | Add new entry (auto-saves) |
+| `removeEntry(id)` | Remove entry (auto-saves) |
+| `updateEntryText(id, text)` | Update text (auto-saves) |
+| `updateEntryTags(id, tags)` | Update tags (auto-saves) |
+| `loadEntriesForDate(date)` | Load entries from YAML |
+| `saveEntries()` | Save entries to YAML |
+| `scanDatesWithEntries()` | Scan vault for dates with entries |
 
-**Status Workflow:**
+**Persistence:** YAML files in `{dailyNotesFolder}/YYYY/MM/YYYY-MM-DD.yaml`. Uses `fileService` for I/O.
+
+---
+
+### tagVocabulary
+
+Tag vocabulary for autocomplete suggestions.
+
+**State Shape:**
+```typescript
+interface TagVocabularyState {
+  tags: VocabularyTag[];
+  isLoading: boolean;
+}
+
+interface VocabularyTag {
+  name: string;
+  count: number;
+}
 ```
-New → Backlog → Todo → In Progress → In Review → Complete
-```
 
-**Persistence:**
-- Todos stored in vault file `data/todos.json` (JSON with version field)
-- `showCompleted` UI preference in localStorage key `todosShowCompleted`
+**Key Functions:**
 
-**Design Decision:** Todos are stored in `data/` folder rather than root because they are user content, not application configuration. This keeps them separate from config files like `.editor-config.json`.
+| Function | Purpose |
+|----------|---------|
+| `getTags()` | Get all vocabulary tags sorted by count |
+| `getTag(name)` | Get specific tag |
+| `hasTag(name)` | Check if tag exists |
+| `addTag(name)` | Add tag (increments count if exists) |
+| `incrementTagCount(name)` / `decrementTagCount(name)` | Update usage count |
+| `buildVocabularyFromIndex(tagIndex?)` | Populate from tag index |
+| `loadTagVocabulary()` / `saveTagVocabulary()` | File persistence |
+
+**Persistence:** YAML file `.editor-tags.yaml` in vault root. Uses `fileService` for I/O.
 
 ---
 
@@ -349,27 +373,24 @@ interface ShortcutsState {
 ```
 When should I use...
 
-IndexedDB?
-└── Non-serializable objects (FileSystemDirectoryHandle)
-└── Large data that exceeds localStorage limits
-
 localStorage?
 └── Simple JSON-serializable state
 └── User preferences, UI state, caches
 └── Data under ~5MB
+└── Vault path
 
-File-based (.json in vault)?
+File-based (.json/.yaml in vault)?
 └── Settings that should travel with the vault
 └── User-editable configuration
 └── Vault-specific (not app-wide) settings
+└── Uses fileService for I/O
 ```
 
 | Strategy | Pros | Cons | Used By |
 |----------|------|------|---------|
-| IndexedDB | Handles non-serializable objects, larger storage | Async API, more complex | `vault` |
-| localStorage | Simple, synchronous, widely supported | 5MB limit, strings only | `settings`, `tabs`, `tags` |
+| localStorage | Simple, synchronous, widely supported | 5MB limit, strings only | `vault`, `settings`, `tabs`, `tags` |
 | File-based (config) | Portable, user-editable, version-controllable | Requires vault open, async | `vaultConfig` |
-| File-based (data) | Content travels with vault, auto-saves | Requires vault open, async | `todos` |
+| File-based (data) | Content travels with vault, auto-saves | Requires vault open, async | `journalStore`, `tagVocabulary` |
 
 ## Store Interaction Patterns
 
@@ -382,7 +403,7 @@ File-based (.json in vault)?
 </script>
 
 <!-- Direct property access (reactive) -->
-{#if vault.rootDirHandle}
+{#if vault.path}
   <FileTree />
 {/if}
 
@@ -408,10 +429,10 @@ function handleChange() {
 Services update multiple stores as part of a single operation. Example from [fileSave.ts](../../src/lib/services/fileSave.ts):
 
 ```typescript
-// Save involves: tabs store (mark clean) + tags utility (update index)
-await writeToFile(fileHandle, content);
+// Save involves: tabs store (mark clean) + tags utility (update index) + fileService
+await fileService.writeFile(filePath, content);
 markTabClean(tabsStore.activeTabIndex, content);
-updateFileInIndex(relativePath, content);
+updateFileInIndex(filePath, content);
 ```
 
 ### Data Flow
@@ -424,7 +445,7 @@ Component (event handler)
     │
     ├─► Simple update ──► Store function ──► State changes ──► UI re-renders
     │
-    └─► Complex operation ──► Service ──► Multiple stores + side effects
+    └─► Complex operation ──► Service ──► fileService + Multiple stores + side effects
 ```
 
 ## Testing Notes
@@ -444,10 +465,33 @@ src/lib/stores/vault.test.ts         ✗ (runes won't compile)
 
 ```typescript
 // Won't work - different proxy instances
-expect(vault).toBe({ rootDirHandle: null, ... });
+expect(vault).toBe({ path: null, ... });
 
 // Works - compares values
-expect(vault).toEqual({ rootDirHandle: null, ... });
+expect(vault).toEqual({ path: null, ... });
+```
+
+### Mocking fileService
+
+Most store tests that involve file I/O mock the `fileService`:
+
+```typescript
+vi.mock('$lib/services/fileService', () => ({
+  fileService: {
+    setVaultPath: vi.fn(),
+    getVaultPath: vi.fn(() => '/mock/vault'),
+    readFile: vi.fn(),
+    writeFile: vi.fn(),
+    exists: vi.fn(),
+    createFile: vi.fn(),
+    createDirectory: vi.fn(),
+    deleteFile: vi.fn(),
+    deleteDirectory: vi.fn(),
+    listDirectory: vi.fn(),
+    rename: vi.fn(),
+    stat: vi.fn(),
+  },
+}));
 ```
 
 ### Reset Functions
@@ -458,12 +502,12 @@ Each store provides a reset function for test isolation:
 import { resetTabsStore } from '$lib/stores/tabs.svelte';
 import { resetEditorState } from '$lib/stores/editor.svelte';
 import { resetTagIndex } from '$lib/stores/tags.svelte';
-import { resetTodos } from '$lib/stores/todos.svelte';
+import { resetJournal } from '$lib/stores/journal.svelte';
 
 beforeEach(() => {
   resetTabsStore();
   resetEditorState();
   resetTagIndex();
-  resetTodos();
+  resetJournal();
 });
 ```

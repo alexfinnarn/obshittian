@@ -5,11 +5,10 @@
   import EditorPane from '$lib/components/EditorPane.svelte';
   import PaneResizer from '$lib/components/PaneResizer.svelte';
   import VaultPicker from '$lib/components/VaultPicker.svelte';
-  import TodoList from '$lib/components/TodoList.svelte';
-  import { on, emit, type AppEvents } from '$lib/utils/eventBus';
+  import JournalPane from '$lib/components/JournalPane.svelte';
+  import { on, type AppEvents } from '$lib/utils/eventBus';
   import { vault, openVault, getIsVaultOpen } from '$lib/stores/vault.svelte';
   import { settings, loadSettings } from '$lib/stores/settings.svelte';
-  import { editor, updatePaneContent } from '$lib/stores/editor.svelte';
   import {
     tabsStore,
     getActiveTab,
@@ -25,12 +24,11 @@
     handleCloseTab,
     handleNextTab,
     handlePrevTab,
-    createCalendarNavigator,
   } from '$lib/services/shortcutHandlers';
   import {
     savePaneWidth,
     getPaneWidth,
-    getDirectoryHandle,
+    getVaultPath,
     saveLastOpenFile,
   } from '$lib/utils/filesystem';
   import {
@@ -44,10 +42,15 @@
     loadTagIndexFromStorage,
   } from '$lib/stores/tags.svelte';
   import { loadVaultConfig } from '$lib/stores/vaultConfig.svelte';
-  import { loadTodos, loadShowCompleted, resetTodos } from '$lib/stores/todos.svelte';
-  import { isTestMode, getMockVaultHandle } from '$lib/utils/mockFilesystem';
-  import { openFileInTabs, openFileInSinglePane, openDailyNote } from '$lib/services/fileOpen';
+  import {
+    journalStore,
+    loadEntriesForDate,
+    scanDatesWithEntries,
+  } from '$lib/stores/journal.svelte';
+  import { loadTagVocabulary } from '$lib/stores/tagVocabulary.svelte';
+  import { openFileInTabs, openFileInSinglePane } from '$lib/services/fileOpen';
   import { saveFile } from '$lib/services/fileSave';
+  import { fileService } from '$lib/services/fileService';
 
   // Event bus subscriptions
   let unsubscribers: (() => void)[] = [];
@@ -64,7 +67,7 @@
     loadSettings();
 
     // Restore pane width from localStorage
-    const savedWidth = await getPaneWidth();
+    const savedWidth = getPaneWidth();
     if (savedWidth) {
       leftPaneWidthPercent = savedWidth;
     }
@@ -109,12 +112,28 @@
       })
     );
 
-    // Listen for daily note open events
+    // Listen for journal:scrollToEntry events from TagSearch
     unsubscribers.push(
-      on('dailynote:open', async (data: AppEvents['dailynote:open']) => {
-        await openDailyNote(data.date);
+      on('journal:scrollToEntry', async (data: AppEvents['journal:scrollToEntry']) => {
+        // Parse the date string to a Date object
+        const [year, month, day] = data.date.split('-').map(Number);
+        const date = new Date(year, month - 1, day);
+
+        // Load entries for that date
+        await loadEntriesForDate(date);
+
+        // Scroll to the specific entry after a brief delay for DOM update
+        setTimeout(() => {
+          const entryElement = document.querySelector(
+            `[data-testid="journal-entry-${data.entryId}"]`
+          );
+          if (entryElement) {
+            entryElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 100);
       })
     );
+
   });
 
   // Auto-save tabs when they change
@@ -132,8 +151,8 @@
   // Save last open file when active tab changes
   $effect(() => {
     const activeTab = getActiveTab();
-    if (activeTab?.relativePath) {
-      saveLastOpenFile(activeTab.relativePath);
+    if (activeTab?.filePath) {
+      saveLastOpenFile(activeTab.filePath);
     }
   });
 
@@ -141,30 +160,32 @@
    * Try to restore the previously opened vault (auto-restore on load)
    */
   async function tryRestoreVault() {
-    // In test mode, auto-open mock vault
-    if (isTestMode()) {
-      const mockHandle = getMockVaultHandle();
-      openVault(mockHandle);
-      await onVaultOpened();
-      return;
-    }
-
     try {
-      const savedHandle = await getDirectoryHandle();
-      if (!savedHandle) {
+      const savedPath = getVaultPath();
+      if (!savedPath) {
         isRestoringVault = false;
         return;
       }
 
-      // Request permission - this may require user interaction
-      const permission = await savedHandle.requestPermission({ mode: 'readwrite' });
-      if (permission === 'granted') {
-        openVault(savedHandle);
-        await onVaultOpened();
-      } else {
-        // Permission denied, show VaultPicker
+      // Validate with server to set process.env.VAULT_PATH
+      const response = await fetch('/api/vault/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: savedPath }),
+      });
+
+      if (!response.ok) {
+        console.error('Saved vault path is no longer valid');
         isRestoringVault = false;
+        return;
       }
+
+      const data = await response.json();
+
+      // Set the vault path and initialize fileService
+      openVault(data.path);
+      fileService.setVaultPath(data.path);
+      await onVaultOpened();
     } catch (err) {
       console.error('Failed to restore vault:', err);
       isRestoringVault = false;
@@ -177,28 +198,30 @@
   async function onVaultOpened() {
     isRestoringVault = false;
 
-    if (!vault.rootDirHandle) return;
+    if (!vault.path) return;
 
     // Load vault config (Quick Links, Quick Files) from .editor-config.json
     // Falls back to defaults from src/lib/config.ts via settings store
-    await loadVaultConfig(vault.rootDirHandle, {
+    await loadVaultConfig({
       quickLinks: settings.defaultQuickLinks,
       quickFiles: settings.defaultQuickFiles,
     });
 
-    // Load todos from vault
-    loadShowCompleted();
-    await loadTodos();
+    // Scan for journal files (for calendar indicators)
+    await scanDatesWithEntries();
 
     // Initialize tag index
     await initializeTagIndex();
 
+    // Load tag vocabulary for autocomplete (after tag index is ready)
+    await loadTagVocabulary();
+
     // Restore tabs
     await restoreTabs();
 
-    // Open today's note if configured
+    // Open today's journal if configured
     if (settings.autoOpenTodayNote) {
-      await openDailyNote(new Date());
+      await loadEntriesForDate(new Date());
     }
   }
 
@@ -212,9 +235,9 @@
     // Re-open each stored tab
     for (const tabData of storedTabs.tabs) {
       try {
-        await openFileInTabs(tabData.relativePath, true);
+        await openFileInTabs(tabData.filePath, true);
       } catch (err) {
-        console.error('Failed to restore tab:', tabData.relativePath, err);
+        console.error('Failed to restore tab:', tabData.filePath, err);
       }
     }
 
@@ -238,7 +261,7 @@
     }
 
     // No stored index, build from vault if open
-    if (vault.rootDirHandle) {
+    if (vault.path) {
       await buildTagIndexAsync();
     }
   }
@@ -247,11 +270,11 @@
    * Build tag index with loading state
    */
   async function buildTagIndexAsync() {
-    if (!vault.rootDirHandle) return;
+    if (!vault.path) return;
 
     setIndexing(true);
     try {
-      await buildTagIndex(vault.rootDirHandle);
+      await buildTagIndex(vault.dailyNotesFolder);
       console.log('Tag index built');
     } catch (err) {
       console.error('Failed to build tag index:', err);
@@ -269,7 +292,7 @@
    * Handle date selection from calendar.
    */
   function handleDateSelect(date: Date) {
-    emit('dailynote:open', { date });
+    loadEntriesForDate(date);
   }
 
   /**
@@ -289,12 +312,6 @@
     }
   }
 
-  /**
-   * Handle content change from right editor pane (single mode)
-   */
-  function handleRightContentChange(content: string) {
-    updatePaneContent('right', content);
-  }
 </script>
 
 {#if isRestoringVault}
@@ -311,10 +328,6 @@
     use:shortcut={{ binding: 'closeTab', handler: handleCloseTab }}
     use:shortcut={{ binding: 'nextTab', handler: handleNextTab }}
     use:shortcut={{ binding: 'prevTab', handler: handlePrevTab }}
-    use:shortcut={{ binding: 'prevDay', handler: createCalendarNavigator(-1), when: { focusedPane: 'right' } }}
-    use:shortcut={{ binding: 'nextDay', handler: createCalendarNavigator(1), when: { focusedPane: 'right' } }}
-    use:shortcut={{ binding: 'prevWeek', handler: createCalendarNavigator(-7), when: { focusedPane: 'right' } }}
-    use:shortcut={{ binding: 'nextWeek', handler: createCalendarNavigator(7), when: { focusedPane: 'right' } }}
   >
     <Sidebar ondateselect={handleDateSelect} />
 
@@ -331,17 +344,7 @@
       <PaneResizer onresize={handlePaneResize} />
 
       <div class="pane right-pane" style="flex: {100 - leftPaneWidthPercent}" data-testid="right-pane">
-        <TodoList />
-        <div class="right-pane-editor">
-          <EditorPane
-            pane="right"
-            mode="single"
-            filename={editor.right.fileHandle?.name ?? ''}
-            content={editor.right.content}
-            isDirty={editor.right.isDirty}
-            oncontentchange={handleRightContentChange}
-          />
-        </div>
+        <JournalPane />
       </div>
     </main>
   </div>
@@ -370,12 +373,5 @@
     flex-direction: column;
     min-width: 0;
     background: var(--editor-bg, #1e1e1e);
-  }
-
-  .right-pane-editor {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
   }
 </style>

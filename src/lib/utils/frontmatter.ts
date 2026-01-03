@@ -2,8 +2,10 @@
  * Frontmatter Utilities
  *
  * YAML frontmatter parsing and manipulation for markdown files.
- * Ported from js/frontmatter.js with TypeScript types.
+ * Uses js-yaml for robust YAML parsing.
  */
+
+import yaml from 'js-yaml';
 
 export interface FrontmatterResult {
   /** Raw frontmatter text (without delimiters) */
@@ -62,8 +64,8 @@ export function extractFrontmatterRaw(content: string | null | undefined): Front
 }
 
 /**
- * Parse frontmatter YAML into an object
- * Supports: key: value, key: [array], key:\n  - list
+ * Parse frontmatter YAML into an object using js-yaml.
+ * Also supports comma-separated values (non-standard but convenient).
  * @param content - The markdown file content
  * @returns Parsed frontmatter object or empty object
  */
@@ -73,61 +75,35 @@ export function parseFrontmatter(content: string | null | undefined): ParsedFron
     return {};
   }
 
-  const result: ParsedFrontmatter = {};
-  const lines = extracted.raw.split('\n');
-  let currentKey: string | null = null;
-  let listItems: string[] = [];
-
-  for (const line of lines) {
-    const trimmed = line.trim();
-
-    // Check for list item (  - value)
-    if (trimmed.startsWith('- ') && currentKey) {
-      listItems.push(trimmed.substring(2).trim());
-      continue;
+  try {
+    const parsed = yaml.load(extracted.raw) as Record<string, unknown> | null;
+    if (!parsed || typeof parsed !== 'object') {
+      return {};
     }
 
-    // If we were collecting list items, save them
-    if (listItems.length > 0 && currentKey) {
-      result[currentKey] = listItems;
-      listItems = [];
-      currentKey = null;
-    }
-
-    // Check for key: value pair
-    const colonIndex = trimmed.indexOf(':');
-    if (colonIndex > 0) {
-      const key = trimmed.substring(0, colonIndex).trim();
-      const value = trimmed.substring(colonIndex + 1).trim();
-
-      if (value === '') {
-        // Could be start of a list
-        currentKey = key;
-      } else if (value.startsWith('[') && value.endsWith(']')) {
-        // YAML array syntax: [one, two, three]
-        const items = value
-          .slice(1, -1)
-          .split(',')
-          .map((s) => s.trim())
-          .filter((s) => s);
-        result[key] = items;
-      } else {
-        // Comma-separated or single value
-        const items = value
-          .split(',')
-          .map((s) => s.trim())
-          .filter((s) => s);
-        result[key] = items.length === 1 ? items[0] : items;
+    // Convert to ParsedFrontmatter format, handling comma-separated strings
+    const result: ParsedFrontmatter = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      if (Array.isArray(value)) {
+        // Already an array from YAML list or [a, b, c] syntax
+        result[key] = value.map(String);
+      } else if (typeof value === 'string') {
+        // Check for comma-separated values (non-standard but supported)
+        if (value.includes(',')) {
+          result[key] = value.split(',').map((s) => s.trim()).filter((s) => s);
+        } else {
+          result[key] = value;
+        }
+      } else if (value !== null && value !== undefined) {
+        result[key] = String(value);
       }
     }
-  }
 
-  // Handle any remaining list items
-  if (listItems.length > 0 && currentKey) {
-    result[currentKey] = listItems;
+    return result;
+  } catch {
+    // Invalid YAML, return empty object
+    return {};
   }
-
-  return result;
 }
 
 /**

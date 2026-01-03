@@ -13,24 +13,28 @@ vi.mock('$lib/stores/vaultConfig.svelte', async () => {
   };
 });
 
-// Mock Pikaday for Calendar component
-vi.mock('pikaday', () => {
-  class MockPikaday {
-    el: HTMLElement;
-    constructor() {
-      this.el = document.createElement('div');
-      this.el.className = 'pika-single';
-      this.el.setAttribute('data-testid', 'pikaday-el');
+// Mock Vanilla Calendar Pro for Calendar component
+vi.mock('vanilla-calendar-pro', () => {
+  class MockVanillaCalendar {
+    selectedDates: string[];
+    constructor(container: HTMLElement) {
+      this.selectedDates = [];
+      // Create mock calendar DOM
+      const calendarEl = document.createElement('div');
+      calendarEl.className = 'vc-calendar';
+      calendarEl.innerHTML = '<div class="vc-dates">Mock Calendar</div>';
+      container.appendChild(calendarEl);
     }
+    init() {}
     destroy() {}
-    getDate() { return new Date(); }
-    setDate() {}
+    set() {}
+    update() {}
   }
-  return { default: MockPikaday };
+  return { Calendar: MockVanillaCalendar };
 });
 
-// Mock Pikaday CSS
-vi.mock('pikaday/css/pikaday.css', () => ({}));
+// Mock Vanilla Calendar Pro CSS
+vi.mock('vanilla-calendar-pro/styles/index.css', () => ({}));
 
 describe('Sidebar', () => {
   beforeEach(() => {
@@ -50,7 +54,7 @@ describe('Sidebar', () => {
     render(Sidebar);
     expect(screen.getByTestId('calendar')).toBeTruthy();
     expect(screen.getByText('Calendar')).toBeTruthy();
-    // Calendar component renders Pikaday widget
+    // Calendar component renders Vanilla Calendar Pro widget
     expect(screen.getByTestId('calendar-widget')).toBeTruthy();
   });
 

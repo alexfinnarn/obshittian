@@ -6,6 +6,7 @@
  */
 
 import { vault } from './vault.svelte';
+import { fileService } from '$lib/services/fileService';
 
 const CONFIG_FILENAME = '.editor-config.json';
 
@@ -75,12 +76,9 @@ export async function setQuickFiles(files: QuickFile[]): Promise<boolean> {
  * Falls back to defaults when file doesn't exist.
  */
 export async function loadVaultConfig(
-  rootDirHandle?: FileSystemDirectoryHandle,
   defaults?: Partial<VaultConfig>
 ): Promise<VaultConfig> {
-  const dirHandle = rootDirHandle ?? vault.rootDirHandle;
-
-  if (!dirHandle) {
+  if (!vault.path) {
     // No vault open, use defaults
     vaultConfig.quickLinks = defaults?.quickLinks ?? DEFAULT_CONFIG.quickLinks;
     vaultConfig.quickFiles = defaults?.quickFiles ?? DEFAULT_CONFIG.quickFiles;
@@ -88,9 +86,14 @@ export async function loadVaultConfig(
   }
 
   try {
-    const fileHandle = await dirHandle.getFileHandle(CONFIG_FILENAME);
-    const file = await fileHandle.getFile();
-    const text = await file.text();
+    const existsResult = await fileService.exists(CONFIG_FILENAME);
+    if (!existsResult.exists) {
+      vaultConfig.quickLinks = defaults?.quickLinks ?? DEFAULT_CONFIG.quickLinks;
+      vaultConfig.quickFiles = defaults?.quickFiles ?? DEFAULT_CONFIG.quickFiles;
+      return { ...vaultConfig };
+    }
+
+    const text = await fileService.readFile(CONFIG_FILENAME);
     const parsed = JSON.parse(text) as Partial<VaultConfig>;
 
     // Use vault config values, falling back to provided defaults
@@ -98,9 +101,7 @@ export async function loadVaultConfig(
     vaultConfig.quickFiles = parsed.quickFiles ?? defaults?.quickFiles ?? DEFAULT_CONFIG.quickFiles;
   } catch (err) {
     // File doesn't exist or is invalid - use defaults
-    if ((err as DOMException)?.name !== 'NotFoundError') {
-      console.warn('Error reading vault config:', (err as Error).message);
-    }
+    console.warn('Error reading vault config:', (err as Error).message);
     vaultConfig.quickLinks = defaults?.quickLinks ?? DEFAULT_CONFIG.quickLinks;
     vaultConfig.quickFiles = defaults?.quickFiles ?? DEFAULT_CONFIG.quickFiles;
   }
@@ -111,25 +112,18 @@ export async function loadVaultConfig(
 /**
  * Save current config to .editor-config.json
  */
-export async function saveVaultConfig(
-  rootDirHandle?: FileSystemDirectoryHandle
-): Promise<boolean> {
-  const dirHandle = rootDirHandle ?? vault.rootDirHandle;
-
-  if (!dirHandle) {
+export async function saveVaultConfig(): Promise<boolean> {
+  if (!vault.path) {
     console.error('Cannot save vault config: no directory open');
     return false;
   }
 
   try {
-    const fileHandle = await dirHandle.getFileHandle(CONFIG_FILENAME, { create: true });
-    const writable = await fileHandle.createWritable();
     const data: VaultConfig = {
       quickLinks: vaultConfig.quickLinks,
       quickFiles: vaultConfig.quickFiles,
     };
-    await writable.write(JSON.stringify(data, null, 2));
-    await writable.close();
+    await fileService.writeFile(CONFIG_FILENAME, JSON.stringify(data, null, 2));
     return true;
   } catch (err) {
     console.error('Error saving vault config:', err);

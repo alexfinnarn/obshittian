@@ -1,39 +1,41 @@
 <script lang="ts">
   import Self from './FileTreeItem.svelte';
   import { emit } from '$lib/utils/eventBus';
-  import { vault } from '$lib/stores/vault.svelte';
-  import { getVisibleEntries, getRelativePath } from '$lib/utils/fileOperations';
+  import { getVisibleEntries } from '$lib/utils/fileOperations';
+  import type { DirectoryEntry } from '$lib/server/fileTypes';
 
   interface Props {
-    entry: FileSystemHandle;
-    parentDirHandle: FileSystemDirectoryHandle;
+    entry: DirectoryEntry;
+    parentPath: string;
     depth?: number;
     activePath?: string | null;
     oncontextmenu?: (
       e: MouseEvent,
-      entry: FileSystemHandle,
-      parentDir: FileSystemDirectoryHandle,
+      entry: DirectoryEntry,
+      parentPath: string,
       isDirectory: boolean
     ) => void;
   }
 
   let {
     entry,
-    parentDirHandle,
+    parentPath,
     depth = 0,
     activePath = null,
     oncontextmenu,
   }: Props = $props();
 
   let isExpanded = $state(false);
-  let children = $state<FileSystemHandle[]>([]);
+  let children = $state<DirectoryEntry[]>([]);
   let isLoading = $state(false);
+
+  // Build the full path for this entry
+  const entryPath = $derived(parentPath ? `${parentPath}/${entry.name}` : entry.name);
 
   // Check if this file is the currently active one
   const isActive = $derived(() => {
     if (entry.kind !== 'file' || !activePath) return false;
-    // Simple check: compare by name at the end of the path
-    return activePath.endsWith(entry.name);
+    return activePath === entryPath;
   });
 
   async function loadChildren() {
@@ -41,8 +43,7 @@
 
     isLoading = true;
     try {
-      const dirHandle = entry as FileSystemDirectoryHandle;
-      children = await getVisibleEntries(dirHandle);
+      children = await getVisibleEntries(entryPath);
     } catch (err) {
       console.error('Failed to load directory contents:', err);
       children = [];
@@ -51,34 +52,22 @@
     }
   }
 
-  async function handleFileClick(e: MouseEvent) {
+  function handleFileClick(e: MouseEvent) {
     e.stopPropagation();
 
     if (entry.kind !== 'file') return;
 
-    const fileHandle = entry as FileSystemFileHandle;
-    const path = await getRelativePath(vault.rootDirHandle!, fileHandle);
-
-    if (path) {
-      // Ctrl/Cmd+click will open in new tab in Phase 6
-      // For now, just emit the file:open event
-      emit('file:open', {
-        path,
-        pane: 'left',
-      });
-    }
+    emit('file:open', {
+      path: entryPath,
+      pane: 'left',
+    });
   }
 
   function handleContextMenu(e: MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
 
-    oncontextmenu?.(
-      e,
-      entry,
-      parentDirHandle,
-      entry.kind === 'directory'
-    );
+    oncontextmenu?.(e, entry, parentPath, entry.kind === 'directory');
   }
 
   function handleToggle(e: Event) {
@@ -140,7 +129,7 @@
           {#each children as child (child.name)}
             <Self
               entry={child}
-              parentDirHandle={entry as FileSystemDirectoryHandle}
+              parentPath={entryPath}
               depth={depth + 1}
               {activePath}
               {oncontextmenu}

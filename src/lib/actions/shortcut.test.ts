@@ -158,14 +158,14 @@ describe('shortcut action', () => {
   describe('focusedPane condition', () => {
     it('fires when focusedPane matches', () => {
       const action = shortcut(targetElement, {
-        binding: 'prevDay',
+        binding: 'toggleView',
         handler,
         when: { focusedPane: 'right' },
       }) as ActionResult;
 
       setFocusedPane('right');
 
-      window.dispatchEvent(createKeyEvent('ArrowLeft', { meta: true }));
+      window.dispatchEvent(createKeyEvent('e', { meta: true }));
 
       expect(handler).toHaveBeenCalledTimes(1);
 
@@ -174,14 +174,14 @@ describe('shortcut action', () => {
 
     it('does not fire when focusedPane does not match', () => {
       const action = shortcut(targetElement, {
-        binding: 'prevDay',
+        binding: 'toggleView',
         handler,
         when: { focusedPane: 'right' },
       }) as ActionResult;
 
       setFocusedPane('left');
 
-      window.dispatchEvent(createKeyEvent('ArrowLeft', { meta: true }));
+      window.dispatchEvent(createKeyEvent('e', { meta: true }));
 
       expect(handler).not.toHaveBeenCalled();
 
@@ -190,14 +190,14 @@ describe('shortcut action', () => {
 
     it('does not fire when no pane is focused', () => {
       const action = shortcut(targetElement, {
-        binding: 'prevDay',
+        binding: 'toggleView',
         handler,
         when: { focusedPane: 'right' },
       }) as ActionResult;
 
       setFocusedPane(null);
 
-      window.dispatchEvent(createKeyEvent('ArrowLeft', { meta: true }));
+      window.dispatchEvent(createKeyEvent('e', { meta: true }));
 
       expect(handler).not.toHaveBeenCalled();
 

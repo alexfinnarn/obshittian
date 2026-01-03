@@ -11,46 +11,34 @@ import {
   type QuickLink,
   type QuickFile,
 } from './vaultConfig.svelte';
-import { vault, closeVault } from './vault.svelte';
+import { vault, closeVault, openVault } from './vault.svelte';
+import { fileService } from '$lib/services/fileService';
 
-// Mock file handle and writable stream
-function createMockWritable() {
-  return {
-    write: vi.fn().mockResolvedValue(undefined),
-    close: vi.fn().mockResolvedValue(undefined),
-  };
-}
+// Mock the fileService
+vi.mock('$lib/services/fileService', () => ({
+  fileService: {
+    setVaultPath: vi.fn(),
+    getVaultPath: vi.fn(() => '/mock/vault'),
+    readFile: vi.fn(),
+    writeFile: vi.fn(),
+    exists: vi.fn(),
+    createFile: vi.fn(),
+    createDirectory: vi.fn(),
+    deleteFile: vi.fn(),
+    deleteDirectory: vi.fn(),
+    listDirectory: vi.fn(),
+    rename: vi.fn(),
+    stat: vi.fn(),
+  },
+}));
 
-function createMockFileHandle(content: string) {
-  const mockWritable = createMockWritable();
-  return {
-    getFile: vi.fn().mockResolvedValue({
-      text: vi.fn().mockResolvedValue(content),
-    }),
-    createWritable: vi.fn().mockResolvedValue(mockWritable),
-    mockWritable,
-  };
-}
-
-function createMockDirHandle(fileHandle?: ReturnType<typeof createMockFileHandle>) {
-  return {
-    name: 'test-vault',
-    getFileHandle: vi.fn().mockImplementation(async (name: string, options?: { create?: boolean }) => {
-      if (fileHandle) {
-        return fileHandle;
-      }
-      if (options?.create) {
-        return createMockFileHandle('{}');
-      }
-      throw new DOMException('File not found', 'NotFoundError');
-    }),
-  } as unknown as FileSystemDirectoryHandle;
-}
+const mockFileService = vi.mocked(fileService);
 
 describe('vaultConfig store', () => {
   beforeEach(() => {
     resetVaultConfig();
     closeVault();
+    vi.clearAllMocks();
   });
 
   describe('initial state', () => {
@@ -71,16 +59,15 @@ describe('vaultConfig store', () => {
     });
 
     it('setQuickLinks updates links and saves', async () => {
-      const mockFileHandle = createMockFileHandle('{}');
-      const mockDirHandle = createMockDirHandle(mockFileHandle);
-      vault.rootDirHandle = mockDirHandle;
+      openVault('/mock/vault');
+      mockFileService.writeFile.mockResolvedValue(undefined);
 
       const links: QuickLink[] = [{ name: 'Google', url: 'https://google.com' }];
       const result = await setQuickLinks(links);
 
       expect(result).toBe(true);
       expect(vaultConfig.quickLinks).toEqual(links);
-      expect(mockFileHandle.mockWritable.write).toHaveBeenCalled();
+      expect(mockFileService.writeFile).toHaveBeenCalled();
     });
   });
 
@@ -92,9 +79,8 @@ describe('vaultConfig store', () => {
     });
 
     it('setQuickFiles updates files and saves', async () => {
-      const mockFileHandle = createMockFileHandle('{}');
-      const mockDirHandle = createMockDirHandle(mockFileHandle);
-      vault.rootDirHandle = mockDirHandle;
+      openVault('/mock/vault');
+      mockFileService.writeFile.mockResolvedValue(undefined);
 
       const files: QuickFile[] = [{ name: 'Notes', path: 'notes.md' }];
       const result = await setQuickFiles(files);
@@ -106,26 +92,29 @@ describe('vaultConfig store', () => {
 
   describe('loadVaultConfig', () => {
     it('loads config from file', async () => {
-      const configContent = JSON.stringify({
-        quickLinks: [{ name: 'Test', url: 'https://test.com' }],
-        quickFiles: [{ name: 'Todo', path: 'todo.md' }],
-      });
-      const mockFileHandle = createMockFileHandle(configContent);
-      const mockDirHandle = createMockDirHandle(mockFileHandle);
+      openVault('/mock/vault');
+      mockFileService.exists.mockResolvedValue({ exists: true, kind: 'file' });
+      mockFileService.readFile.mockResolvedValue(
+        JSON.stringify({
+          quickLinks: [{ name: 'Test', url: 'https://test.com' }],
+          quickFiles: [{ name: 'Todo', path: 'todo.md' }],
+        })
+      );
 
-      const result = await loadVaultConfig(mockDirHandle);
+      const result = await loadVaultConfig();
 
       expect(result.quickLinks).toEqual([{ name: 'Test', url: 'https://test.com' }]);
       expect(result.quickFiles).toEqual([{ name: 'Todo', path: 'todo.md' }]);
     });
 
     it('uses defaults when file not found', async () => {
-      const mockDirHandle = createMockDirHandle(); // No file handle = NotFoundError
+      openVault('/mock/vault');
+      mockFileService.exists.mockResolvedValue({ exists: false });
 
       const defaults = {
         quickLinks: [{ name: 'Default', url: 'https://default.com' }],
       };
-      const result = await loadVaultConfig(mockDirHandle, defaults);
+      const result = await loadVaultConfig(defaults);
 
       expect(result.quickLinks).toEqual(defaults.quickLinks);
       expect(result.quickFiles).toEqual([]);
@@ -135,7 +124,7 @@ describe('vaultConfig store', () => {
       const defaults = {
         quickLinks: [{ name: 'Fallback', url: 'https://fallback.com' }],
       };
-      const result = await loadVaultConfig(undefined, defaults);
+      const result = await loadVaultConfig(defaults);
 
       expect(result.quickLinks).toEqual(defaults.quickLinks);
     });
@@ -143,9 +132,8 @@ describe('vaultConfig store', () => {
 
   describe('saveVaultConfig', () => {
     it('saves config to file', async () => {
-      const mockFileHandle = createMockFileHandle('{}');
-      const mockDirHandle = createMockDirHandle(mockFileHandle);
-      vault.rootDirHandle = mockDirHandle;
+      openVault('/mock/vault');
+      mockFileService.writeFile.mockResolvedValue(undefined);
 
       vaultConfig.quickLinks = [{ name: 'Test', url: 'https://test.com' }];
       vaultConfig.quickFiles = [{ name: 'File', path: 'file.md' }];
@@ -153,8 +141,7 @@ describe('vaultConfig store', () => {
       const result = await saveVaultConfig();
 
       expect(result).toBe(true);
-      expect(mockFileHandle.mockWritable.write).toHaveBeenCalled();
-      expect(mockFileHandle.mockWritable.close).toHaveBeenCalled();
+      expect(mockFileService.writeFile).toHaveBeenCalled();
     });
 
     it('returns false when no vault is open', async () => {

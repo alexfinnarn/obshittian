@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { searchTags, getAllTags } from '$lib/utils/tags';
+  import { searchTags, getAllTags, isJournalSource, parseJournalSource } from '$lib/utils/tags';
   import { tagsStore, getFilesForTag, setSelectedTag } from '$lib/stores/tags.svelte';
   import { emit } from '$lib/utils/eventBus';
 
@@ -35,12 +35,35 @@
     fileResults = getFilesForTag(tag);
   }
 
-  function handleFileClick(path: string) {
-    emit('file:open', { path, pane: 'left' });
+  function handleResultClick(path: string) {
+    if (isJournalSource(path)) {
+      // Navigate to journal entry
+      const parsed = parseJournalSource(path);
+      if (parsed) {
+        emit('journal:scrollToEntry', { date: parsed.date, entryId: parsed.entryId });
+      }
+    } else {
+      // Open file in left pane
+      emit('file:open', { path, pane: 'left' });
+    }
   }
 
-  function getFilename(path: string): string {
+  function getDisplayName(path: string): string {
+    if (isJournalSource(path)) {
+      const parsed = parseJournalSource(path);
+      if (parsed) {
+        // Format date nicely: "Jan 15, 2025"
+        const [year, month, day] = parsed.date.split('-');
+        const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+        const formatted = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        return `Journal: ${formatted}`;
+      }
+    }
     return path.split('/').pop() || path;
+  }
+
+  function isJournalResult(path: string): boolean {
+    return isJournalSource(path);
   }
 </script>
 
@@ -82,11 +105,12 @@
       {#each fileResults as path}
         <button
           class="file-result-item"
+          class:journal-result={isJournalResult(path)}
           title={path}
-          onclick={() => handleFileClick(path)}
+          onclick={() => handleResultClick(path)}
           data-testid="file-result-item"
         >
-          {getFilename(path)}
+          {getDisplayName(path)}
         </button>
       {/each}
     </div>
@@ -195,5 +219,10 @@
 
   .file-result-item:hover {
     background: var(--hover-bg, #333);
+  }
+
+  .file-result-item.journal-result {
+    color: var(--accent-color, #3794ff);
+    font-style: italic;
   }
 </style>

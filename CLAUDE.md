@@ -13,7 +13,7 @@ Built with Svelte 5, TypeScript, and Vite.
 ```bash
 npm install           # Install dependencies (requires Node 22+)
 npm run dev           # Start dev server at localhost:5173
-npm run build         # Production build to dist/
+npm run build         # Production build to build/
 npm run check         # TypeScript/Svelte type checking
 ```
 
@@ -39,10 +39,74 @@ Playwright tests are in `tests/e2e/` and test real browser interactions:
 - `editor.spec.ts` - Editor pane behavior
 - `file-tree.spec.ts` - File tree and context menu
 - `sidebar.spec.ts` - Sidebar components
-- `todos.spec.ts` - Todo list component
+- `journal.spec.ts` - Journal pane and calendar integration
 - `vault-picker.spec.ts` - Vault open/restore flow
 
 Test fixtures are in `tests/data/testing-files/` with sample markdown files.
+
+## Deployment
+
+The app deploys to a VPS using Kamal 2 with automatic CI/CD via GitHub Actions.
+
+**Production URL:** https://notes.finnarn.com
+
+### How It Works
+
+1. Push to `main` triggers `.github/workflows/deploy.yml`
+2. Tests run first (type check + unit tests)
+3. On success, Docker image is built and pushed to GitHub Container Registry (ghcr.io)
+4. Kamal SSHs to the VPS and deploys the new container
+5. kamal-proxy handles SSL (Let's Encrypt) and zero-downtime deploys
+
+### Deployment Files
+
+```
+Dockerfile              - Multi-stage Node.js 22 build
+.dockerignore           - Excludes dev files from image
+config/deploy.yml       - Kamal configuration (servers, proxy, registry)
+.kamal/secrets          - Registry credentials template
+.github/workflows/
+  deploy.yml            - CI/CD pipeline (test → build → deploy)
+```
+
+### Configuration
+
+Edit `config/deploy.yml` to change:
+- `servers.web` - VPS IP address
+- `proxy.host` - Domain name
+- `ssh.user` - SSH username
+- `env.clear` - Environment variables
+
+### GitHub Secrets Required
+
+| Secret | Purpose |
+|--------|---------|
+| `VPS_SSH_PRIVATE_KEY` | SSH key for server access |
+| `VPS_HOST` | VPS IP address |
+
+`GITHUB_TOKEN` is automatic and used for GHCR authentication.
+
+### Manual Deployment
+
+Trigger manually via GitHub Actions → Deploy → Run workflow, or locally:
+
+```bash
+gem install kamal
+kamal deploy
+```
+
+### First-Time VPS Setup
+
+Kamal handles most setup automatically, but ensure:
+- SSH access configured (port 22 open)
+- Ports 80 and 443 open for HTTP/HTTPS
+- DNS pointing to VPS IP
+
+Kamal will install Docker and configure kamal-proxy on first deploy.
+
+### Multiple Apps on Same VPS
+
+Kamal supports multiple apps on one server. Each app needs a unique `service` name and `proxy.host` in its `config/deploy.yml`. The proxy routes traffic by hostname.
 
 ## Architecture
 
@@ -68,16 +132,19 @@ src/
       tabs.svelte.ts       - Tabs management for left pane
       tags.svelte.ts       - Tag index state with localStorage persistence
       shortcuts.svelte.ts  - Shortcut blocking contexts for modal awareness
-      todos.svelte.ts      - Global todo list with vault file persistence
+      journal.svelte.ts    - Journal entries state with YAML file persistence
+      tagVocabulary.svelte.ts - Tag vocabulary for autocomplete
     config.ts            - Editor configuration (keyboard shortcuts, defaults)
     types/
       tabs.ts              - Tab interface and createTab function
-      todos.ts             - Todo types, status labels, and createTodo function
+      journal.ts           - Journal types and createJournalEntry helper
+      tagVocabulary.ts     - Tag vocabulary types for .editor-tags.yaml
     components/
       Sidebar.svelte       - Container for calendar, quick links/files, tabbed file tree/search
       SidebarTabs.svelte   - Files/Search tab toggle
-      TagSearch.svelte     - Tag search input and results
-      Calendar.svelte      - Pikaday calendar wrapper with dark theme
+      TagSearch.svelte     - Tag search input and results (includes journal entries)
+      TagInput.svelte      - Reusable tag input with autocomplete
+      Calendar.svelte      - Vanilla Calendar Pro with date enable/disable
       QuickLinks.svelte    - Quick links section with configure modal
       QuickFiles.svelte    - Quick files section with configure modal
       FileTree.svelte      - File tree with context menu and file operations
@@ -92,7 +159,8 @@ src/
       MarkdownPreview.svelte  - Markdown preview with frontmatter
       PaneResizer.svelte   - Draggable pane divider
       VaultPicker.svelte   - Vault open/restore UI (shown when no vault open)
-      TodoList.svelte      - Global todo list component (above right pane editor)
+      JournalPane.svelte   - Main journal UI for right pane
+      JournalEntry.svelte  - Individual journal entry component
     actions/
       clickOutside.ts      - Svelte action for detecting clicks outside element
       shortcut.ts          - Svelte action for declarative keyboard shortcuts
@@ -121,6 +189,13 @@ playwright.config.ts     - Playwright E2E test configuration
 .github/
   workflows/
     test.yml             - GitHub Actions workflow for PR testing
+    deploy.yml           - CI/CD pipeline for VPS deployment
+config/
+  deploy.yml             - Kamal deployment configuration
+.kamal/
+  secrets                - Kamal secrets template
+Dockerfile               - Multi-stage production build
+.dockerignore            - Docker build exclusions
 .claude/
   commands/              - Claude Code slash commands
 docs/                    - Documentation (see architecture/ for design docs)
@@ -185,19 +260,30 @@ scripts/                 - Utility scripts
 - `getBlockingReasons()` - Get list of current blocking reasons
 - `clearAllBlocks()` - Remove all blockers (for testing)
 
-**todos.svelte.ts** - Global todo list
-- `todosStore` - Reactive state with `todos: Todo[]`, `isLoading`, `showCompleted`
-- `getTodos()` - Get all todos
-- `getTodosByStatus(status)` - Filter todos by status
-- `getActiveTodos()` / `getCompletedTodos()` - Filter by completion state
-- `getVisibleTodos()` - Get todos respecting showCompleted setting
-- `addTodo(text, status?)` - Add new todo (auto-saves)
-- `removeTodo(id)` - Remove todo by ID (auto-saves)
-- `updateTodoText(id, text)` - Update text (auto-saves)
-- `updateTodoStatus(id, status)` - Update status (auto-saves)
-- `resetTodos()` - Clear state (for testing)
-- `loadTodos()` / `saveTodos()` - Vault file persistence (`data/todos.json`)
-- `setShowCompleted(show)` / `loadShowCompleted()` - localStorage for UI preference
+**journal.svelte.ts** - Journal entries state management
+- `journalStore` - Reactive state with selectedDate, entries, isLoading, datesWithEntries
+- `getEntries()` - Get entries for selected date
+- `getSelectedDate()` / `getSelectedDateString()` - Get currently selected date
+- `getDatesWithEntries()` - Get array of date strings with entries
+- `hasEntriesForDate(dateStr)` - Check if date has entries
+- `addEntry(text, tags?)` - Add new entry (auto-saves with rollback, updates tag index)
+- `removeEntry(id)` - Remove entry by ID (auto-saves with rollback, updates tag index)
+- `updateEntryText(id, text)` - Update entry text (auto-saves)
+- `updateEntryTags(id, tags)` - Update entry tags (auto-saves, updates tag index)
+- `addTagToEntry(id, tag)` / `removeTagFromEntry(id, tag)` - Tag helpers
+- `updateEntryOrder(id, order)` - Update entry order (auto-saves)
+- `loadEntriesForDate(date)` - Load entries from YAML file
+- `saveEntries()` - Save current entries to YAML file
+- `scanDatesWithEntries()` - Scan vault for all dates with journal files
+- `resetJournal()` - Clear state (for testing)
+
+**tagVocabulary.svelte.ts** - Tag vocabulary for autocomplete
+- `tagVocabulary` - Reactive state with tags array and isLoading
+- `getTags()` - Get all vocabulary tags sorted by count
+- `addTag(name)` - Add new tag to vocabulary
+- `incrementTagCount(name)` / `decrementTagCount(name)` - Update tag usage
+- `buildVocabularyFromIndex(tagIndex)` - Populate vocabulary from tag index
+- `loadTagVocabulary()` / `saveTagVocabulary()` - Persist to .editor-tags.yaml
 
 ### Utilities (src/lib/utils/)
 
@@ -224,7 +310,7 @@ scripts/                 - Utility scripts
 **eventBus.ts** - Cross-component communication
 - `on(event, callback)` - Subscribe to event, returns unsubscribe function
 - `emit(event, data)` - Emit event with typed data
-- Typed events: `file:open`, `file:save`, `file:created`, `file:renamed`, `file:deleted`, `dailynote:open`, `tree:refresh`, `modal:open`, `modal:close`, `tags:reindex`, `pane:toggleView`, `calendar:navigate`
+- Typed events: `file:open`, `file:save`, `file:created`, `file:renamed`, `file:deleted`, `dailynote:open`, `tree:refresh`, `modal:open`, `modal:close`, `tags:reindex`, `pane:toggleView`, `journal:scrollToEntry`
 
 **dailyNotes.ts** - Daily note utilities
 - `formatDailyNotePath(date)` - Returns `{ year, month, day, filename }` for path construction
@@ -234,11 +320,14 @@ scripts/                 - Utility scripts
 
 **tags.ts** - Tag indexing and fuzzy search
 - `extractTags(content)` - Extract tags from frontmatter (YAML array, list, or comma-separated)
-- `buildTagIndex(rootDirHandle)` - Scan directory and build tag index
+- `buildTagIndex(rootDirHandle)` - Scan directory and build tag index (includes journal)
 - `searchTags(query)` - Fuzzy search tags using Fuse.js
 - `getAllTags()` - Get all tags sorted by count descending
 - `updateFileInIndex(path, content)` - Update tags for a file (on save)
 - `removeFileFromIndex(path)` - Remove file from index (on delete)
+- `isJournalSource(key)` / `parseJournalSource(key)` - Journal source key helpers
+- `updateJournalEntryInIndex(date, entryId, tags)` - Update journal entry tags
+- `removeJournalEntryFromIndex(date, entryId)` - Remove journal entry from index
 
 **fileOperations.ts** - File system operations
 - `writeToFile(fileHandle, content)` - Write content to file
@@ -268,7 +357,6 @@ scripts/                 - Utility scripts
 - `handleToggleView()` - Emit `pane:toggleView` event for focused pane
 - `handleCloseTab()` - Close current tab (left pane focused only)
 - `handleNextTab()` / `handlePrevTab()` - Cycle through tabs
-- `createCalendarNavigator(days)` - Create handler that emits `calendar:navigate`
 
 ### Actions (src/lib/actions/)
 
@@ -319,14 +407,19 @@ scripts/                 - Utility scripts
 - Shows "Open Folder" and "Restore Last Folder" buttons
 - Handles permission request for restore flow
 
-**TodoList.svelte** - Global todo list
-- Renders in right pane above the editor (150px fixed height)
-- Add todos via input field (Enter or click button)
-- Double-click todo text to edit
-- Status dropdown with Kanban-like workflow: New → Backlog → Todo → In Progress → In Review → Complete
-- Show/hide completed toggle
+**JournalPane.svelte** - Main journal UI
+- Fills right pane entirely
+- Date header showing formatted selected date
+- New entry input with CodeMirror editor
+- Type dropdown (hidden when no types configured)
+- Entry list sorted by order
+
+**JournalEntry.svelte** - Individual entry component
+- Props: `entry: JournalEntry`
+- View mode: rendered markdown, type badge, order, timestamp, delete button
+- Edit mode: CodeMirror editor, type dropdown, order input, Save/Cancel
+- Click to enter edit mode
 - Delete with confirmation dialog
-- Auto-saves to `data/todos.json` on every change
 
 ### Svelte 5 Runes Notes
 - Module-level `$state` works in `.svelte.ts` files - export the object directly
@@ -350,7 +443,10 @@ scripts/                 - Utility scripts
 - Search tab provides fuzzy tag search; click tag to see files, click file to open
 - Tag index builds on directory open and updates on file save/rename/delete
 - Quick Files and Quick Links are configurable via modal (stored in vault's `.editor-config.json`)
-- Todo list sits above right pane editor with Kanban-like status workflow
+- Calendar date clicks load journal entries for that date in right pane
+- Journal entries stored as YAML with metadata (type, order, timestamps)
+- Journal files only created when first entry is added (not on navigation)
+- Calendar enables only today and past dates with entries; future dates and past dates without entries are disabled
 
 ## Keyboard Shortcuts
 
@@ -361,7 +457,6 @@ Shortcuts are configurable in `src/lib/config.ts`. Default bindings:
 - `Cmd/Ctrl+W` - Close current tab (left pane only)
 - `Cmd/Ctrl+Tab` - Next tab
 - `Cmd/Ctrl+Shift+Tab` - Previous tab
-- `Cmd/Ctrl+Arrow` - Navigate daily notes (right pane focused)
 
 ### Editor Shortcuts (CodeMirror)
 - `Tab` - Indent line/selection
@@ -403,8 +498,7 @@ Modifier options: `'meta'` (Cmd on Mac, Ctrl on Windows/Linux), `'ctrl'`, `'alt'
 - **Tag index**: Stored in localStorage with staleness tracking
 - **Settings/Shortcuts**: Stored in localStorage (`editorSettings`), overrides `config.ts` defaults
 - **Quick Links/Files**: Stored in vault's `.editor-config.json` file
-- **Todos**: Stored in vault's `data/todos.json` file (user content, not config)
-- **Show completed toggle**: Stored in localStorage (`todosShowCompleted`)
+- **Journal entries**: Stored in vault as `{dailyNotesFolder}/YYYY/MM/YYYY-MM-DD.yaml`
 
 ## Vault Configuration (.editor-config.json)
 

@@ -21,21 +21,9 @@ import {
 } from './tabs.svelte';
 import { createTab, type Tab } from '$lib/types/tabs';
 
-// Mock file handles
-function createMockTab(filename: string, relativePath: string, content = ''): Tab {
-  const mockFileHandle = {
-    kind: 'file' as const,
-    name: filename,
-    getFile: async () => new File([content], filename),
-    createWritable: async () => ({} as FileSystemWritableFileStream),
-  } as unknown as FileSystemFileHandle;
-
-  const mockDirHandle = {
-    kind: 'directory' as const,
-    name: 'test-dir',
-  } as unknown as FileSystemDirectoryHandle;
-
-  return createTab(mockFileHandle, mockDirHandle, content, relativePath);
+// Create mock tabs using the new path-based API
+function createMockTab(filename: string, filePath: string, content = ''): Tab {
+  return createTab(filePath, content);
 }
 
 describe('tabs store', () => {
@@ -73,7 +61,7 @@ describe('tabs store', () => {
     it('sets correct initial properties', () => {
       const tab = createMockTab('test.md', 'folder/test.md', 'content');
       expect(tab.filename).toBe('test.md');
-      expect(tab.relativePath).toBe('folder/test.md');
+      expect(tab.filePath).toBe('folder/test.md');
       expect(tab.savedContent).toBe('content');
       expect(tab.editorContent).toBe('content');
       expect(tab.isDirty).toBe(false);
@@ -327,8 +315,8 @@ describe('tabs store', () => {
 
       const parsed = JSON.parse(stored!);
       expect(parsed.tabs).toHaveLength(2);
-      expect(parsed.tabs[0].relativePath).toBe('path/file1.md');
-      expect(parsed.tabs[1].relativePath).toBe('path/file2.md');
+      expect(parsed.tabs[0].filePath).toBe('path/file1.md');
+      expect(parsed.tabs[1].filePath).toBe('path/file2.md');
       expect(parsed.activeIndex).toBe(1);
     });
 
@@ -336,7 +324,7 @@ describe('tabs store', () => {
       localStorage.setItem(
         'editorLeftPaneTabs',
         JSON.stringify({
-          tabs: [{ relativePath: 'test.md', filename: 'test.md' }],
+          tabs: [{ filePath: 'test.md', filename: 'test.md' }],
           activeIndex: 0,
         })
       );
@@ -344,7 +332,7 @@ describe('tabs store', () => {
       const data = getTabsFromStorage();
       expect(data).not.toBeNull();
       expect(data!.tabs).toHaveLength(1);
-      expect(data!.tabs[0].relativePath).toBe('test.md');
+      expect(data!.tabs[0].filePath).toBe('test.md');
     });
 
     it('getTabsFromStorage returns null when empty', () => {

@@ -9,8 +9,8 @@ describe('vault store', () => {
   });
 
   describe('initial state', () => {
-    it('starts with null rootDirHandle', () => {
-      expect(vault.rootDirHandle).toBeNull();
+    it('starts with null path', () => {
+      expect(vault.path).toBeNull();
     });
 
     it('has default dailyNotesFolder', () => {
@@ -23,31 +23,26 @@ describe('vault store', () => {
   });
 
   describe('openVault', () => {
-    it('sets rootDirHandle', () => {
-      const mockHandle = { name: 'test-vault' } as FileSystemDirectoryHandle;
-      openVault(mockHandle);
-      // Use toEqual for deep equality since $state returns a proxy
-      expect(vault.rootDirHandle).toEqual(mockHandle);
+    it('sets path', () => {
+      openVault('/path/to/vault');
+      expect(vault.path).toBe('/path/to/vault');
     });
 
     it('makes getIsVaultOpen() return true', () => {
-      const mockHandle = { name: 'test-vault' } as FileSystemDirectoryHandle;
-      openVault(mockHandle);
+      openVault('/path/to/vault');
       expect(getIsVaultOpen()).toBe(true);
     });
   });
 
   describe('closeVault', () => {
-    it('clears rootDirHandle', () => {
-      const mockHandle = { name: 'test-vault' } as FileSystemDirectoryHandle;
-      openVault(mockHandle);
+    it('clears path', () => {
+      openVault('/path/to/vault');
       closeVault();
-      expect(vault.rootDirHandle).toBeNull();
+      expect(vault.path).toBeNull();
     });
 
     it('makes getIsVaultOpen() return false', () => {
-      const mockHandle = { name: 'test-vault' } as FileSystemDirectoryHandle;
-      openVault(mockHandle);
+      openVault('/path/to/vault');
       closeVault();
       expect(getIsVaultOpen()).toBe(false);
     });

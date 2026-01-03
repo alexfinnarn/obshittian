@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onDestroy } from 'svelte';
+  import { onDestroy, untrack, type Snippet } from 'svelte';
   import CodeMirrorEditor from './CodeMirrorEditor.svelte';
   import MarkdownPreview from './MarkdownPreview.svelte';
   import TabBar from './TabBar.svelte';
@@ -14,6 +14,8 @@
     mode?: 'single' | 'tabs';
     /** Initial view mode: 'edit' or 'view' */
     initialViewMode?: 'edit' | 'view';
+    /** Custom toolbar content (replaces default toolbar) */
+    toolbar?: Snippet;
     /** Filename (used in single mode) */
     filename?: string;
     /** Content (used in single mode) */
@@ -28,6 +30,7 @@
     pane,
     mode = 'single',
     initialViewMode = 'edit',
+    toolbar,
     filename = '',
     content = '',
     isDirty = false,
@@ -35,7 +38,8 @@
   }: Props = $props();
 
   // View mode: 'edit' | 'view'
-  let viewMode = $state<'edit' | 'view'>(initialViewMode);
+  // Capture initial value only - viewMode is managed internally after mount
+  let viewMode = $state<'edit' | 'view'>(untrack(() => initialViewMode));
 
   // Reference to editor component for focus tracking
   let editorComponent: CodeMirrorEditor | null = $state(null);
@@ -130,35 +134,39 @@
   onmousedown={handleFocus}
 >
   <header class="pane-toolbar" data-testid="pane-toolbar-{pane}">
-    {#if mode === 'tabs'}
-      <TabBar ontabchange={handleTabChange} />
+    {#if toolbar}
+      {@render toolbar()}
     {:else}
-      <span class="filename" data-testid="pane-filename-{pane}">
-        {effectiveFilename || 'No file open'}
-        {#if effectiveIsDirty}
-          <span class="unsaved-indicator" data-testid="unsaved-indicator-{pane}">●</span>
-        {/if}
-      </span>
-    {/if}
+      {#if mode === 'tabs'}
+        <TabBar ontabchange={handleTabChange} />
+      {:else}
+        <span class="filename" data-testid="pane-filename-{pane}">
+          {effectiveFilename || 'No file open'}
+          {#if effectiveIsDirty}
+            <span class="unsaved-indicator" data-testid="unsaved-indicator-{pane}">●</span>
+          {/if}
+        </span>
+      {/if}
 
-    <div class="toolbar-actions">
-      <button
-        class="view-toggle"
-        class:active={viewMode === 'edit'}
-        onclick={() => (viewMode = 'edit')}
-        data-testid="view-toggle-edit-{pane}"
-      >
-        Edit
-      </button>
-      <button
-        class="view-toggle"
-        class:active={viewMode === 'view'}
-        onclick={() => (viewMode = 'view')}
-        data-testid="view-toggle-view-{pane}"
-      >
-        View
-      </button>
-    </div>
+      <div class="toolbar-actions">
+        <button
+          class="view-toggle"
+          class:active={viewMode === 'edit'}
+          onclick={() => (viewMode = 'edit')}
+          data-testid="view-toggle-edit-{pane}"
+        >
+          Edit
+        </button>
+        <button
+          class="view-toggle"
+          class:active={viewMode === 'view'}
+          onclick={() => (viewMode = 'view')}
+          data-testid="view-toggle-view-{pane}"
+        >
+          View
+        </button>
+      </div>
+    {/if}
   </header>
 
   <div class="pane-content">
@@ -203,14 +211,15 @@
     margin-left: 0.5rem;
   }
 
-  .toolbar-actions {
+  /* Toolbar button styles - :global for custom toolbar snippets */
+  .pane-toolbar :global(.toolbar-actions) {
     display: flex;
     gap: 0.25rem;
     flex-shrink: 0;
-    margin-left: 0.5rem;
+    margin-left: auto;
   }
 
-  .view-toggle {
+  .pane-toolbar :global(.view-toggle) {
     background: transparent;
     border: 1px solid var(--border-color, #333);
     color: var(--text-muted, #888);
@@ -223,15 +232,20 @@
       color 0.15s;
   }
 
-  .view-toggle:hover {
+  .pane-toolbar :global(.view-toggle:hover) {
     background: var(--hover-bg, #2a2a2a);
     color: var(--text-color, #e0e0e0);
   }
 
-  .view-toggle.active {
+  .pane-toolbar :global(.view-toggle.active) {
     background: var(--accent-color, #0078d4);
     border-color: var(--accent-color, #0078d4);
     color: #fff;
+  }
+
+  .pane-toolbar :global(.view-toggle:disabled) {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   .pane-content {

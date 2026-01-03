@@ -32,14 +32,6 @@ export interface KeyboardShortcuts {
   nextTab: KeyBinding;
   /** Switch to previous tab */
   prevTab: KeyBinding;
-  /** Navigate to previous day (right pane focused) */
-  prevDay: KeyBinding;
-  /** Navigate to next day (right pane focused) */
-  nextDay: KeyBinding;
-  /** Navigate to previous week (right pane focused) */
-  prevWeek: KeyBinding;
-  /** Navigate to next week (right pane focused) */
-  nextWeek: KeyBinding;
 }
 
 export interface EditorConfig {
@@ -66,6 +58,10 @@ export interface EditorConfig {
   defaultQuickLinks: { name: string; url: string }[];
   /** Default quick files (fallback when no .editor-config.json in vault) */
   defaultQuickFiles: { name: string; path: string }[];
+
+  // ---- Journal Settings ----
+  /** Default journal entry types (fallback when no .editor-config.json in vault) */
+  defaultJournalEntryTypes: string[];
 
   // ---- Keyboard Shortcuts ----
   shortcuts: KeyboardShortcuts;
@@ -95,6 +91,9 @@ export const defaultConfig: EditorConfig = {
     { name: 'Todo', path: '01_Todo.md' },
   ],
 
+  // Journal Settings
+  defaultJournalEntryTypes: ['note', 'task', 'idea'],
+
   // Keyboard Shortcuts
   // Note: 'meta' = Cmd on Mac, Ctrl on Windows/Linux
   // Use ['meta'] for Cmd/Ctrl, or ['ctrl'] for Ctrl-only
@@ -104,10 +103,6 @@ export const defaultConfig: EditorConfig = {
     closeTab: { key: 'w', modifiers: ['meta'] },
     nextTab: { key: 'Tab', modifiers: ['meta'] },
     prevTab: { key: 'Tab', modifiers: ['meta', 'shift'] },
-    prevDay: { key: 'ArrowLeft', modifiers: ['meta'] },
-    nextDay: { key: 'ArrowRight', modifiers: ['meta'] },
-    prevWeek: { key: 'ArrowUp', modifiers: ['meta'] },
-    nextWeek: { key: 'ArrowDown', modifiers: ['meta'] },
   },
 };
 

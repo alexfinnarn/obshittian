@@ -36,24 +36,25 @@ import { clear as clearEventBus, on } from '$lib/utils/eventBus';
 import TagSearch from '$lib/components/TagSearch.svelte';
 import SidebarTabs from '$lib/components/SidebarTabs.svelte';
 
-// Mock Pikaday for Calendar component (used by Sidebar -> SidebarTabs -> FileTree)
-vi.mock('pikaday', () => {
-  class MockPikaday {
-    el: HTMLElement;
-    constructor() {
-      this.el = document.createElement('div');
-      this.el.className = 'pika-single';
+// Mock Vanilla Calendar Pro for Calendar component (used by Sidebar -> SidebarTabs -> FileTree)
+vi.mock('vanilla-calendar-pro', () => {
+  class MockVanillaCalendar {
+    selectedDates: string[];
+    constructor(container: HTMLElement) {
+      this.selectedDates = [];
+      const calendarEl = document.createElement('div');
+      calendarEl.className = 'vc-calendar';
+      container.appendChild(calendarEl);
     }
+    init() {}
     destroy() {}
-    getDate() {
-      return new Date();
-    }
-    setDate() {}
+    set() {}
+    update() {}
   }
-  return { default: MockPikaday };
+  return { Calendar: MockVanillaCalendar };
 });
 
-vi.mock('pikaday/css/pikaday.css', () => ({}));
+vi.mock('vanilla-calendar-pro/styles/index.css', () => ({}));
 
 // Mock localStorage
 const localStorageMock = (() => {

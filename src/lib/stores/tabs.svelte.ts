@@ -40,9 +40,9 @@ export function canAddTab(): boolean {
   return tabsStore.tabs.length < TAB_LIMIT;
 }
 
-/** Find tab index by relative path, returns -1 if not found */
-export function findTabByPath(relativePath: string): number {
-  return tabsStore.tabs.findIndex(tab => tab.relativePath === relativePath);
+/** Find tab index by file path, returns -1 if not found */
+export function findTabByPath(filePath: string): number {
+  return tabsStore.tabs.findIndex((tab) => tab.filePath === filePath);
 }
 
 // --- Tab Operations ---
@@ -54,7 +54,7 @@ export function findTabByPath(relativePath: string): number {
  */
 export function addTab(tab: Tab): boolean {
   // Check if already open
-  const existingIndex = findTabByPath(tab.relativePath);
+  const existingIndex = findTabByPath(tab.filePath);
   if (existingIndex >= 0) {
     switchTab(existingIndex);
     return false;
@@ -76,7 +76,7 @@ export function addTab(tab: Tab): boolean {
  */
 export function replaceCurrentTab(tab: Tab): boolean {
   // Check if already open in another tab
-  const existingIndex = findTabByPath(tab.relativePath);
+  const existingIndex = findTabByPath(tab.filePath);
   if (existingIndex >= 0) {
     switchTab(existingIndex);
     return true;
@@ -189,8 +189,8 @@ export function markTabClean(index: number, content: string): void {
 /** Save current tabs to localStorage */
 export function saveTabsToStorage(): void {
   const data: TabsStorageData = {
-    tabs: tabsStore.tabs.map(tab => ({
-      relativePath: tab.relativePath,
+    tabs: tabsStore.tabs.map((tab) => ({
+      filePath: tab.filePath,
       filename: tab.filename,
     })),
     activeIndex: tabsStore.activeTabIndex,
@@ -228,5 +228,6 @@ export function resetTabsStore(): void {
  */
 export function setTabs(tabs: Tab[], activeIndex: number): void {
   tabsStore.tabs = tabs;
-  tabsStore.activeTabIndex = activeIndex >= 0 && activeIndex < tabs.length ? activeIndex : (tabs.length > 0 ? 0 : -1);
+  tabsStore.activeTabIndex =
+    activeIndex >= 0 && activeIndex < tabs.length ? activeIndex : tabs.length > 0 ? 0 : -1;
 }

@@ -106,10 +106,10 @@ describe('QuickFiles', () => {
       await fireEvent.click(screen.getByTestId('configure-quick-files'));
 
       const nameInput = screen.getByTestId('file-name-0') as HTMLInputElement;
-      const pathSpan = screen.getByTestId('file-path-0');
+      const pathInput = screen.getByTestId('file-path-0') as HTMLInputElement;
 
       expect(nameInput.value).toBe('Test');
-      expect(pathSpan.textContent).toBe('test.md');
+      expect(pathInput.value).toBe('test.md');
     });
   });
 
@@ -172,26 +172,25 @@ describe('QuickFiles', () => {
       expect(nameInput.value).toBe('New Name');
     });
 
-    it('shows browse button for file picker', async () => {
+    it('shows path input field', async () => {
       render(QuickFiles);
 
       await fireEvent.click(screen.getByTestId('configure-quick-files'));
       await fireEvent.click(screen.getByTestId('add-file'));
 
-      expect(screen.getByTestId('file-browse-0')).toBeTruthy();
+      expect(screen.getByTestId('file-path-0')).toBeTruthy();
     });
 
-    it('alerts when browse clicked without vault open', async () => {
-      vault.rootDirHandle = null;
-      const alertMock = vi.spyOn(window, 'alert').mockImplementation(() => {});
-
+    it('updates path when input changes', async () => {
       render(QuickFiles);
+
       await fireEvent.click(screen.getByTestId('configure-quick-files'));
       await fireEvent.click(screen.getByTestId('add-file'));
-      await fireEvent.click(screen.getByTestId('file-browse-0'));
 
-      expect(alertMock).toHaveBeenCalledWith('Please open a folder first');
-      alertMock.mockRestore();
+      const pathInput = screen.getByTestId('file-path-0') as HTMLInputElement;
+      await fireEvent.input(pathInput, { target: { value: 'notes/todo.md' } });
+
+      expect(pathInput.value).toBe('notes/todo.md');
     });
   });
 

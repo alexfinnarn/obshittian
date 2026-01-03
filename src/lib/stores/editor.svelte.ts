@@ -2,7 +2,7 @@
  * Editor Store
  *
  * Manages state for the dual-pane editor including:
- * - File handles for each pane
+ * - File paths for each pane
  * - Content and dirty state
  * - Focus tracking for keyboard shortcuts
  *
@@ -12,16 +12,12 @@
 export type PaneId = 'left' | 'right';
 
 export interface PaneState {
-  /** File handle for the currently open file */
-  fileHandle: FileSystemFileHandle | null;
-  /** Directory handle for the file's parent directory */
-  dirHandle: FileSystemDirectoryHandle | null;
+  /** Relative path from vault root to file (null if no file open) */
+  filePath: string | null;
   /** Current content of the editor */
   content: string;
   /** Whether the content has unsaved changes */
   isDirty: boolean;
-  /** Relative path from vault root to file */
-  relativePath: string;
 }
 
 export interface EditorState {
@@ -33,11 +29,9 @@ export interface EditorState {
 
 function createInitialPaneState(): PaneState {
   return {
-    fileHandle: null,
-    dirHandle: null,
+    filePath: null,
     content: '',
     isDirty: false,
-    relativePath: '',
   };
 }
 
@@ -53,19 +47,11 @@ export const editor = $state<EditorState>({
 /**
  * Open a file in the specified pane
  */
-export function openFileInPane(
-  pane: PaneId,
-  fileHandle: FileSystemFileHandle,
-  dirHandle: FileSystemDirectoryHandle,
-  content: string,
-  relativePath: string
-): void {
+export function openFileInPane(pane: PaneId, filePath: string, content: string): void {
   editor[pane] = {
-    fileHandle,
-    dirHandle,
+    filePath,
     content,
     isDirty: false,
-    relativePath,
   };
 }
 
@@ -119,7 +105,7 @@ export function getFocusedPane(): PaneId | null {
  * Check if a pane has a file open
  */
 export function isPaneFileOpen(pane: PaneId): boolean {
-  return editor[pane].fileHandle !== null;
+  return editor[pane].filePath !== null;
 }
 
 /**
@@ -133,7 +119,9 @@ export function getPaneState(pane: PaneId): PaneState {
  * Get the filename for a pane (or empty string if no file)
  */
 export function getPaneFilename(pane: PaneId): string {
-  return editor[pane].fileHandle?.name ?? '';
+  const filePath = editor[pane].filePath;
+  if (!filePath) return '';
+  return filePath.split('/').pop() ?? '';
 }
 
 /**

@@ -8,12 +8,10 @@ function createMockTab(options: Partial<TabType> = {}): TabType {
   return {
     id: 'test-id',
     filename: 'test.md',
-    relativePath: 'folder/test.md',
+    filePath: 'folder/test.md',
     savedContent: '',
     editorContent: '',
     isDirty: false,
-    fileHandle: {} as FileSystemFileHandle,
-    dirHandle: {} as FileSystemDirectoryHandle,
     ...options,
   };
 }
@@ -53,7 +51,7 @@ describe('Tab', () => {
     });
 
     it('shows full path in title tooltip', () => {
-      const tab = createMockTab({ relativePath: 'folder/subfolder/test.md' });
+      const tab = createMockTab({ filePath: 'folder/subfolder/test.md' });
       render(Tab, { props: { tab, isActive: false, onclick: vi.fn(), onclose: vi.fn() } });
 
       const filenameSpan = screen.getByText(tab.filename);

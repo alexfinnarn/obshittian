@@ -1,0 +1,14 @@
+version: 1
+entries:
+  - id: "test-entry-1"
+    text: "Test journal entry for E2E testing"
+    type: "note"
+    order: 1
+    createdAt: "2024-12-25T10:00:00.000Z"
+    updatedAt: "2024-12-25T10:00:00.000Z"
+  - id: "test-entry-2"
+    text: "Another test entry"
+    type: "idea"
+    order: 2
+    createdAt: "2024-12-25T11:00:00.000Z"
+    updatedAt: "2024-12-25T11:00:00.000Z"

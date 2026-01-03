@@ -3,45 +3,25 @@
  */
 
 import { vault } from '$lib/stores/vault.svelte';
-import {
-  openFileInPane,
-  type PaneId,
-} from '$lib/stores/editor.svelte';
-import {
-  addTab,
-  replaceCurrentTab,
-  switchTab,
-  findTabByPath,
-} from '$lib/stores/tabs.svelte';
+import { openFileInPane, type PaneId } from '$lib/stores/editor.svelte';
+import { addTab, replaceCurrentTab, switchTab, findTabByPath } from '$lib/stores/tabs.svelte';
 import { createTab } from '$lib/types/tabs';
 import { getOrCreateDailyNote } from '$lib/utils/dailyNotes';
 import { emit } from '$lib/utils/eventBus';
+import { fileService } from './fileService';
 
 /**
- * Load a file by relative path and return handles + content
+ * Load a file by relative path and return content
  */
 export async function loadFile(relativePath: string): Promise<{
-  fileHandle: FileSystemFileHandle;
-  dirHandle: FileSystemDirectoryHandle;
   content: string;
 }> {
-  if (!vault.rootDirHandle) {
+  if (!vault.path) {
     throw new Error('No vault open');
   }
 
-  const pathParts = relativePath.split('/');
-  const filename = pathParts.pop()!;
-  let currentDir = vault.rootDirHandle;
-
-  for (const part of pathParts) {
-    currentDir = await currentDir.getDirectoryHandle(part);
-  }
-
-  const fileHandle = await currentDir.getFileHandle(filename);
-  const file = await fileHandle.getFile();
-  const content = await file.text();
-
-  return { fileHandle, dirHandle: currentDir, content };
+  const content = await fileService.readFile(relativePath);
+  return { content };
 }
 
 /**
@@ -59,10 +39,10 @@ export async function openFileInTabs(relativePath: string, openInNewTab: boolean
     }
 
     // Load file content
-    const { fileHandle, dirHandle, content } = await loadFile(relativePath);
+    const { content } = await loadFile(relativePath);
 
     // Create tab
-    const tab = createTab(fileHandle, dirHandle, content, relativePath);
+    const tab = createTab(relativePath, content);
 
     if (openInNewTab) {
       // Add as new tab
@@ -81,8 +61,8 @@ export async function openFileInTabs(relativePath: string, openInNewTab: boolean
  */
 export async function openFileInSinglePane(relativePath: string, pane: PaneId): Promise<void> {
   try {
-    const { fileHandle, dirHandle, content } = await loadFile(relativePath);
-    openFileInPane(pane, fileHandle, dirHandle, content, relativePath);
+    const { content } = await loadFile(relativePath);
+    openFileInPane(pane, relativePath, content);
   } catch (err) {
     console.error('Failed to open file:', err);
   }
@@ -92,21 +72,19 @@ export async function openFileInSinglePane(relativePath: string, pane: PaneId): 
  * Open a daily note for the given date in the right pane.
  */
 export async function openDailyNote(date: Date): Promise<void> {
-  if (!vault.rootDirHandle) {
+  if (!vault.path) {
     console.error('No vault open');
     return;
   }
 
   try {
-    const { fileHandle, dirHandle, relativePath, content, isNew } =
-      await getOrCreateDailyNote(
-        vault.rootDirHandle,
-        vault.dailyNotesFolder,
-        date
-      );
+    const { relativePath, content, isNew } = await getOrCreateDailyNote(
+      vault.dailyNotesFolder,
+      date
+    );
 
     // Open in right pane (single-file mode for daily notes)
-    openFileInPane('right', fileHandle, dirHandle, content, relativePath);
+    openFileInPane('right', relativePath, content);
 
     if (isNew) {
       emit('file:created', { path: relativePath });

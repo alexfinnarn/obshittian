@@ -11,9 +11,9 @@ test.describe('Editor Panes', () => {
     await expect(page.getByTestId('editor-pane-left')).toBeVisible();
   });
 
-  test('should display right pane', async ({ page }) => {
+  test('should display right pane with journal', async ({ page }) => {
     await expect(page.getByTestId('right-pane')).toBeVisible();
-    await expect(page.getByTestId('editor-pane-right')).toBeVisible();
+    await expect(page.getByTestId('journal-pane')).toBeVisible();
   });
 
   test('should display pane divider', async ({ page }) => {
@@ -24,10 +24,6 @@ test.describe('Editor Panes', () => {
     await expect(page.getByTestId('pane-toolbar-left')).toBeVisible();
   });
 
-  test('should display right pane toolbar', async ({ page }) => {
-    await expect(page.getByTestId('pane-toolbar-right')).toBeVisible();
-  });
-
   test('should display tab bar in left pane', async ({ page }) => {
     await expect(page.getByTestId('tab-bar')).toBeVisible();
   });
@@ -35,11 +31,6 @@ test.describe('Editor Panes', () => {
   test('should have edit/view toggle buttons for left pane', async ({ page }) => {
     await expect(page.getByTestId('view-toggle-edit-left')).toBeVisible();
     await expect(page.getByTestId('view-toggle-view-left')).toBeVisible();
-  });
-
-  test('should have edit/view toggle buttons for right pane', async ({ page }) => {
-    await expect(page.getByTestId('view-toggle-edit-right')).toBeVisible();
-    await expect(page.getByTestId('view-toggle-view-right')).toBeVisible();
   });
 });
 

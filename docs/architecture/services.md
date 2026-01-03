@@ -38,7 +38,7 @@ Is the same logic duplicated across multiple components?
 
 - **Async operations** with try/catch error handling
 - **Coordinates multiple concerns** (stores, utilities, events)
-- **Has side effects** (file I/O, events, persistence)
+- **Has side effects** (file I/O via fileService, events, persistence)
 - **Stateless** - services don't hold state, they operate on stores
 
 ### Not a Service
@@ -48,6 +48,110 @@ Is the same logic duplicated across multiple components?
 - UI-specific logic → component
 
 ## Existing Services
+
+### fileService
+
+The core abstraction for all file system operations. Communicates with server-side API routes to perform file I/O on the actual filesystem.
+
+**Location:** `src/lib/services/fileService.ts`
+
+#### Interface
+
+```typescript
+interface FileService {
+  // Configuration
+  setVaultPath(path: string): void;
+  getVaultPath(): string | null;
+
+  // File operations
+  readFile(relativePath: string): Promise<string>;
+  writeFile(relativePath: string, content: string): Promise<void>;
+  deleteFile(relativePath: string): Promise<void>;
+  createFile(relativePath: string, content?: string): Promise<void>;
+
+  // Directory operations
+  listDirectory(relativePath: string): Promise<DirectoryEntry[]>;
+  createDirectory(relativePath: string): Promise<void>;
+  deleteDirectory(relativePath: string, recursive?: boolean): Promise<void>;
+
+  // General operations
+  exists(relativePath: string): Promise<{ exists: boolean; kind?: 'file' | 'directory' }>;
+  rename(oldPath: string, newPath: string): Promise<void>;
+  stat(relativePath: string): Promise<{ kind: 'file' | 'directory'; size: number; modified: string; created: string }>;
+}
+```
+
+#### Usage
+
+```typescript
+import { fileService } from '$lib/services/fileService';
+
+// Set the vault path (required before any file operations)
+fileService.setVaultPath('/path/to/vault');
+
+// Read a file
+const content = await fileService.readFile('notes/todo.md');
+
+// Write a file
+await fileService.writeFile('notes/todo.md', '# Updated content');
+
+// Check if file exists
+const { exists, kind } = await fileService.exists('notes/todo.md');
+
+// List directory contents
+const entries = await fileService.listDirectory('notes');
+// Returns: [{ name: 'todo.md', kind: 'file' }, { name: 'archive', kind: 'directory' }]
+```
+
+#### Architecture
+
+```
+Component/Store
+      │
+      ▼
+  fileService (client-side singleton)
+      │
+      ▼
+  fetch() to /api/files/*
+      │
+      ▼
+  SvelteKit API Routes (server-side)
+      │
+      ▼
+  Node.js fs module (actual filesystem)
+```
+
+#### Error Handling
+
+The service throws `FileServiceError` with status code, message, and optional error code:
+
+```typescript
+import { fileService, FileServiceError } from '$lib/services/fileService';
+
+try {
+  await fileService.readFile('nonexistent.md');
+} catch (err) {
+  if (err instanceof FileServiceError) {
+    console.error(`Error ${err.status}: ${err.message} (${err.code})`);
+  }
+}
+```
+
+#### Server API Routes
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/files/read` | POST | Read file content |
+| `/api/files/write` | POST | Write file content |
+| `/api/files/create` | POST | Create file or directory |
+| `/api/files/delete` | POST | Delete file or directory |
+| `/api/files/list` | POST | List directory contents |
+| `/api/files/exists` | POST | Check if path exists |
+| `/api/files/rename` | POST | Rename/move file or directory |
+| `/api/files/stat` | POST | Get file/directory metadata |
+| `/api/vault/validate` | POST | Validate vault path |
+
+---
 
 ### fileOpen.ts
 
@@ -59,13 +163,14 @@ Handles loading and opening files in panes/tabs.
 
 | Function | Purpose |
 |----------|---------|
-| `loadFile(relativePath)` | Load file content and handles by path |
+| `loadFile(relativePath)` | Load file content via fileService |
 | `openFileInTabs(path, openInNewTab)` | Open file in left pane tabs |
 | `openFileInSinglePane(path, pane)` | Open file in specified pane |
 | `openDailyNote(date)` | Create/open daily note in right pane |
 
 #### Dependencies
 
+- **Services:** `fileService`
 - **Stores:** `vault`, `editor`, `tabs`
 - **Utilities:** `dailyNotes`, `eventBus`
 - **Types:** `Tab`, `PaneId`
@@ -112,8 +217,9 @@ Handles saving files with tag index updates.
 
 #### Dependencies
 
+- **Services:** `fileService`
 - **Stores:** `editor`, `tabs`
-- **Utilities:** `fileOperations`, `tags`
+- **Utilities:** `tags`
 
 #### Usage
 
@@ -132,12 +238,36 @@ saveFile(pane)
     │
     ├─ Get content from store (tabs or editor)
     │
-    ├─ writeToFile()
+    ├─ fileService.writeFile()
     │
     ├─ markClean() in store
     │
     └─ updateFileInIndex() → update tag index
 ```
+
+---
+
+### shortcutHandlers.ts
+
+Handler functions for keyboard shortcuts.
+
+**Location:** `src/lib/services/shortcutHandlers.ts`
+
+#### Functions
+
+| Function | Purpose |
+|----------|---------|
+| `handleSave()` | Save focused pane or both if none focused |
+| `handleToggleView()` | Emit `pane:toggleView` event |
+| `handleCloseTab()` | Close current tab (left pane focused) |
+| `handleNextTab()` | Switch to next tab |
+| `handlePrevTab()` | Switch to previous tab |
+
+#### Dependencies
+
+- **Stores:** `editor`, `tabs`
+- **Services:** `fileSave`
+- **Utilities:** `eventBus`
 
 ## Service Patterns
 
@@ -160,7 +290,9 @@ export async function myService(): Promise<void> {
 Always check for open vault before file operations:
 
 ```typescript
-if (!vault.rootDirHandle) {
+import { vault } from '$lib/stores/vault.svelte';
+
+if (!vault.path) {
   console.error('No vault open');
   return;
 }
@@ -190,32 +322,60 @@ markTabClean(tabsStore.activeTabIndex, content);
 let savedFiles = []; // Don't do this
 ```
 
-## Future Service Candidates
+### Using fileService
 
-These patterns in the codebase could benefit from service extraction:
-
-| Service | Source | Rationale |
-|---------|--------|-----------|
-| `fileOperationsService` | FileTree.svelte | Create/rename/delete with events, path resolution |
-| `keyboardService` | App.svelte | Shortcut matching and dispatch logic |
-| `errorService` | Scattered | Centralized error handling and user feedback |
-| `tagIndexService` | tags.ts + App.svelte | Coordinate index building, updates, persistence |
-
-### fileOperationsService Example
-
-Currently in FileTree.svelte (200+ lines of mixed UI/business logic):
+All file operations go through the fileService singleton:
 
 ```typescript
-// Could become:
-import { createFile, renameFile, deleteFile } from '$lib/services/fileOperations';
+import { fileService } from '$lib/services/fileService';
 
-await createFile(parentDir, 'newfile.md');
-await renameFile(dir, 'old.md', 'new.md');
-await deleteFile(dir, 'file.md');
+// Read
+const content = await fileService.readFile('notes/todo.md');
+
+// Write
+await fileService.writeFile('notes/todo.md', content);
+
+// Check existence
+const { exists } = await fileService.exists('notes/todo.md');
 ```
 
-Each would handle:
-- File system operation
-- Path resolution
-- Event emission (`file:created`, `file:renamed`, `file:deleted`)
-- Error handling with user feedback
+## Testing Services
+
+Services that use fileService should mock it:
+
+```typescript
+import { vi } from 'vitest';
+import { fileService } from '$lib/services/fileService';
+
+vi.mock('$lib/services/fileService', () => ({
+  fileService: {
+    setVaultPath: vi.fn(),
+    getVaultPath: vi.fn(() => '/mock/vault'),
+    readFile: vi.fn(),
+    writeFile: vi.fn(),
+    exists: vi.fn(),
+    createFile: vi.fn(),
+    createDirectory: vi.fn(),
+    deleteFile: vi.fn(),
+    deleteDirectory: vi.fn(),
+    listDirectory: vi.fn(),
+    rename: vi.fn(),
+    stat: vi.fn(),
+  },
+}));
+
+const mockFileService = vi.mocked(fileService);
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
+it('should read file content', async () => {
+  mockFileService.readFile.mockResolvedValue('file content');
+
+  const content = await loadFile('test.md');
+
+  expect(mockFileService.readFile).toHaveBeenCalledWith('test.md');
+  expect(content).toBe('file content');
+});
+```

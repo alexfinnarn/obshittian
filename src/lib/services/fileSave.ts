@@ -2,17 +2,9 @@
  * File save service - handles saving files with tag index updates
  */
 
-import {
-  editor,
-  markPaneClean,
-  type PaneId,
-} from '$lib/stores/editor.svelte';
-import {
-  tabsStore,
-  getActiveTab,
-  markTabClean,
-} from '$lib/stores/tabs.svelte';
-import { writeToFile } from '$lib/utils/fileOperations';
+import { editor, markPaneClean, type PaneId } from '$lib/stores/editor.svelte';
+import { tabsStore, getActiveTab, markTabClean } from '$lib/stores/tabs.svelte';
+import { fileService } from './fileService';
 import { updateFileInIndex } from '$lib/utils/tags';
 
 /**
@@ -25,17 +17,15 @@ async function saveLeftPane(): Promise<void> {
   }
 
   const content = activeTab.editorContent;
-  const relativePath = activeTab.relativePath;
+  const filePath = activeTab.filePath;
 
   try {
-    await writeToFile(activeTab.fileHandle, content);
+    await fileService.writeFile(filePath, content);
     markTabClean(tabsStore.activeTabIndex, content);
     console.log('File saved:', activeTab.filename);
 
     // Update tag index after save
-    if (relativePath) {
-      updateFileInIndex(relativePath, content);
-    }
+    updateFileInIndex(filePath, content);
   } catch (err) {
     console.error('Failed to save file:', err);
   }
@@ -46,22 +36,21 @@ async function saveLeftPane(): Promise<void> {
  */
 async function saveRightPane(): Promise<void> {
   const state = editor.right;
-  if (!state.fileHandle || !state.isDirty) {
+  if (!state.filePath || !state.isDirty) {
     return;
   }
 
   const content = state.content;
-  const relativePath = state.relativePath;
+  const filePath = state.filePath;
 
   try {
-    await writeToFile(state.fileHandle, content);
+    await fileService.writeFile(filePath, content);
     markPaneClean('right', content);
-    console.log('File saved:', state.fileHandle.name);
+    const filename = filePath.split('/').pop() ?? filePath;
+    console.log('File saved:', filename);
 
     // Update tag index after save
-    if (relativePath) {
-      updateFileInIndex(relativePath, content);
-    }
+    updateFileInIndex(filePath, content);
   } catch (err) {
     console.error('Failed to save file:', err);
   }

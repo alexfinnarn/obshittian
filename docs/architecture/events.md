@@ -56,11 +56,23 @@ All events are defined in the `AppEvents` interface for type safety.
 | `file:renamed` | `{ oldPath, newPath }` | Notification that file was renamed |
 | `file:deleted` | `{ path }` | Notification that file was deleted |
 
+### Pane Events
+
+| Event | Payload | Purpose |
+|-------|---------|---------|
+| `pane:toggleView` | `{ pane: 'left' \| 'right' }` | Toggle view mode (edit/preview) for a pane |
+
+### Journal Events
+
+| Event | Payload | Purpose |
+|-------|---------|---------|
+| `dailynote:open` | `{ date: Date }` | Request to open daily note (deprecated, use journalStore) |
+| `journal:scrollToEntry` | `{ date: string, entryId: string }` | Navigate to specific journal entry |
+
 ### Other Events
 
 | Event | Payload | Purpose |
 |-------|---------|---------|
-| `dailynote:open` | `{ date: Date }` | Request to open daily note |
 | `tree:refresh` | `void` | Request FileTree to reload entries |
 | `modal:open` | `{ id }` | Open modal by ID |
 | `modal:close` | `{ id }` | Close modal by ID |
@@ -75,10 +87,10 @@ Opens a file in the specified pane.
 ```
 Emitters                          Handler
 ─────────────────────────────────────────────────────
-FileTreeItem.svelte:65       ─┐
-FileTree.svelte:186,273       │
-QuickFiles.svelte:93          ├──► App.svelte:81
-TagSearch.svelte:39          ─┘
+FileTreeItem.svelte          ─┐
+FileTree.svelte               │
+QuickFiles.svelte             ├──► +page.svelte (onMount)
+TagSearch.svelte             ─┘
 ```
 
 **Handler behavior:** Calls `openFileInTabs()` or `openFileInSinglePane()` service based on `pane` parameter.
@@ -90,24 +102,12 @@ Saves the file in the specified pane.
 ```
 Emitters                          Handler
 ─────────────────────────────────────────────────────
-EditorPane.svelte:60         ─┐
-App.svelte:300,304 (keyboard) ├──► App.svelte:93
+EditorPane.svelte            ─┐
+shortcutHandlers.ts           ├──► +page.svelte (onMount)
                              ─┘
 ```
 
 **Handler behavior:** Calls `saveFile(pane)` service.
-
-### file:created
-
-Notifies that a new file was created.
-
-```
-Emitters                          Handler
-─────────────────────────────────────────────────────
-fileOpen.ts:112              ─┐
-FileTree.svelte:185           ├──► App.svelte (tag index update)
-                             ─┘
-```
 
 ### file:renamed / file:deleted
 
@@ -116,8 +116,8 @@ Notifies of file operations for tag index updates.
 ```
 Emitters                          Handler
 ─────────────────────────────────────────────────────
-FileTree.svelte:210 (renamed) ──► App.svelte:100 → renameFileInIndex()
-FileTree.svelte:254 (deleted) ──► App.svelte:107 → removeFileFromIndex()
+FileTree.svelte (renamed)    ──► +page.svelte → renameFileInIndex()
+FileTree.svelte (deleted)    ──► +page.svelte → removeFileFromIndex()
 ```
 
 ### tree:refresh
@@ -127,7 +127,7 @@ Tells FileTree to reload its entries.
 ```
 Emitters                          Handler
 ─────────────────────────────────────────────────────
-fileOpen.ts:114              ───► FileTree.svelte:282
+fileOpen.ts                  ───► FileTree.svelte
 ```
 
 ### tags:reindex
@@ -137,10 +137,36 @@ Notifies components that the tag index changed.
 ```
 Emitters                          Subscribers
 ─────────────────────────────────────────────────────
-tags.ts:162,220,245,279      ───► Components displaying tag data
+tags.ts (updateFileInIndex,  ───► Components displaying tag data
+         removeFileFromIndex,
+         renameFileInIndex)
 ```
 
 **Payload:** Includes `type` ('full' | 'update' | 'remove' | 'rename'), affected files/tags, and metadata.
+
+### pane:toggleView
+
+Toggles between edit and preview mode for a specific pane.
+
+```
+Emitters                          Handler
+─────────────────────────────────────────────────────
+shortcutHandlers.ts          ───► EditorPane.svelte
+```
+
+**Handler behavior:** EditorPane listens and toggles its internal view mode state.
+
+### journal:scrollToEntry
+
+Navigates to a specific journal entry from tag search results.
+
+```
+Emitters                          Handler
+─────────────────────────────────────────────────────
+TagSearch.svelte             ───► +page.svelte (onMount)
+```
+
+**Handler behavior:** Loads entries for the date, then scrolls to the specific entry element.
 
 ## Event Flow Diagrams
 
@@ -156,17 +182,17 @@ FileTreeItem.svelte
 emit('file:open', { path, pane: 'left' })
          │
          ▼
-App.svelte handler
++page.svelte handler
          │
          ▼
-openFileInTabs(path)  ─────────────────┐
-         │                             │
-         ├─► loadFile(path)            │
-         │         │                   │
-         │         ▼                   │
-         │   readFileContent()         │
-         │                             │
-         ├─► addTab() ◄────────────────┘
+openFileInTabs(path)
+         │
+         ├─► loadFile(path)
+         │         │
+         │         ▼
+         │   fileService.readFile()
+         │
+         ├─► addTab()
          │
          └─► (if new file)
                    │
@@ -183,20 +209,20 @@ openFileInTabs(path)  ─────────────────┐
 User presses Cmd+S
          │
          ▼
-App.svelte keyboard handler
+shortcut action → handleSave()
          │
          ▼
 emit('file:save', { pane })
          │
          ▼
-App.svelte handler
++page.svelte handler
          │
          ▼
 saveFile(pane)  [fileSave.ts service]
          │
          ├─► Get content from store
          │
-         ├─► writeToFile()
+         ├─► fileService.writeFile()
          │
          ├─► markClean() in store
          │
@@ -218,13 +244,13 @@ FileTree.svelte
 confirm() dialog
          │
          ▼
-deleteEntry()  [fileOperations.ts]
+fileService.deleteFile()
          │
          ▼
 emit('file:deleted', { path })
          │
          ▼
-App.svelte handler
++page.svelte handler
          │
          ├─► removeFileFromIndex()
          │         │
@@ -238,6 +264,25 @@ App.svelte handler
                    │
                    ▼
              loadEntries()
+```
+
+### Journal Entry Navigation Flow
+
+```
+User clicks journal entry in TagSearch
+         │
+         ▼
+TagSearch.svelte
+         │
+         ▼
+emit('journal:scrollToEntry', { date, entryId })
+         │
+         ▼
++page.svelte handler
+         │
+         ├─► loadEntriesForDate(date)
+         │
+         └─► setTimeout → scrollIntoView()
 ```
 
 ## When to Use Events
@@ -334,6 +379,8 @@ export interface AppEvents {
   'modal:open': { id: string };
   'modal:close': { id: string };
   'tags:reindex': ReindexEventData;
+  'pane:toggleView': { pane: 'left' | 'right' };
+  'journal:scrollToEntry': { date: string; entryId: string };
 }
 ```
 

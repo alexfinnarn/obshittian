@@ -7,7 +7,6 @@
   import { emit, on } from '$lib/utils/eventBus';
   import {
     getVisibleEntries,
-    getRelativePath,
     createFile,
     createFolder,
     renameFile,
@@ -15,9 +14,10 @@
     deleteEntry,
   } from '$lib/utils/fileOperations';
   import { canAddTab } from '$lib/stores/tabs.svelte';
+  import type { DirectoryEntry } from '$lib/server/fileTypes';
 
   // Root entries
-  let rootEntries = $state<FileSystemHandle[]>([]);
+  let rootEntries = $state<DirectoryEntry[]>([]);
   let isLoading = $state(false);
   let activePath = $state<string | null>(null);
 
@@ -26,9 +26,10 @@
   let contextMenuX = $state(0);
   let contextMenuY = $state(0);
   let contextMenuTarget = $state<{
-    entry: FileSystemHandle;
-    parentDir: FileSystemDirectoryHandle;
+    entry: DirectoryEntry;
+    parentPath: string;
     isDirectory: boolean;
+    isRoot: boolean;
   } | null>(null);
 
   // Filename modal state
@@ -39,7 +40,7 @@
 
   // Load root entries when vault opens
   $effect(() => {
-    if (vault.rootDirHandle) {
+    if (vault.path) {
       loadRootEntries();
     } else {
       rootEntries = [];
@@ -47,11 +48,11 @@
   });
 
   async function loadRootEntries() {
-    if (!vault.rootDirHandle) return;
+    if (!vault.path) return;
 
     isLoading = true;
     try {
-      rootEntries = await getVisibleEntries(vault.rootDirHandle);
+      rootEntries = await getVisibleEntries('');
     } catch (err) {
       console.error('Failed to load root entries:', err);
       rootEntries = [];
@@ -67,27 +68,28 @@
   // Handle context menu from items
   function handleContextMenu(
     e: MouseEvent,
-    entry: FileSystemHandle,
-    parentDir: FileSystemDirectoryHandle,
+    entry: DirectoryEntry,
+    parentPath: string,
     isDirectory: boolean
   ) {
     contextMenuX = e.clientX;
     contextMenuY = e.clientY;
-    contextMenuTarget = { entry, parentDir, isDirectory };
+    contextMenuTarget = { entry, parentPath, isDirectory, isRoot: false };
     contextMenuVisible = true;
   }
 
   // Handle right-click on empty area (root)
   function handleRootContextMenu(e: MouseEvent) {
     // Only if clicking directly on the file tree container, not on a child
-    if (e.target === e.currentTarget && vault.rootDirHandle) {
+    if (e.target === e.currentTarget && vault.path) {
       e.preventDefault();
       contextMenuX = e.clientX;
       contextMenuY = e.clientY;
       contextMenuTarget = {
-        entry: vault.rootDirHandle,
-        parentDir: vault.rootDirHandle,
+        entry: { name: '', kind: 'directory' },
+        parentPath: '',
         isDirectory: true,
+        isRoot: true,
       };
       contextMenuVisible = true;
     }
@@ -95,8 +97,6 @@
 
   function closeContextMenu() {
     contextMenuVisible = false;
-    // Don't clear contextMenuTarget - it's still needed by action handlers
-    // It will be overwritten when the next context menu opens
   }
 
   // Build context menu items based on target
@@ -106,7 +106,7 @@
     const items: MenuItem[] = [];
 
     // For files: add "Open in Tab" option (disabled if at tab limit)
-    if (!contextMenuTarget.isDirectory && contextMenuTarget.entry !== vault.rootDirHandle) {
+    if (!contextMenuTarget.isDirectory && !contextMenuTarget.isRoot) {
       items.push({
         label: 'Open in Tab',
         action: () => handleAction('open-in-tab'),
@@ -117,11 +117,11 @@
 
     items.push(
       { label: 'New File', action: () => handleAction('new-file') },
-      { label: 'New Folder', action: () => handleAction('new-folder') },
+      { label: 'New Folder', action: () => handleAction('new-folder') }
     );
 
     // Only show Rename/Delete if not the root directory
-    if (contextMenuTarget.entry !== vault.rootDirHandle) {
+    if (!contextMenuTarget.isRoot) {
       items.push(
         { label: '', action: () => {}, separator: true },
         { label: 'Rename', action: () => handleAction('rename') },
@@ -170,46 +170,36 @@
     if (!contextMenuTarget || !filenameModalAction) return;
 
     try {
-      const targetDir = contextMenuTarget.isDirectory
-        ? (contextMenuTarget.entry as FileSystemDirectoryHandle)
-        : contextMenuTarget.parentDir;
+      // Determine target directory path
+      const targetPath = contextMenuTarget.isDirectory
+        ? contextMenuTarget.isRoot
+          ? ''
+          : contextMenuTarget.parentPath
+            ? `${contextMenuTarget.parentPath}/${contextMenuTarget.entry.name}`
+            : contextMenuTarget.entry.name
+        : contextMenuTarget.parentPath;
 
       if (filenameModalAction === 'new-file') {
         // Ensure .md extension
-        const filename = value.endsWith('.md') || value.endsWith('.txt')
-          ? value
-          : value + '.md';
-        const fileHandle = await createFile(targetDir, filename);
-        const path = await getRelativePath(vault.rootDirHandle!, fileHandle);
-        if (path) {
-          emit('file:created', { path });
-          emit('file:open', { path, pane: 'left' });
-        }
+        const filename = value.endsWith('.md') || value.endsWith('.txt') ? value : value + '.md';
+        const filePath = await createFile(targetPath, filename);
+        emit('file:created', { path: filePath });
+        emit('file:open', { path: filePath, pane: 'left' });
       } else if (filenameModalAction === 'new-folder') {
-        await createFolder(targetDir, value);
+        await createFolder(targetPath, value);
       } else if (filenameModalAction === 'rename') {
         const oldName = contextMenuTarget.entry.name;
         if (value === oldName) return;
 
-        // Get old path before rename
-        let oldPath: string | null = null;
-        if (!contextMenuTarget.isDirectory && contextMenuTarget.entry.kind === 'file') {
-          oldPath = await getRelativePath(
-            vault.rootDirHandle!,
-            contextMenuTarget.entry as FileSystemFileHandle
-          );
-        }
+        const oldPath = contextMenuTarget.parentPath
+          ? `${contextMenuTarget.parentPath}/${oldName}`
+          : oldName;
 
         if (contextMenuTarget.isDirectory) {
-          await renameFolder(contextMenuTarget.parentDir, oldName, value);
+          await renameFolder(contextMenuTarget.parentPath, oldName, value);
         } else {
-          const newHandle = await renameFile(contextMenuTarget.parentDir, oldName, value);
-          if (oldPath) {
-            const newPath = await getRelativePath(vault.rootDirHandle!, newHandle);
-            if (newPath) {
-              emit('file:renamed', { oldPath, newPath });
-            }
-          }
+          const newPath = await renameFile(contextMenuTarget.parentPath, oldName, value);
+          emit('file:renamed', { oldPath, newPath });
         }
       }
 
@@ -228,7 +218,7 @@
   }
 
   async function handleDelete() {
-    if (!contextMenuTarget || contextMenuTarget.entry === vault.rootDirHandle) {
+    if (!contextMenuTarget || contextMenuTarget.isRoot) {
       alert('Cannot delete root directory');
       return;
     }
@@ -239,18 +229,13 @@
     if (!confirm(`Delete ${type} "${name}"?`)) return;
 
     try {
-      // Get path before delete for event
-      let filePath: string | null = null;
-      if (!contextMenuTarget.isDirectory && contextMenuTarget.entry.kind === 'file') {
-        filePath = await getRelativePath(
-          vault.rootDirHandle!,
-          contextMenuTarget.entry as FileSystemFileHandle
-        );
-      }
+      const filePath = contextMenuTarget.parentPath
+        ? `${contextMenuTarget.parentPath}/${name}`
+        : name;
 
-      await deleteEntry(contextMenuTarget.parentDir, name, contextMenuTarget.isDirectory);
+      await deleteEntry(contextMenuTarget.parentPath, name, contextMenuTarget.isDirectory);
 
-      if (filePath) {
+      if (!contextMenuTarget.isDirectory) {
         emit('file:deleted', { path: filePath });
       }
 
@@ -261,20 +246,14 @@
     }
   }
 
-  async function handleOpenInTab() {
+  function handleOpenInTab() {
     if (!contextMenuTarget || contextMenuTarget.isDirectory) return;
 
-    try {
-      const filePath = await getRelativePath(
-        vault.rootDirHandle!,
-        contextMenuTarget.entry as FileSystemFileHandle
-      );
-      if (filePath) {
-        emit('file:open', { path: filePath, pane: 'left', openInNewTab: true });
-      }
-    } catch (err) {
-      console.error('Failed to open file in tab:', err);
-    }
+    const filePath = contextMenuTarget.parentPath
+      ? `${contextMenuTarget.parentPath}/${contextMenuTarget.entry.name}`
+      : contextMenuTarget.entry.name;
+
+    emit('file:open', { path: filePath, pane: 'left', openInNewTab: true });
   }
 
   // Listen for tree:refresh events
@@ -296,7 +275,7 @@
   tabindex="0"
   data-testid="file-tree-content"
 >
-  {#if vault.rootDirHandle}
+  {#if vault.path}
     {#if isLoading}
       <p class="status-message">Loading...</p>
     {:else if rootEntries.length === 0}
@@ -305,7 +284,7 @@
       {#each rootEntries as entry (entry.name)}
         <FileTreeItem
           {entry}
-          parentDirHandle={vault.rootDirHandle}
+          parentPath=""
           {activePath}
           oncontextmenu={handleContextMenu}
         />
