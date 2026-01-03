@@ -1,12 +1,4 @@
 version: 1
 tags:
-  - name: project
-    count: 10
-  - name: meeting
-    count: 8
-  - name: personal
-    count: 5
-  - name: work
-    count: 3
-  - name: ideas
-    count: 2
+  - name: custom1767457009734
+    count: 1
