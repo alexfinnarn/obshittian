@@ -76,3 +76,4 @@ jobs:
         env:
           KAMAL_REGISTRY_USERNAME: ${{ github.actor }}
           KAMAL_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          BASIC_AUTH: ${{ secrets.BASIC_AUTH }}

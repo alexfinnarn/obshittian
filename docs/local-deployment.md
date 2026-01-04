@@ -24,26 +24,37 @@ Create a GitHub Personal Access Token (PAT) for GHCR:
 
 ## Deploy
 
-Set the registry credentials and deploy:
+**Important:** Kamal uses the git commit SHA as the image version tag. You must commit any changes before deploying, otherwise Kamal will reuse the old image:
+
+```bash
+git add -A && git commit -m "Your changes"
+```
+
+You do NOT need to push to GitHub - Kamal builds from your local files and pushes the Docker image directly to GHCR.
+
+Set the required environment variables and deploy:
 
 ```bash
 export KAMAL_REGISTRY_USERNAME=your_github_username
 export KAMAL_REGISTRY_PASSWORD=your_github_pat
+export BASIC_AUTH="username:password"
 kamal deploy
 ```
 
 Or in one line:
 
 ```bash
-KAMAL_REGISTRY_USERNAME=your_github_username KAMAL_REGISTRY_PASSWORD=your_pat kamal deploy
+KAMAL_REGISTRY_USERNAME=your_github_username KAMAL_REGISTRY_PASSWORD=your_pat BASIC_AUTH="user:pass" kamal deploy
 ```
+
+The `BASIC_AUTH` variable configures HTTP Basic Authentication at the proxy level. Format is `username:password`.
 
 ### First-Time Deployment
 
 If Docker isn't installed on the VPS yet, run setup first:
 
 ```bash
-KAMAL_REGISTRY_USERNAME=your_github_username KAMAL_REGISTRY_PASSWORD=your_pat kamal setup
+KAMAL_REGISTRY_USERNAME=your_github_username KAMAL_REGISTRY_PASSWORD=your_pat BASIC_AUTH="user:pass" kamal setup
 ```
 
 This installs Docker and kamal-proxy on the server. Then run `kamal deploy`.
