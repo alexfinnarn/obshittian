@@ -8,6 +8,7 @@ servers:
 proxy:
   ssl: true
   host: notes.finnarn.com
+  app_port: 3000
 
 registry:
   server: ghcr.io
