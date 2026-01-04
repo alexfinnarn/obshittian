@@ -9,8 +9,6 @@ proxy:
   ssl: true
   host: notes.finnarn.com
   app_port: 3000
-  options:
-    basic_auth: "%{BASIC_AUTH}"
 
 registry:
   server: ghcr.io
@@ -28,6 +26,9 @@ env:
     ORIGIN: https://notes.finnarn.com
     HOST: "0.0.0.0"
     VAULT_PATH: "/app/vault"
+  secret:
+    - AUTH_USERNAME
+    - AUTH_PASSWORD
 
 builder:
   arch: amd64
