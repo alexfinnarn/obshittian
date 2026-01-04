@@ -4,9 +4,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A minimal browser-based Markdown editor with dual-pane editing and daily notes functionality. Designed as a lightweight Obsidian alternative. Uses the File System Access API to read/write files directly on the user's filesystem.
+A minimal browser-based Markdown editor with dual-pane editing and daily notes functionality. Designed as a lightweight Obsidian alternative.
 
-Built with Svelte 5, TypeScript, and Vite.
+Built with **SvelteKit** (adapter-node), Svelte 5, and TypeScript. The app has server-side file API routes that enable path-based vault access via Node.js `fs` operations.
+
+### Architecture
+
+The app uses server-side file operations via SvelteKit API routes. Components use `fileService` to make API calls, which are handled by server routes that use Node.js `fs` to read/write files on the server filesystem.
+
+```
+Browser                          Server
+┌──────────────────┐            ┌──────────────────────┐
+│ Components       │            │ /api/files/* routes  │
+│   ↓              │   HTTP     │   ↓                  │
+│ fileService ─────┼───────────▶│ pathUtils + fs       │
+└──────────────────┘            └──────────────────────┘
+                                         ↓
+                                  VAULT_PATH directory
+```
+
+See `plans/zzz_archived/06-sveltekit-migration/` for migration history.
 
 ## Development
 
@@ -79,6 +96,28 @@ Edit `config/deploy.yml` to change:
 - `ssh.user` - SSH username
 - `env.clear` - Environment variables
 
+### Server-Side Vault Storage
+
+The app uses `VAULT_PATH` environment variable to locate vault files on the server filesystem.
+
+**Current state**: The `/api/vault/validate` endpoint sets `VAULT_PATH` at runtime, but this doesn't persist across container restarts.
+
+**To enable persistent vault storage**, add a volume to `config/deploy.yml`:
+
+```yaml
+volumes:
+  - "editor_vault:/app/vault"
+
+env:
+  clear:
+    PORT: "3000"
+    ORIGIN: https://notes.finnarn.com
+    HOST: "0.0.0.0"
+    VAULT_PATH: "/app/vault"  # Must match volume mount point
+```
+
+**Note**: Authentication is not yet implemented. Adding server-side vault storage without auth means anyone with access to the URL can read/write files.
+
 ### GitHub Secrets Required
 
 | Secret | Purpose |
@@ -121,11 +160,27 @@ For detailed documentation on the architecture layers, see:
 ### File Structure
 ```
 src/
-  App.svelte           - Root component (layout shell: sidebar + dual-pane editor)
-  main.ts              - Entry point
+  routes/
+    +layout.svelte       - Root layout
+    +page.svelte         - Main page component
+    api/
+      files/
+        create/+server.ts  - Create file or directory
+        delete/+server.ts  - Delete file or directory
+        exists/+server.ts  - Check if path exists
+        list/+server.ts    - List directory entries
+        read/+server.ts    - Read file content
+        rename/+server.ts  - Rename file or directory
+        stat/+server.ts    - Get file/directory metadata
+        write/+server.ts   - Write file content
+      vault/
+        validate/+server.ts - Validate vault path and set VAULT_PATH
   app.css              - Global CSS reset
-  global.d.ts          - Type declarations for File System Access API
+  app.html             - HTML template
   lib/
+    server/
+      fileTypes.ts       - Shared types for file API (request/response types)
+      pathUtils.ts       - Path validation, traversal protection, error handling
     stores/
       vault.svelte.ts      - Vault state (rootDirHandle, dailyNotesFolder)
       settings.svelte.ts   - User preferences (autoOpen, restore, limits)
@@ -167,6 +222,7 @@ src/
       clickOutside.ts      - Svelte action for detecting clicks outside element
       shortcut.ts          - Svelte action for declarative keyboard shortcuts
     services/
+      fileService.ts       - File service abstraction (unified API for server file operations)
       fileOpen.ts          - File loading and opening (tabs, single pane, daily notes)
       fileSave.ts          - File saving with tag index updates
       shortcutHandlers.ts  - Handler functions for keyboard shortcuts
@@ -183,10 +239,9 @@ tests/
     testing-files/       - E2E test fixtures (sample markdown files)
   e2e/
     *.spec.ts            - Playwright E2E tests
-public/                  - Static assets
-index.html               - Vite entry point
-vite.config.ts           - Vite configuration
-svelte.config.js         - Svelte configuration
+static/                  - Static assets (SvelteKit)
+vite.config.ts           - Vite configuration (used by SvelteKit)
+svelte.config.js         - SvelteKit configuration (adapter-node)
 playwright.config.ts     - Playwright E2E test configuration
 .github/
   workflows/
@@ -208,9 +263,9 @@ scripts/                 - Utility scripts
 ### Stores (src/lib/stores/)
 
 **vault.svelte.ts** - Vault state management
-- `vault` - Reactive state object with `rootDirHandle`, `dailyNotesFolder`
+- `vault` - Reactive state object with `path` (string), `dailyNotesFolder`
 - `getIsVaultOpen()` - Returns whether a vault is open (getter function, not $derived export)
-- `openVault(handle)` - Set the root directory handle
+- `openVault(path)` - Set the vault path
 - `closeVault()` - Clear the vault state
 - `updateVaultConfig(config)` - Update dailyNotesFolder
 
@@ -231,12 +286,13 @@ scripts/                 - Utility scripts
 
 **editor.svelte.ts** - Dual-pane editor state
 - `editor` - Reactive state with left/right pane state and focusedPane
-- `PaneState` - fileHandle, dirHandle, content, isDirty, relativePath
-- `openFileInPane(pane, fileHandle, dirHandle, content, path)` - Open file
+- `PaneState` - filePath (string), content, isDirty
+- `openFileInPane(pane, filePath, content)` - Open file in pane
 - `updatePaneContent(pane, content)` - Update content and mark dirty
 - `markPaneDirty(pane)` / `markPaneClean(pane, content?)` - Dirty state
 - `closePaneFile(pane)` - Clear pane state
 - `setFocusedPane(pane)` / `getFocusedPane()` - Focus tracking
+- `getPaneFilename(pane)` - Get filename from path
 
 **tabs.svelte.ts** - Tabs management for left pane
 - `tabsStore` - Reactive state with `tabs: Tab[]` and `activeTabIndex`
@@ -290,12 +346,10 @@ scripts/                 - Utility scripts
 
 ### Utilities (src/lib/utils/)
 
-**filesystem.ts** - Storage helpers
-- `saveDirectoryHandle(handle)` / `getDirectoryHandle()` - IndexedDB for vault handle
-- `saveLastOpenFile(path)` / `getLastOpenFile()` - localStorage
-- `savePaneWidth(width)` / `getPaneWidth()` - localStorage
-- `getOrCreateDirectory(parent, name)` - Create directory if needed
-- `readFileContent(fileHandle)` / `writeFileContent(fileHandle, content)` - File I/O
+**filesystem.ts** - localStorage helpers
+- `saveVaultPath(path)` / `getVaultPath()` / `clearVaultPath()` - Vault path persistence
+- `saveLastOpenFile(path)` / `getLastOpenFile()` - Last open file path
+- `savePaneWidth(width)` / `getPaneWidth()` - Pane width persistence
 
 **frontmatter.ts** - YAML frontmatter
 - `extractFrontmatterRaw(content)` - Find frontmatter boundaries
@@ -332,16 +386,16 @@ scripts/                 - Utility scripts
 - `updateJournalEntryInIndex(date, entryId, tags)` - Update journal entry tags
 - `removeJournalEntryFromIndex(date, entryId)` - Remove journal entry from index
 
-**fileOperations.ts** - File system operations
-- `writeToFile(fileHandle, content)` - Write content to file
-- `createFile(parentDirHandle, filename)` - Create new file
-- `createFolder(parentDirHandle, folderName)` - Create new folder
-- `renameFile(dirHandle, oldName, newName)` - Rename file (copy + delete)
-- `renameFolder(parentDirHandle, oldName, newName)` - Rename folder recursively
-- `deleteEntry(parentDirHandle, name, isDirectory)` - Delete file or folder
-- `getRelativePath(rootDirHandle, fileHandle)` - Get path from root to file
+**fileOperations.ts** - File operations via fileService
+- `writeToFile(filePath, content)` - Write content to file
+- `createFile(parentPath, filename)` - Create new file, returns path
+- `createFolder(parentPath, folderName)` - Create new folder, returns path
+- `renameFile(parentPath, oldName, newName)` - Rename file, returns new path
+- `renameFolder(parentPath, oldName, newName)` - Rename folder, returns new path
+- `deleteEntry(parentPath, name, isDirectory)` - Delete file or folder
 - `sortEntries(entries)` - Sort folders first, then alphabetically
-- `getVisibleEntries(dirHandle)` - Get sorted, filtered entries
+- `isVisibleEntry(entry)` - Check if entry should be shown (filters dotfiles, non-md)
+- `getVisibleEntries(dirPath)` - Get sorted, filtered entries from directory
 
 ### Services (src/lib/services/)
 
@@ -360,6 +414,65 @@ scripts/                 - Utility scripts
 - `handleToggleView()` - Emit `pane:toggleView` event for focused pane
 - `handleCloseTab()` - Close current tab (left pane focused only)
 - `handleNextTab()` / `handlePrevTab()` - Cycle through tabs
+
+**fileService.ts** - File service abstraction layer
+- `fileService` - Singleton instance for all file operations via server API
+- `FileService` interface with methods: `readFile`, `writeFile`, `deleteFile`, `listDirectory`, `createDirectory`, `deleteDirectory`, `exists`, `rename`, `createFile`, `stat`
+- `setVaultPath(path)` / `getVaultPath()` - Configure active vault
+- `FileServiceError` - Error class with status code and error code
+
+### Server API Routes (src/routes/api/)
+
+**files/read** - `POST /api/files/read`
+- Request: `{ path: string }`
+- Response: `{ content: string }`
+
+**files/write** - `POST /api/files/write`
+- Request: `{ path: string, content: string }`
+- Response: `{ success: true }`
+
+**files/list** - `POST /api/files/list`
+- Request: `{ path: string }`
+- Response: `{ entries: DirectoryEntry[] }` (sorted: directories first, then alphabetical)
+
+**files/create** - `POST /api/files/create`
+- Request: `{ path: string, kind: 'file' | 'directory', content?: string }`
+- Response: `{ success: true }`
+
+**files/delete** - `POST /api/files/delete`
+- Request: `{ path: string, recursive?: boolean }`
+- Response: `{ success: true }`
+
+**files/rename** - `POST /api/files/rename`
+- Request: `{ oldPath: string, newPath: string }`
+- Response: `{ success: true }`
+
+**files/exists** - `POST /api/files/exists`
+- Request: `{ path: string }`
+- Response: `{ exists: boolean, kind?: 'file' | 'directory' }`
+
+**files/stat** - `POST /api/files/stat`
+- Request: `{ path: string }`
+- Response: `{ kind, size, modified, created }`
+
+**vault/validate** - `POST /api/vault/validate`
+- Request: `{ path: string }`
+- Response: `{ valid: true, path: string }` on success
+- Sets `VAULT_PATH` environment variable for subsequent API calls
+
+### Server Utilities (src/lib/server/)
+
+**pathUtils.ts** - Path validation and security
+- `getVaultRoot()` - Get vault path from `VAULT_PATH` env var
+- `validatePath(requestedPath, vaultRoot)` - Prevent path traversal attacks
+- `validateAndResolvePath(requestedPath)` - Validate and resolve to absolute path
+- `createErrorResponse(err)` - Convert errors to appropriate HTTP responses
+- `PathTraversalError` / `VaultNotConfiguredError` - Custom error classes
+
+**fileTypes.ts** - Shared TypeScript types
+- Request types: `ReadRequest`, `WriteRequest`, `ListRequest`, `CreateRequest`, `DeleteRequest`, `RenameRequest`, `ExistsRequest`, `StatRequest`
+- Response types: `ReadResponse`, `WriteResponse`, `ListResponse`, `DirectoryEntry`, etc.
+- `ErrorResponse` - Standard error format with `error` and `code` fields
 
 ### Actions (src/lib/actions/)
 
@@ -495,13 +608,14 @@ Modifier options: `'meta'` (Cmd on Mac, Ctrl on Windows/Linux), `'ctrl'`, `'alt'
 
 ## Persistence
 
-- **Directory handle**: Stored in IndexedDB (`mdEditorDB`) to restore the last opened folder
+- **Vault path**: Stored in localStorage (`vaultPath`)
 - **Last open file**: Stored in localStorage (`editorLastOpenFile`) as relative path from root
 - **Pane width**: Stored in localStorage (`editorPaneWidth`)
 - **Tag index**: Stored in localStorage with staleness tracking
 - **Settings/Shortcuts**: Stored in localStorage (`editorSettings`), overrides `config.ts` defaults
 - **Quick Links/Files**: Stored in vault's `.editor-config.json` file
 - **Journal entries**: Stored in vault as `{dailyNotesFolder}/YYYY/MM/YYYY-MM-DD.yaml`
+- **Vault files**: Stored on server filesystem at `VAULT_PATH` (set via API or env var)
 
 ## Vault Configuration (.editor-config.json)
 

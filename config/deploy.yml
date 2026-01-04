@@ -3,7 +3,7 @@ image: ghcr.io/alexfinnarn/editor
 
 servers:
   web:
-    - YOUR_VPS_IP  # TODO: Replace with your VPS IP address
+    - 5.161.43.16
 
 proxy:
   ssl: true
@@ -16,20 +16,23 @@ registry:
   password:
     - KAMAL_REGISTRY_PASSWORD
 
+volumes:
+  - "editor_vault:/app/vault"
+
 env:
   clear:
     PORT: "3000"
     ORIGIN: https://notes.finnarn.com
     HOST: "0.0.0.0"
+    VAULT_PATH: "/app/vault"
 
 builder:
-  multiarch: false
   cache:
     type: gha
     options: mode=max
 
 ssh:
-  user: root  # TODO: Change to your VPS SSH user if not root
+  user: root
 
 readiness_delay: 5
 deploy_timeout: 60
