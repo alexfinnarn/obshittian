@@ -61,6 +61,16 @@ jobs:
       - name: Add VPS to known hosts
         run: ssh-keyscan -H ${{ secrets.VPS_HOST }} >> ~/.ssh/known_hosts
 
+      - name: Test SSH connection
+        run: ssh -o BatchMode=yes -o StrictHostKeyChecking=no root@${{ secrets.VPS_HOST }} "echo 'SSH connection successful'"
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Deploy with Kamal
         run: kamal deploy
         env:
