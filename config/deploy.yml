@@ -27,6 +27,7 @@ env:
     VAULT_PATH: "/app/vault"
 
 builder:
+  arch: amd64
   cache:
     type: gha
     options: mode=max
