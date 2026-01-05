@@ -2,6 +2,11 @@ import type { Handle } from '@sveltejs/kit';
 import { env } from '$env/dynamic/private';
 
 export const handle: Handle = async ({ event, resolve }) => {
+	// Skip auth for health check endpoint (used by kamal-proxy)
+	if (event.url.pathname === '/up') {
+		return resolve(event);
+	}
+
 	const username = env.AUTH_USERNAME;
 	const password = env.AUTH_PASSWORD;
 
