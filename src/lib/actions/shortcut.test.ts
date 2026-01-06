@@ -49,12 +49,12 @@ describe('shortcut action', () => {
   describe('basic functionality', () => {
     it('fires handler when key binding matches', () => {
       const action = shortcut(targetElement, {
-        binding: 'save',
+        binding: 'toggleView',
         handler,
       }) as ActionResult;
 
-      // Cmd+S (save shortcut)
-      window.dispatchEvent(createKeyEvent('s', { meta: true }));
+      // Cmd+E (toggleView shortcut)
+      window.dispatchEvent(createKeyEvent('e', { meta: true }));
 
       expect(handler).toHaveBeenCalledTimes(1);
 
@@ -63,7 +63,7 @@ describe('shortcut action', () => {
 
     it('does not fire when key does not match', () => {
       const action = shortcut(targetElement, {
-        binding: 'save',
+        binding: 'toggleView',
         handler,
       }) as ActionResult;
 
@@ -77,12 +77,12 @@ describe('shortcut action', () => {
 
     it('does not fire when modifiers do not match', () => {
       const action = shortcut(targetElement, {
-        binding: 'save',
+        binding: 'toggleView',
         handler,
       }) as ActionResult;
 
       // Right key, wrong modifier
-      window.dispatchEvent(createKeyEvent('s', { alt: true }));
+      window.dispatchEvent(createKeyEvent('e', { alt: true }));
 
       expect(handler).not.toHaveBeenCalled();
 
@@ -91,11 +91,11 @@ describe('shortcut action', () => {
 
     it('prevents default when handler fires', () => {
       const action = shortcut(targetElement, {
-        binding: 'save',
+        binding: 'toggleView',
         handler,
       }) as ActionResult;
 
-      const event = createKeyEvent('s', { meta: true });
+      const event = createKeyEvent('e', { meta: true });
       const preventDefaultSpy = vi.spyOn(event, 'preventDefault');
 
       window.dispatchEvent(event);
@@ -109,13 +109,13 @@ describe('shortcut action', () => {
   describe('blocking', () => {
     it('does not fire when shortcuts are blocked', () => {
       const action = shortcut(targetElement, {
-        binding: 'save',
+        binding: 'toggleView',
         handler,
       }) as ActionResult;
 
       blockShortcuts('modal');
 
-      window.dispatchEvent(createKeyEvent('s', { meta: true }));
+      window.dispatchEvent(createKeyEvent('e', { meta: true }));
 
       expect(handler).not.toHaveBeenCalled();
 
@@ -124,14 +124,14 @@ describe('shortcut action', () => {
 
     it('fires after unblocking', () => {
       const action = shortcut(targetElement, {
-        binding: 'save',
+        binding: 'toggleView',
         handler,
       }) as ActionResult;
 
       const unblock = blockShortcuts('modal');
       unblock();
 
-      window.dispatchEvent(createKeyEvent('s', { meta: true }));
+      window.dispatchEvent(createKeyEvent('e', { meta: true }));
 
       expect(handler).toHaveBeenCalledTimes(1);
 
@@ -140,14 +140,14 @@ describe('shortcut action', () => {
 
     it('fires when ignoreBlocking is true', () => {
       const action = shortcut(targetElement, {
-        binding: 'save',
+        binding: 'toggleView',
         handler,
         ignoreBlocking: true,
       }) as ActionResult;
 
       blockShortcuts('modal');
 
-      window.dispatchEvent(createKeyEvent('s', { meta: true }));
+      window.dispatchEvent(createKeyEvent('e', { meta: true }));
 
       expect(handler).toHaveBeenCalledTimes(1);
 
@@ -208,12 +208,12 @@ describe('shortcut action', () => {
   describe('custom check condition', () => {
     it('fires when check returns true', () => {
       const action = shortcut(targetElement, {
-        binding: 'save',
+        binding: 'closeTab',
         handler,
         when: { check: () => true },
       }) as ActionResult;
 
-      window.dispatchEvent(createKeyEvent('s', { meta: true }));
+      window.dispatchEvent(createKeyEvent('w', { meta: true }));
 
       expect(handler).toHaveBeenCalledTimes(1);
 
@@ -222,12 +222,12 @@ describe('shortcut action', () => {
 
     it('does not fire when check returns false', () => {
       const action = shortcut(targetElement, {
-        binding: 'save',
+        binding: 'closeTab',
         handler,
         when: { check: () => false },
       }) as ActionResult;
 
-      window.dispatchEvent(createKeyEvent('s', { meta: true }));
+      window.dispatchEvent(createKeyEvent('w', { meta: true }));
 
       expect(handler).not.toHaveBeenCalled();
 
@@ -238,12 +238,12 @@ describe('shortcut action', () => {
   describe('scope', () => {
     it('attaches to window by default (global scope)', () => {
       const action = shortcut(targetElement, {
-        binding: 'save',
+        binding: 'closeTab',
         handler,
       }) as ActionResult;
 
       // Fire on window
-      window.dispatchEvent(createKeyEvent('s', { meta: true }));
+      window.dispatchEvent(createKeyEvent('w', { meta: true }));
 
       expect(handler).toHaveBeenCalledTimes(1);
 
@@ -252,13 +252,13 @@ describe('shortcut action', () => {
 
     it('attaches to element when scope is element', () => {
       const action = shortcut(targetElement, {
-        binding: 'save',
+        binding: 'closeTab',
         handler,
         scope: 'element',
       }) as ActionResult;
 
       // Fire on element
-      targetElement.dispatchEvent(createKeyEvent('s', { meta: true }));
+      targetElement.dispatchEvent(createKeyEvent('w', { meta: true }));
 
       expect(handler).toHaveBeenCalledTimes(1);
 
@@ -267,13 +267,13 @@ describe('shortcut action', () => {
 
     it('does not fire on window when scope is element', () => {
       const action = shortcut(targetElement, {
-        binding: 'save',
+        binding: 'closeTab',
         handler,
         scope: 'element',
       }) as ActionResult;
 
       // Fire on window - should not trigger
-      window.dispatchEvent(createKeyEvent('s', { meta: true }));
+      window.dispatchEvent(createKeyEvent('w', { meta: true }));
 
       expect(handler).not.toHaveBeenCalled();
 
@@ -286,16 +286,16 @@ describe('shortcut action', () => {
       const handler2 = vi.fn();
 
       const action = shortcut(targetElement, {
-        binding: 'save',
+        binding: 'closeTab',
         handler,
       }) as ActionResult;
 
       action.update?.({
-        binding: 'save',
+        binding: 'closeTab',
         handler: handler2,
       });
 
-      window.dispatchEvent(createKeyEvent('s', { meta: true }));
+      window.dispatchEvent(createKeyEvent('w', { meta: true }));
 
       expect(handler).not.toHaveBeenCalled();
       expect(handler2).toHaveBeenCalledTimes(1);
@@ -305,24 +305,24 @@ describe('shortcut action', () => {
 
     it('handles scope change on update', () => {
       const action = shortcut(targetElement, {
-        binding: 'save',
+        binding: 'closeTab',
         handler,
         scope: 'global',
       }) as ActionResult;
 
       // Switch to element scope
       action.update?.({
-        binding: 'save',
+        binding: 'closeTab',
         handler,
         scope: 'element',
       });
 
       // Window should no longer trigger
-      window.dispatchEvent(createKeyEvent('s', { meta: true }));
+      window.dispatchEvent(createKeyEvent('w', { meta: true }));
       expect(handler).not.toHaveBeenCalled();
 
       // Element should trigger
-      targetElement.dispatchEvent(createKeyEvent('s', { meta: true }));
+      targetElement.dispatchEvent(createKeyEvent('w', { meta: true }));
       expect(handler).toHaveBeenCalledTimes(1);
 
       action.destroy?.();
@@ -332,13 +332,13 @@ describe('shortcut action', () => {
   describe('destroy', () => {
     it('stops listening after destroy', () => {
       const action = shortcut(targetElement, {
-        binding: 'save',
+        binding: 'closeTab',
         handler,
       }) as ActionResult;
 
       action.destroy?.();
 
-      window.dispatchEvent(createKeyEvent('s', { meta: true }));
+      window.dispatchEvent(createKeyEvent('w', { meta: true }));
 
       expect(handler).not.toHaveBeenCalled();
     });

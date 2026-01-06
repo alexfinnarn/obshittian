@@ -34,9 +34,6 @@
   data-testid="tab-{tab.id}"
 >
   <span class="tab-filename" title={tab.filePath}>{tab.filename}</span>
-  {#if tab.isDirty}
-    <span class="tab-unsaved" data-testid="tab-unsaved-{tab.id}">●</span>
-  {/if}
   <button
     class="tab-close"
     onclick={handleClose}
@@ -91,12 +88,6 @@
 
   .tab.active .tab-filename {
     font-weight: 500;
-  }
-
-  .tab-unsaved {
-    color: var(--warning-color, #eebb00);
-    font-size: 0.7em;
-    flex-shrink: 0;
   }
 
   .tab-close {

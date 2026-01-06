@@ -21,12 +21,13 @@ interface EventBus {
  * Known event types for type safety
  */
 export interface AppEvents {
-  'file:open': { path: string; pane?: 'left' | 'right'; openInNewTab?: boolean };
-  'file:save': { pane: 'left' | 'right' };
+  /** Open a file in the left pane tabs */
+  'file:open': { path: string; openInNewTab?: boolean };
+  /** Save the active tab file */
+  'file:save': void;
   'file:created': { path: string };
   'file:renamed': { oldPath: string; newPath: string };
   'file:deleted': { path: string };
-  'dailynote:open': { date: Date };
   'tree:refresh': void;
   'modal:open': { id: string };
   'modal:close': { id: string };

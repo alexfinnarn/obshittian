@@ -6,8 +6,9 @@
     updateEntryOrder,
     removeEntry,
   } from '$lib/stores/journal.svelte';
-  import EditorPane from './EditorPane.svelte';
+  import JournalEntryEditor from './JournalEntryEditor.svelte';
   import TagInput from './TagInput.svelte';
+  import { shortcut } from '$lib/actions/shortcut';
 
   interface Props {
     entry: JournalEntry;
@@ -15,7 +16,7 @@
 
   let { entry }: Props = $props();
 
-  let editorPane = $state<EditorPane | null>(null);
+  let editorPane = $state<JournalEntryEditor | null>(null);
   let editText = $state('');
   let editTags = $state<string[]>([]);
   let editOrder = $state(0);
@@ -89,11 +90,14 @@
   class="journal-entry"
   class:editing={isEditing}
   data-testid="journal-entry-{entry.id}"
+  use:shortcut={{
+    binding: 'save',
+    handler: handleSave,
+    when: { check: () => isEditing }
+  }}
 >
-  <EditorPane
+  <JournalEntryEditor
     bind:this={editorPane}
-    pane="right"
-    mode="single"
     initialViewMode="view"
     content={isEditing ? editText : entry.text}
     oncontentchange={handleContentChange}
@@ -170,7 +174,7 @@
         </div>
       {/if}
     {/snippet}
-  </EditorPane>
+  </JournalEntryEditor>
 </div>
 
 <style>

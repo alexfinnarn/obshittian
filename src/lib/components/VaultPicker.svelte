@@ -1,6 +1,7 @@
 <script lang="ts">
   import { openVault } from '$lib/stores/vault.svelte';
   import { fileService } from '$lib/services/fileService';
+  import { logActivity } from '$lib/services/activityLogger';
 
   interface Props {
     onopen?: () => void;
@@ -52,6 +53,9 @@
 
       // Update vault store
       openVault(data.path);
+
+      // Log activity
+      logActivity('vault.opened', { path: data.path, source: 'manual' });
 
       onopen?.();
     } catch (err) {

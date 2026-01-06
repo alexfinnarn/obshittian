@@ -7,26 +7,8 @@
  */
 
 import { emit } from '$lib/utils/eventBus';
-import { getFocusedPane, editor } from '$lib/stores/editor.svelte';
-import { tabsStore, getActiveTab, removeTab, switchTab } from '$lib/stores/tabs.svelte';
-
-/**
- * Handle save shortcut (Cmd+S)
- *
- * - If a pane is focused, saves that pane
- * - If no pane is focused, saves any dirty panes
- */
-export function handleSave(): void {
-  const focused = getFocusedPane();
-  if (focused) {
-    emit('file:save', { pane: focused });
-  } else {
-    // Save both panes if neither is focused
-    const activeTab = getActiveTab();
-    if (activeTab?.isDirty) emit('file:save', { pane: 'left' });
-    if (editor.right.isDirty) emit('file:save', { pane: 'right' });
-  }
-}
+import { getFocusedPane } from '$lib/stores/editor.svelte';
+import { tabsStore, removeTab, switchTab } from '$lib/stores/tabs.svelte';
 
 /**
  * Handle toggle view mode shortcut (Cmd+E)

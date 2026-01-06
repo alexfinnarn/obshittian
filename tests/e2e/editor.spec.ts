@@ -28,9 +28,18 @@ test.describe('Editor Panes', () => {
     await expect(page.getByTestId('tab-bar')).toBeVisible();
   });
 
-  test('should have edit/view toggle buttons for left pane', async ({ page }) => {
-    await expect(page.getByTestId('view-toggle-edit-left')).toBeVisible();
-    await expect(page.getByTestId('view-toggle-view-left')).toBeVisible();
+  test('should toggle view mode via keyboard shortcut', async ({ page }) => {
+    // Open a file first
+    await page.getByTestId('file-item-README.md').click();
+    const leftPane = page.getByTestId('editor-pane-left');
+
+    // Starts in view mode
+    await expect(leftPane.getByTestId('markdown-preview')).toBeVisible();
+
+    // Toggle to edit mode with Cmd+E
+    await leftPane.click();
+    await page.keyboard.press('Meta+e');
+    await expect(leftPane.getByTestId('codemirror-editor')).toBeVisible();
   });
 });
 
@@ -94,28 +103,29 @@ test.describe('View Toggle', () => {
 
   test('should start in view mode', async ({ page }) => {
     const leftPane = page.getByTestId('editor-pane-left');
-    await expect(page.getByTestId('view-toggle-view-left')).toHaveClass(/active/);
     await expect(leftPane.getByTestId('markdown-preview')).toBeVisible();
   });
 
-  test('should toggle to edit mode', async ({ page }) => {
+  test('should toggle to edit mode via keyboard', async ({ page }) => {
     const leftPane = page.getByTestId('editor-pane-left');
-    await page.getByTestId('view-toggle-edit-left').click();
 
-    await expect(page.getByTestId('view-toggle-edit-left')).toHaveClass(/active/);
+    // Focus the left pane and toggle with Cmd+E
+    await leftPane.click();
+    await page.keyboard.press('Meta+e');
+
     await expect(leftPane.getByTestId('codemirror-editor')).toBeVisible();
   });
 
-  test('should toggle back to view mode', async ({ page }) => {
+  test('should toggle back to view mode via keyboard', async ({ page }) => {
     const leftPane = page.getByTestId('editor-pane-left');
 
     // Switch to edit mode first
-    await page.getByTestId('view-toggle-edit-left').click();
+    await leftPane.click();
+    await page.keyboard.press('Meta+e');
     await expect(leftPane.getByTestId('codemirror-editor')).toBeVisible();
 
     // Switch back to view mode
-    await page.getByTestId('view-toggle-view-left').click();
-    await expect(page.getByTestId('view-toggle-view-left')).toHaveClass(/active/);
+    await page.keyboard.press('Meta+e');
     await expect(leftPane.getByTestId('markdown-preview')).toBeVisible();
   });
 });
@@ -128,9 +138,10 @@ test.describe('Editor Typing', () => {
     // Open a file first
     await page.getByTestId('file-item-README.md').click();
     const leftPane = page.getByTestId('editor-pane-left');
-    // Left pane starts in view mode, switch to edit mode
+    // Left pane starts in view mode, switch to edit mode via keyboard
     await expect(leftPane.getByTestId('markdown-preview')).toBeVisible();
-    await page.getByTestId('view-toggle-edit-left').click();
+    await leftPane.click();
+    await page.keyboard.press('Meta+e');
     await expect(leftPane.getByTestId('codemirror-editor')).toBeVisible();
   });
 

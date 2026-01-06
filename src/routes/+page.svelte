@@ -6,7 +6,7 @@
   import PaneResizer from '$lib/components/PaneResizer.svelte';
   import VaultPicker from '$lib/components/VaultPicker.svelte';
   import JournalPane from '$lib/components/JournalPane.svelte';
-  import { on, type AppEvents } from '$lib/utils/eventBus';
+  import { on, emit, type AppEvents } from '$lib/utils/eventBus';
   import { vault, openVault, getIsVaultOpen } from '$lib/stores/vault.svelte';
   import { settings, loadSettings } from '$lib/stores/settings.svelte';
   import {
@@ -16,10 +16,10 @@
     updateTabContent,
     getTabsFromStorage,
     saveTabsToStorage,
+    revertTabContent,
   } from '$lib/stores/tabs.svelte';
   import { shortcut } from '$lib/actions/shortcut';
   import {
-    handleSave,
     handleToggleView,
     handleCloseTab,
     handleNextTab,
@@ -48,9 +48,10 @@
     scanDatesWithEntries,
   } from '$lib/stores/journal.svelte';
   import { loadTagVocabulary } from '$lib/stores/tagVocabulary.svelte';
-  import { openFileInTabs, openFileInSinglePane } from '$lib/services/fileOpen';
+  import { openFileInTabs } from '$lib/services/fileOpen';
   import { saveFile } from '$lib/services/fileSave';
   import { fileService } from '$lib/services/fileService';
+  import { logActivity } from '$lib/services/activityLogger';
 
   // Event bus subscriptions
   let unsubscribers: (() => void)[] = [];
@@ -82,19 +83,14 @@
     // Listen for file:open events from FileTree and QuickFiles
     unsubscribers.push(
       on('file:open', async (data: AppEvents['file:open']) => {
-        const pane = data.pane ?? 'left';
-        if (pane === 'left') {
-          await openFileInTabs(data.path, data.openInNewTab ?? false);
-        } else {
-          await openFileInSinglePane(data.path, pane);
-        }
+        await openFileInTabs(data.path, data.openInNewTab ?? false);
       })
     );
 
     // Listen for file:save events
     unsubscribers.push(
-      on('file:save', async (data: AppEvents['file:save']) => {
-        await saveFile(data.pane);
+      on('file:save', async () => {
+        await saveFile();
       })
     );
 
@@ -185,6 +181,10 @@
       // Set the vault path and initialize fileService
       openVault(data.path);
       fileService.setVaultPath(data.path);
+
+      // Log activity
+      logActivity('vault.opened', { path: data.path, source: 'restored' });
+
       await onVaultOpened();
     } catch (err) {
       console.error('Failed to restore vault:', err);
@@ -312,6 +312,22 @@
     }
   }
 
+  /**
+   * Handle save from left editor pane
+   */
+  function handleLeftPaneSave() {
+    emit('file:save', { pane: 'left' });
+  }
+
+  /**
+   * Handle cancel (revert) from left editor pane
+   */
+  function handleLeftPaneCancel() {
+    if (tabsStore.activeTabIndex >= 0) {
+      revertTabContent(tabsStore.activeTabIndex);
+    }
+  }
+
 </script>
 
 {#if isRestoringVault}
@@ -323,7 +339,6 @@
   <div
     class="app"
     data-testid="app-container"
-    use:shortcut={{ binding: 'save', handler: handleSave }}
     use:shortcut={{ binding: 'toggleView', handler: handleToggleView }}
     use:shortcut={{ binding: 'closeTab', handler: handleCloseTab }}
     use:shortcut={{ binding: 'nextTab', handler: handleNextTab }}
@@ -334,10 +349,10 @@
     <main class="editor-area" data-testid="editor-area">
       <div class="pane left-pane" style="flex: {leftPaneWidthPercent}" data-testid="left-pane">
         <EditorPane
-          pane="left"
-          mode="tabs"
           initialViewMode="view"
           oncontentchange={handleLeftContentChange}
+          onsave={handleLeftPaneSave}
+          oncancel={handleLeftPaneCancel}
         />
       </div>
 

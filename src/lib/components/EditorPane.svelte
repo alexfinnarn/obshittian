@@ -1,40 +1,36 @@
 <script lang="ts">
-  import { onDestroy, untrack, type Snippet } from 'svelte';
+  /**
+   * EditorPane - Left pane editor with tabs
+   *
+   * This component is specifically for the left pane file editor with tab support.
+   * For journal entries, use JournalEntryEditor instead.
+   */
+  import { onDestroy, untrack } from 'svelte';
   import CodeMirrorEditor from './CodeMirrorEditor.svelte';
   import MarkdownPreview from './MarkdownPreview.svelte';
   import TabBar from './TabBar.svelte';
-  import { on, emit, type AppEvents } from '$lib/utils/eventBus';
-  import { setFocusedPane, type PaneId } from '$lib/stores/editor.svelte';
+  import { on, type AppEvents } from '$lib/utils/eventBus';
+  import { setFocusedPane } from '$lib/stores/editor.svelte';
   import { tabsStore, getActiveTab } from '$lib/stores/tabs.svelte';
   import type { Tab } from '$lib/types/tabs';
+  import { shortcut } from '$lib/actions/shortcut';
 
   interface Props {
-    pane: PaneId;
-    /** Display mode: 'single' for right pane, 'tabs' for left pane */
-    mode?: 'single' | 'tabs';
     /** Initial view mode: 'edit' or 'view' */
     initialViewMode?: 'edit' | 'view';
-    /** Custom toolbar content (replaces default toolbar) */
-    toolbar?: Snippet;
-    /** Filename (used in single mode) */
-    filename?: string;
-    /** Content (used in single mode) */
-    content?: string;
-    /** Dirty state (used in single mode) */
-    isDirty?: boolean;
     /** Content change callback */
     oncontentchange?: (content: string) => void;
+    /** Save callback */
+    onsave?: () => void;
+    /** Cancel callback (revert changes) */
+    oncancel?: () => void;
   }
 
   let {
-    pane,
-    mode = 'single',
     initialViewMode = 'edit',
-    toolbar,
-    filename = '',
-    content = '',
-    isDirty = false,
     oncontentchange,
+    onsave,
+    oncancel,
   }: Props = $props();
 
   // View mode: 'edit' | 'view'
@@ -44,9 +40,9 @@
   // Reference to editor component for focus tracking
   let editorComponent: CodeMirrorEditor | null = $state(null);
 
-  // Listen for pane:toggleView events
+  // Listen for pane:toggleView events for left pane
   const unsubscribeToggleView = on('pane:toggleView', (data: AppEvents['pane:toggleView']) => {
-    if (data.pane === pane) {
+    if (data.pane === 'left') {
       toggleViewMode();
     }
   });
@@ -55,37 +51,28 @@
     unsubscribeToggleView();
   });
 
-  // Derive effective values based on mode
-  // In tabs mode, these come from the active tab
-  // In single mode, these come from props
-  const effectiveContent = $derived(
-    mode === 'tabs' ? (getActiveTab()?.editorContent ?? '') : content
-  );
-  const effectiveFilename = $derived(
-    mode === 'tabs' ? (getActiveTab()?.filename ?? '') : filename
-  );
-  const effectiveIsDirty = $derived(
-    mode === 'tabs' ? (getActiveTab()?.isDirty ?? false) : isDirty
-  );
-  const hasFile = $derived(
-    mode === 'tabs' ? tabsStore.tabs.length > 0 : !!filename
-  );
+  // Derive values from active tab
+  const effectiveContent = $derived(getActiveTab()?.editorContent ?? '');
+  const effectiveIsDirty = $derived(getActiveTab()?.isDirty ?? false);
 
   function handleContentChange(newContent: string) {
     oncontentchange?.(newContent);
   }
 
-  function handleSave() {
-    emit('file:save', { pane });
+  function handleSaveClick() {
+    onsave?.();
+  }
+
+  function handleCancelClick() {
+    oncancel?.();
   }
 
   function handleFocus() {
-    setFocusedPane(pane);
+    setFocusedPane('left');
   }
 
   function handleTabChange(tab: Tab | null) {
-    // When switching tabs, we could emit an event or notify parent
-    // For now, the content derivation handles this automatically
+    // When switching tabs, the content derivation handles this automatically
   }
 
   /**
@@ -129,44 +116,17 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
   class="editor-pane"
-  data-testid="editor-pane-{pane}"
+  data-testid="editor-pane-left"
   onfocusin={handleFocus}
   onmousedown={handleFocus}
+  use:shortcut={{
+    binding: 'save',
+    handler: handleSaveClick,
+    when: { check: () => effectiveIsDirty }
+  }}
 >
-  <header class="pane-toolbar" data-testid="pane-toolbar-{pane}">
-    {#if toolbar}
-      {@render toolbar()}
-    {:else}
-      {#if mode === 'tabs'}
-        <TabBar ontabchange={handleTabChange} />
-      {:else}
-        <span class="filename" data-testid="pane-filename-{pane}">
-          {effectiveFilename || 'No file open'}
-          {#if effectiveIsDirty}
-            <span class="unsaved-indicator" data-testid="unsaved-indicator-{pane}">●</span>
-          {/if}
-        </span>
-      {/if}
-
-      <div class="toolbar-actions">
-        <button
-          class="view-toggle"
-          class:active={viewMode === 'edit'}
-          onclick={() => (viewMode = 'edit')}
-          data-testid="view-toggle-edit-{pane}"
-        >
-          Edit
-        </button>
-        <button
-          class="view-toggle"
-          class:active={viewMode === 'view'}
-          onclick={() => (viewMode = 'view')}
-          data-testid="view-toggle-view-{pane}"
-        >
-          View
-        </button>
-      </div>
-    {/if}
+  <header class="pane-toolbar" data-testid="pane-toolbar-left">
+    <TabBar ontabchange={handleTabChange} onsave={handleSaveClick} oncancel={handleCancelClick} />
   </header>
 
   <div class="pane-content">
@@ -196,56 +156,6 @@
     border-bottom: 1px solid var(--border-color, #333);
     flex-shrink: 0;
     min-height: 42px;
-  }
-
-  .filename {
-    color: var(--text-color, #e0e0e0);
-    font-size: 0.9rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .unsaved-indicator {
-    color: var(--warning-color, #e8a300);
-    margin-left: 0.5rem;
-  }
-
-  /* Toolbar button styles - :global for custom toolbar snippets */
-  .pane-toolbar :global(.toolbar-actions) {
-    display: flex;
-    gap: 0.25rem;
-    flex-shrink: 0;
-    margin-left: auto;
-  }
-
-  .pane-toolbar :global(.view-toggle) {
-    background: transparent;
-    border: 1px solid var(--border-color, #333);
-    color: var(--text-muted, #888);
-    padding: 0.25rem 0.75rem;
-    font-size: 0.8rem;
-    cursor: pointer;
-    border-radius: 3px;
-    transition:
-      background 0.15s,
-      color 0.15s;
-  }
-
-  .pane-toolbar :global(.view-toggle:hover) {
-    background: var(--hover-bg, #2a2a2a);
-    color: var(--text-color, #e0e0e0);
-  }
-
-  .pane-toolbar :global(.view-toggle.active) {
-    background: var(--accent-color, #0078d4);
-    border-color: var(--accent-color, #0078d4);
-    color: #fff;
-  }
-
-  .pane-toolbar :global(.view-toggle:disabled) {
-    opacity: 0.5;
-    cursor: not-allowed;
   }
 
   .pane-content {

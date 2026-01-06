@@ -218,6 +218,7 @@ src/
       VaultPicker.svelte   - Vault open/restore UI (shown when no vault open)
       JournalPane.svelte   - Main journal UI for right pane
       JournalEntry.svelte  - Individual journal entry component
+      JournalEntryEditor.svelte - CodeMirror editor for journal entries
     actions/
       clickOutside.ts      - Svelte action for detecting clicks outside element
       shortcut.ts          - Svelte action for declarative keyboard shortcuts
@@ -284,15 +285,11 @@ scripts/                 - Utility scripts
 - `saveVaultConfig()` - Save to .editor-config.json
 - `resetVaultConfig()` - Clear to defaults
 
-**editor.svelte.ts** - Dual-pane editor state
-- `editor` - Reactive state with left/right pane state and focusedPane
-- `PaneState` - filePath (string), content, isDirty
-- `openFileInPane(pane, filePath, content)` - Open file in pane
-- `updatePaneContent(pane, content)` - Update content and mark dirty
-- `markPaneDirty(pane)` / `markPaneClean(pane, content?)` - Dirty state
-- `closePaneFile(pane)` - Clear pane state
+**editor.svelte.ts** - Focus tracking for keyboard shortcuts
+- `editor` - Reactive state with `focusedPane: 'left' | 'right' | null`
+- `PaneId` - Type alias for `'left' | 'right'`
 - `setFocusedPane(pane)` / `getFocusedPane()` - Focus tracking
-- `getPaneFilename(pane)` - Get filename from path
+- Note: Content state is managed by tabs.svelte.ts (left pane) and journal.svelte.ts (right pane)
 
 **tabs.svelte.ts** - Tabs management for left pane
 - `tabsStore` - Reactive state with `tabs: Tab[]` and `activeTabIndex`
@@ -367,7 +364,7 @@ scripts/                 - Utility scripts
 **eventBus.ts** - Cross-component communication
 - `on(event, callback)` - Subscribe to event, returns unsubscribe function
 - `emit(event, data)` - Emit event with typed data
-- Typed events: `file:open`, `file:save`, `file:created`, `file:renamed`, `file:deleted`, `dailynote:open`, `tree:refresh`, `modal:open`, `modal:close`, `tags:reindex`, `pane:toggleView`, `journal:scrollToEntry`
+- Typed events: `file:open`, `file:save`, `file:created`, `file:renamed`, `file:deleted`, `tree:refresh`, `modal:open`, `modal:close`, `tags:reindex`, `pane:toggleView`, `journal:scrollToEntry`
 
 **dailyNotes.ts** - Daily note utilities
 - `formatDailyNotePath(date)` - Returns `{ year, month, day, filename }` for path construction
@@ -400,14 +397,12 @@ scripts/                 - Utility scripts
 ### Services (src/lib/services/)
 
 **fileOpen.ts** - File opening operations
-- `loadFile(relativePath)` - Load file by path, returns handles + content
+- `loadFile(relativePath)` - Load file by path, returns content
 - `openFileInTabs(path, openInNewTab)` - Open file in left pane tabs
-- `openFileInSinglePane(path, pane)` - Open file in specified pane (single mode)
-- `openDailyNote(date)` - Create/open daily note in right pane
 
 **fileSave.ts** - File saving with side effects
-- `saveFile(pane)` - Save file in specified pane (left uses tabs, right uses editor store)
-- Handles: dirty state, tag index updates
+- `saveFile()` - Save the active tab file
+- Handles: dirty state, tag index updates, activity logging
 
 **shortcutHandlers.ts** - Handler functions for keyboard shortcuts
 - `handleSave()` - Save focused pane or both if none focused
@@ -505,11 +500,10 @@ scripts/                 - Utility scripts
 - Emits events: `file:open`, `file:created`, `file:renamed`, `file:deleted`
 - Listens for `tree:refresh` to reload entries
 
-**EditorPane.svelte** - Combined editor/preview pane with toolbar
-- Props: `pane`, `mode` ('single' | 'tabs'), `filename`, `content`, `isDirty`, `oncontentchange`
-- Mode 'tabs': Renders TabBar, derives content from tabs store (used for left pane)
-- Mode 'single': Uses props directly for content (used for right pane/daily notes)
-- Listens for `pane:toggleView` events to toggle edit/view mode
+**EditorPane.svelte** - Left pane editor with tabs
+- Props: `initialViewMode`, `oncontentchange`, `onsave`, `oncancel`
+- Renders TabBar, derives content from tabs store
+- Listens for `pane:toggleView` events (left pane) to toggle edit/view mode
 - Exposes: `toggleViewMode()`, `getViewMode()`, `setViewMode()`, `focus()`, `hasFocus()`
 
 **CodeMirrorEditor.svelte** - CodeMirror 6 wrapper
@@ -532,10 +526,18 @@ scripts/                 - Utility scripts
 
 **JournalEntry.svelte** - Individual entry component
 - Props: `entry: JournalEntry`
-- View mode: rendered markdown, type badge, order, timestamp, delete button
-- Edit mode: CodeMirror editor, type dropdown, order input, Save/Cancel
+- Uses JournalEntryEditor for content display/editing
+- View mode: rendered markdown, tags, order, timestamp, delete button
+- Edit mode: CodeMirror editor, tag input, order input, Save/Cancel
 - Click to enter edit mode
 - Delete with confirmation dialog
+
+**JournalEntryEditor.svelte** - CodeMirror editor for journal entries
+- Props: `initialViewMode`, `toolbar` (snippet), `content`, `isDirty`, `oncontentchange`, `onsave`, `oncancel`
+- Wraps CodeMirrorEditor and MarkdownPreview with view mode toggle
+- Listens for `pane:toggleView` events (right pane) to toggle edit/view mode
+- Sets focus tracking to 'right' pane
+- Exposes: `toggleViewMode()`, `getViewMode()`, `setViewMode()`, `focus()`, `hasFocus()`
 
 ### Svelte 5 Runes Notes
 - Module-level `$state` works in `.svelte.ts` files - export the object directly

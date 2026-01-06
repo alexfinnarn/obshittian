@@ -29,14 +29,15 @@ describe('Tab', () => {
       expect(screen.getByText('myfile.md')).toBeTruthy();
     });
 
-    it('shows unsaved indicator when dirty', () => {
+    it('no longer shows unsaved indicator (removed in favor of Save/Cancel buttons)', () => {
       const tab = createMockTab({ id: 'dirty-tab', isDirty: true });
       render(Tab, { props: { tab, isActive: false, onclick: vi.fn(), onclose: vi.fn() } });
 
-      expect(screen.getByTestId('tab-unsaved-dirty-tab')).toBeTruthy();
+      // Unsaved indicator was removed - dirty state is now shown via Save/Cancel buttons in TabBar
+      expect(screen.queryByTestId('tab-unsaved-dirty-tab')).toBeNull();
     });
 
-    it('hides unsaved indicator when not dirty', () => {
+    it('does not show unsaved indicator when not dirty', () => {
       const tab = createMockTab({ id: 'clean-tab', isDirty: false });
       render(Tab, { props: { tab, isActive: false, onclick: vi.fn(), onclose: vi.fn() } });
 

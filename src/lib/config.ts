@@ -22,7 +22,7 @@ export interface KeyBinding {
 }
 
 export interface KeyboardShortcuts {
-  /** Save the focused pane (or both if none focused) */
+  /** Save the current file/entry */
   save: KeyBinding;
   /** Toggle edit/view mode for focused pane */
   toggleView: KeyBinding;

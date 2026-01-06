@@ -5,6 +5,7 @@
  */
 
 import { fileService } from '$lib/services/fileService';
+import { logActivity } from '$lib/services/activityLogger';
 import type { DirectoryEntry } from '$lib/server/fileTypes';
 
 /**
@@ -27,6 +28,10 @@ export async function createFile(parentPath: string, filename: string): Promise<
   const filePath = parentPath ? `${parentPath}/${filename}` : filename;
   try {
     await fileService.createFile(filePath, '');
+
+    // Log activity
+    logActivity('file.created', { path: filePath, kind: 'file' });
+
     return filePath;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -41,6 +46,10 @@ export async function createFolder(parentPath: string, folderName: string): Prom
   const folderPath = parentPath ? `${parentPath}/${folderName}` : folderName;
   try {
     await fileService.createDirectory(folderPath);
+
+    // Log activity
+    logActivity('file.created', { path: folderPath, kind: 'folder' });
+
     return folderPath;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -61,6 +70,10 @@ export async function renameFile(
 
   try {
     await fileService.rename(oldPath, newPath);
+
+    // Log activity
+    logActivity('file.renamed', { oldPath, newPath });
+
     return newPath;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -81,6 +94,10 @@ export async function renameFolder(
 
   try {
     await fileService.rename(oldPath, newPath);
+
+    // Log activity
+    logActivity('file.renamed', { oldPath, newPath });
+
     return newPath;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
@@ -104,6 +121,12 @@ export async function deleteEntry(
     } else {
       await fileService.deleteFile(fullPath);
     }
+
+    // Log activity
+    logActivity('file.deleted', {
+      path: fullPath,
+      kind: isDirectory ? 'folder' : 'file',
+    });
   } catch (err) {
     const type = isDirectory ? 'folder' : 'file';
     const message = err instanceof Error ? err.message : String(err);

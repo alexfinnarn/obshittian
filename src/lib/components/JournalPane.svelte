@@ -68,9 +68,6 @@
 
   <!-- New Entry Input -->
   <div class="new-entry-section">
-    <div class="new-entry-editor">
-      <CodeMirrorEditor content={newEntryText} onchange={handleEditorChange} />
-    </div>
     <div class="new-entry-controls">
       <div class="tags-input-wrapper">
         <TagInput
@@ -87,6 +84,9 @@
       >
         {isAdding ? 'Adding...' : 'Add Entry'}
       </button>
+    </div>
+    <div class="new-entry-editor">
+      <CodeMirrorEditor content={newEntryText} onchange={handleEditorChange} />
     </div>
   </div>
 
@@ -133,24 +133,24 @@
     flex-shrink: 0;
   }
 
+  .new-entry-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+
   .new-entry-editor {
     height: 80px;
     border: 1px solid var(--border-color, #444);
     border-radius: 4px;
     overflow: hidden;
-    margin-bottom: 0.5rem;
     transition: height 0.2s ease, border-color 0.2s ease;
   }
 
   .new-entry-editor:focus-within {
     height: 250px;
     border-color: var(--accent-color, #0078d4);
-  }
-
-  .new-entry-controls {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
   }
 
   .tags-input-wrapper {

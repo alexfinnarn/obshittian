@@ -184,6 +184,17 @@ export function markTabClean(index: number, content: string): void {
   saveTabsToStorage();
 }
 
+/**
+ * Revert tab content to last saved state.
+ */
+export function revertTabContent(index: number): void {
+  if (index < 0 || index >= tabsStore.tabs.length) return;
+
+  const tab = tabsStore.tabs[index];
+  tab.editorContent = tab.savedContent;
+  tab.isDirty = false;
+}
+
 // --- Persistence ---
 
 /** Save current tabs to localStorage */

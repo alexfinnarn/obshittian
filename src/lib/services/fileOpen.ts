@@ -1,14 +1,12 @@
 /**
- * File opening service - handles loading and opening files in panes/tabs
+ * File opening service - handles loading and opening files in tabs
  */
 
 import { vault } from '$lib/stores/vault.svelte';
-import { openFileInPane, type PaneId } from '$lib/stores/editor.svelte';
 import { addTab, replaceCurrentTab, switchTab, findTabByPath } from '$lib/stores/tabs.svelte';
 import { createTab } from '$lib/types/tabs';
-import { getOrCreateDailyNote } from '$lib/utils/dailyNotes';
-import { emit } from '$lib/utils/eventBus';
 import { fileService } from './fileService';
+import { logActivity } from './activityLogger';
 
 /**
  * Load a file by relative path and return content
@@ -51,47 +49,14 @@ export async function openFileInTabs(relativePath: string, openInNewTab: boolean
       // Replace current tab
       replaceCurrentTab(tab);
     }
+
+    // Log activity
+    logActivity('file.opened', {
+      path: relativePath,
+      source: openInNewTab ? 'tree' : 'tab',
+    });
   } catch (err) {
     console.error('Failed to open file:', err);
   }
 }
 
-/**
- * Open a file by path in a specific pane (single-file mode)
- */
-export async function openFileInSinglePane(relativePath: string, pane: PaneId): Promise<void> {
-  try {
-    const { content } = await loadFile(relativePath);
-    openFileInPane(pane, relativePath, content);
-  } catch (err) {
-    console.error('Failed to open file:', err);
-  }
-}
-
-/**
- * Open a daily note for the given date in the right pane.
- */
-export async function openDailyNote(date: Date): Promise<void> {
-  if (!vault.path) {
-    console.error('No vault open');
-    return;
-  }
-
-  try {
-    const { relativePath, content, isNew } = await getOrCreateDailyNote(
-      vault.dailyNotesFolder,
-      date
-    );
-
-    // Open in right pane (single-file mode for daily notes)
-    openFileInPane('right', relativePath, content);
-
-    if (isNew) {
-      emit('file:created', { path: relativePath });
-      // Refresh file tree to show the new file
-      emit('tree:refresh', undefined as unknown as void);
-    }
-  } catch (err) {
-    console.error('Failed to open daily note:', err);
-  }
-}

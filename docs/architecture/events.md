@@ -66,7 +66,6 @@ All events are defined in the `AppEvents` interface for type safety.
 
 | Event | Payload | Purpose |
 |-------|---------|---------|
-| `dailynote:open` | `{ date: Date }` | Request to open daily note (deprecated, use journalStore) |
 | `journal:scrollToEntry` | `{ date: string, entryId: string }` | Navigate to specific journal entry |
 
 ### Other Events
@@ -82,7 +81,7 @@ All events are defined in the `AppEvents` interface for type safety.
 
 ### file:open
 
-Opens a file in the specified pane.
+Opens a file in the left pane tabs.
 
 ```
 Emitters                          Handler
@@ -93,11 +92,11 @@ QuickFiles.svelte             ├──► +page.svelte (onMount)
 TagSearch.svelte             ─┘
 ```
 
-**Handler behavior:** Calls `openFileInTabs()` or `openFileInSinglePane()` service based on `pane` parameter.
+**Handler behavior:** Calls `openFileInTabs()` service.
 
 ### file:save
 
-Saves the file in the specified pane.
+Saves the active tab file.
 
 ```
 Emitters                          Handler
@@ -369,12 +368,11 @@ Events are typed via the `AppEvents` interface:
 ```typescript
 // src/lib/utils/eventBus.ts
 export interface AppEvents {
-  'file:open': { path: string; pane?: 'left' | 'right'; openInNewTab?: boolean };
-  'file:save': { pane: 'left' | 'right' };
+  'file:open': { path: string; openInNewTab?: boolean };
+  'file:save': void;
   'file:created': { path: string };
   'file:renamed': { oldPath: string; newPath: string };
   'file:deleted': { path: string };
-  'dailynote:open': { date: Date };
   'tree:refresh': void;
   'modal:open': { id: string };
   'modal:close': { id: string };

@@ -165,34 +165,27 @@ Handles loading and opening files in panes/tabs.
 |----------|---------|
 | `loadFile(relativePath)` | Load file content via fileService |
 | `openFileInTabs(path, openInNewTab)` | Open file in left pane tabs |
-| `openFileInSinglePane(path, pane)` | Open file in specified pane |
-| `openDailyNote(date)` | Create/open daily note in right pane |
 
 #### Dependencies
 
-- **Services:** `fileService`
-- **Stores:** `vault`, `editor`, `tabs`
-- **Utilities:** `dailyNotes`, `eventBus`
-- **Types:** `Tab`, `PaneId`
+- **Services:** `fileService`, `activityLogger`
+- **Stores:** `vault`, `tabs`
+- **Types:** `Tab`
 
 #### Usage
 
 ```typescript
-import { openFileInTabs, openDailyNote } from '$lib/services/fileOpen';
+import { openFileInTabs } from '$lib/services/fileOpen';
 
 // Open file in tabs (left pane)
 await openFileInTabs('notes/todo.md', true);  // new tab
 await openFileInTabs('notes/todo.md', false); // replace current
-
-// Open daily note (right pane)
-await openDailyNote(new Date());
 ```
 
 #### Behavior Notes
 
 - `openFileInTabs` checks for existing tabs before opening
-- `openDailyNote` creates the file if it doesn't exist
-- `openDailyNote` emits `file:created` and `tree:refresh` for new files
+- Logs activity via `activityLogger`
 
 ---
 
@@ -206,14 +199,7 @@ Handles saving files with tag index updates.
 
 | Function | Purpose |
 |----------|---------|
-| `saveFile(pane)` | Save file in specified pane ('left' or 'right') |
-
-#### Internal Functions
-
-| Function | Purpose |
-|----------|---------|
-| `saveLeftPane()` | Save active tab (tabs mode) |
-| `saveRightPane()` | Save right pane file (single mode) |
+| `saveFile()` | Save the active tab file |
 
 #### Dependencies
 

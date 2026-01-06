@@ -153,20 +153,12 @@ interface VaultConfig {
 
 ### editor
 
-Session-only state for the dual-pane editor. Tracks file paths, content, dirty state, and focus.
+Session-only state for focus tracking. Used by keyboard shortcuts to determine which pane should handle the action.
 
 **State Shape:**
 ```typescript
 interface EditorState {
-  left: PaneState;
-  right: PaneState;
   focusedPane: 'left' | 'right' | null;
-}
-
-interface PaneState {
-  filePath: string | null;
-  content: string;
-  isDirty: boolean;
 }
 ```
 
@@ -174,15 +166,11 @@ interface PaneState {
 
 | Function | Purpose |
 |----------|---------|
-| `openFileInPane(pane, filePath, content)` | Open file in pane |
-| `updatePaneContent(pane, content)` | Update content (marks dirty) |
-| `markPaneDirty(pane)` / `markPaneClean(pane, content?)` | Dirty state |
-| `closePaneFile(pane)` | Clear pane |
 | `setFocusedPane(pane)` / `getFocusedPane()` | Focus tracking |
-| `isPaneFileOpen(pane)` | Check if pane has file |
-| `getPaneFilename(pane)` | Get filename for display |
 
-**Persistence:** None. The right pane (journal) is transient. Left pane uses `tabsStore` for persistence.
+**Note:** Content state is managed by `tabsStore` (left pane) and `journalStore` (right pane), not this store.
+
+**Persistence:** None.
 
 ---
 
