@@ -157,12 +157,41 @@ describe('Calendar component', () => {
     expect(enableDates).toContain('2024-12-22');
   });
 
-  it('enables today even without entries', () => {
+  it('enables today and next 7 days even without entries', () => {
     render(Calendar, { props: { datesWithEntries: [] } });
 
     expect(mockState.lastCalendarOptions).not.toBeNull();
     const enableDates = mockState.lastCalendarOptions!.enableDates as string[];
-    // Today should always be enabled
-    expect(enableDates.length).toBe(1);
+    // Today + next 7 days = 8 dates
+    expect(enableDates.length).toBe(8);
+  });
+
+  it('enables the correct date range (today through 7 days ahead)', () => {
+    render(Calendar, { props: { datesWithEntries: [] } });
+
+    const enableDates = mockState.lastCalendarOptions!.enableDates as string[];
+    const today = new Date();
+
+    // Verify each of the 8 days is enabled
+    for (let i = 0; i <= 7; i++) {
+      const expectedDate = new Date(today);
+      expectedDate.setDate(today.getDate() + i);
+      const year = expectedDate.getFullYear();
+      const month = String(expectedDate.getMonth() + 1).padStart(2, '0');
+      const day = String(expectedDate.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
+      expect(enableDates).toContain(dateStr);
+    }
+  });
+
+  it('combines future week with past dates that have entries', () => {
+    const pastDatesWithEntries = ['2024-01-15', '2024-02-20'];
+    render(Calendar, { props: { datesWithEntries: pastDatesWithEntries } });
+
+    const enableDates = mockState.lastCalendarOptions!.enableDates as string[];
+    // Should have 8 dates (today + 7 days) + 2 past dates = 10 dates
+    expect(enableDates.length).toBe(10);
+    expect(enableDates).toContain('2024-01-15');
+    expect(enableDates).toContain('2024-02-20');
   });
 });

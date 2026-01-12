@@ -29,12 +29,20 @@
 
   /**
    * Get the list of enabled dates for the calendar.
-   * Enabled: today + past dates with entries
-   * Disabled: future dates + past dates without entries
+   * Enabled: today + next 7 days + past dates with entries
+   * Disabled: future dates beyond 7 days + past dates without entries
    */
   function getEnabledDates(entries: string[]): string[] {
-    const today = formatDateString(new Date());
-    const enabled = new Set([today, ...entries]);
+    const today = new Date();
+    const enabled = new Set(entries);
+
+    // Enable today and the next 7 days
+    for (let i = 0; i <= 7; i++) {
+      const date = new Date(today);
+      date.setDate(today.getDate() + i);
+      enabled.add(formatDateString(date));
+    }
+
     return Array.from(enabled);
   }
 

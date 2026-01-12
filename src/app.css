@@ -1,4 +1,25 @@
 /*
+  CSS Custom Properties (Theme Variables)
+*/
+:root {
+  /* Daily Task Colors */
+  --dt-pending-bg: #3a3a3a;
+  --dt-pending-text: #888;
+  --dt-pending-border: #555;
+  --dt-complete-bg: #1a4d1a;
+  --dt-complete-text: #4ade80;
+  --dt-complete-border: #22c55e;
+
+  /* Common Theme Colors */
+  --bg-color: #1e1e1e;
+  --text-color: #e0e0e0;
+  --text-muted: #888;
+  --border-color: #333;
+  --accent-color: #3794ff;
+  --hover-bg: #3a3a3a;
+}
+
+/*
   Modern CSS Reset
   Based on Josh Comeau's reset: https://www.joshwcomeau.com/css/custom-css-reset/
 */
@@ -29,12 +50,6 @@ body {
   line-height: 1.5;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 }
-
-/* Remove list styles on ul, ol elements */
-/*ul,*/
-/*ol {*/
-/*  list-style: none;*/
-/*}*/
 
 /* Set shorter line heights on headings */
 h1,

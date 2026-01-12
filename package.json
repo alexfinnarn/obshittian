@@ -42,7 +42,6 @@
     "@sveltejs/adapter-node": "^5.4.0",
     "@sveltejs/kit": "^2.49.2",
     "codemirror": "^6.0.2",
-    "docx": "^9.5.1",
     "fuse.js": "^7.1.0",
     "js-yaml": "^4.1.1",
     "marked": "^17.0.1",

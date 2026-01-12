@@ -175,7 +175,7 @@ src/
         write/+server.ts   - Write file content
       vault/
         validate/+server.ts - Validate vault path and set VAULT_PATH
-  app.css              - Global CSS reset
+  app.css              - Global CSS reset and theme variables
   app.html             - HTML template
   lib/
     server/
@@ -184,7 +184,7 @@ src/
     stores/
       vault.svelte.ts      - Vault state (rootDirHandle, dailyNotesFolder)
       settings.svelte.ts   - User preferences (autoOpen, restore, limits)
-      vaultConfig.svelte.ts - Quick links/files from .editor-config.json
+      vaultConfig.svelte.ts - Quick links/files/daily tasks from .editor-config.json
       editor.svelte.ts     - Dual-pane editor state with focus tracking
       tabs.svelte.ts       - Tabs management for left pane
       tags.svelte.ts       - Tag index state with localStorage persistence
@@ -196,6 +196,7 @@ src/
       tabs.ts              - Tab interface and createTab function
       journal.ts           - Journal types and createJournalEntry helper
       tagVocabulary.ts     - Tag vocabulary types for .editor-tags.yaml
+      dailyTasks.ts        - Daily task types, helpers, and template functions
     components/
       Sidebar.svelte       - Container for calendar, quick links/files, tabbed file tree/search
       SidebarTabs.svelte   - Files/Search tab toggle
@@ -219,6 +220,8 @@ src/
       JournalPane.svelte   - Main journal UI for right pane
       JournalEntry.svelte  - Individual journal entry component
       JournalEntryEditor.svelte - CodeMirror editor for journal entries
+      DailyTaskTabs.svelte - Task tabs with progress counters for journal pane
+      DailyTasksConfigModal.svelte - Modal for configuring daily tasks
     actions/
       clickOutside.ts      - Svelte action for detecting clicks outside element
       shortcut.ts          - Svelte action for declarative keyboard shortcuts
@@ -278,9 +281,10 @@ scripts/                 - Utility scripts
 - `getShortcut(name)` - Get a specific keyboard shortcut binding
 
 **vaultConfig.svelte.ts** - Vault-specific configuration
-- `vaultConfig` - Reactive state with quickLinks, quickFiles arrays
+- `vaultConfig` - Reactive state with quickLinks, quickFiles, dailyTasks arrays
 - `getQuickLinks()` / `setQuickLinks(links)` - Get/set quick links
 - `getQuickFiles()` / `setQuickFiles(files)` - Get/set quick files
+- `getDailyTasks()` / `setDailyTasks(tasks)` - Get/set daily tasks
 - `loadVaultConfig(handle, defaults)` - Load from .editor-config.json
 - `saveVaultConfig()` - Save to .editor-config.json
 - `resetVaultConfig()` - Clear to defaults
@@ -520,9 +524,9 @@ scripts/                 - Utility scripts
 **JournalPane.svelte** - Main journal UI
 - Fills right pane entirely
 - Date header showing formatted selected date
-- New entry input with CodeMirror editor
-- Type dropdown (hidden when no types configured)
-- Entry list sorted by order
+- Daily task tabs with progress counters (when tasks configured)
+- New entry input with CodeMirror editor (pre-fills with template when task selected)
+- Entry list sorted by order (filtered by task when task tab selected)
 
 **JournalEntry.svelte** - Individual entry component
 - Props: `entry: JournalEntry`
@@ -531,6 +535,17 @@ scripts/                 - Utility scripts
 - Edit mode: CodeMirror editor, tag input, order input, Save/Cancel
 - Click to enter edit mode
 - Delete with confirmation dialog
+
+**DailyTaskTabs.svelte** - Task tabs with progress counters
+- Props: `entries`, `tasks`, `activeTaskId`, `onselect`, `onconfigure`
+- Shows "All" tab plus one tab per visible task
+- Task tabs display: indicator (gray/green), name, progress (e.g., "2/3")
+- Configure button opens DailyTasksConfigModal
+
+**DailyTasksConfigModal.svelte** - Task configuration modal
+- Props: `visible`, `onclose`
+- Add/edit/delete daily tasks
+- Fields: name, tag ID (auto-generated), target count, days (daily or specific days)
 
 **JournalEntryEditor.svelte** - CodeMirror editor for journal entries
 - Props: `initialViewMode`, `toolbar` (snippet), `content`, `isDirty`, `oncontentchange`, `onsave`, `oncancel`
@@ -564,7 +579,11 @@ scripts/                 - Utility scripts
 - Calendar date clicks load journal entries for that date in right pane
 - Journal entries stored as YAML with metadata (type, order, timestamps)
 - Journal files only created when first entry is added (not on navigation)
-- Calendar enables only today and past dates with entries; future dates and past dates without entries are disabled
+- Calendar enables today, the next 7 days, and past dates with entries; future dates beyond 7 days and past dates without entries are disabled
+- Daily tasks appear as tabs in the journal pane with progress counters (e.g., "2/3")
+- Tasks use `#dt/` tag prefix (e.g., `#dt/gym`) and can be daily or on specific days of the week
+- Task tabs show gray (incomplete) or green (complete) based on entry count vs target
+- Clicking a task tab filters entries and pre-fills new entry with template from `templates/tags/dt/<task>/NN.md`
 
 ## Keyboard Shortcuts
 
@@ -615,13 +634,14 @@ Modifier options: `'meta'` (Cmd on Mac, Ctrl on Windows/Linux), `'ctrl'`, `'alt'
 - **Pane width**: Stored in localStorage (`editorPaneWidth`)
 - **Tag index**: Stored in localStorage with staleness tracking
 - **Settings/Shortcuts**: Stored in localStorage (`editorSettings`), overrides `config.ts` defaults
-- **Quick Links/Files**: Stored in vault's `.editor-config.json` file
+- **Quick Links/Files/Daily Tasks**: Stored in vault's `.editor-config.json` file
 - **Journal entries**: Stored in vault as `{dailyNotesFolder}/YYYY/MM/YYYY-MM-DD.yaml`
+- **Daily task templates**: Stored in vault as `templates/tags/dt/<task-id>/NN.md`
 - **Vault files**: Stored on server filesystem at `VAULT_PATH` (set via API or env var)
 
 ## Vault Configuration (.editor-config.json)
 
-Quick Links and Quick Files are stored in a `.editor-config.json` file in the vault root.
+Quick Links, Quick Files, and Daily Tasks are stored in a `.editor-config.json` file in the vault root.
 
 ```json
 {
@@ -630,9 +650,21 @@ Quick Links and Quick Files are stored in a `.editor-config.json` file in the va
     ],
     "quickFiles": [
         { "name": "Todo", "path": "01_Todo.md" }
+    ],
+    "dailyTasks": [
+        { "id": "gym", "name": "Gym", "tag": "#dt/gym", "targetCount": 1, "days": ["monday", "wednesday", "friday"] },
+        { "id": "songs", "name": "Songs", "tag": "#dt/songs", "targetCount": 1, "days": "daily" }
     ]
 }
 ```
+
+### Daily Tasks
+
+Daily tasks are recurring tasks that appear as tabs in the journal pane. Each task:
+- Uses a `#dt/` prefixed tag (e.g., `#dt/gym`)
+- Has a `targetCount` for how many completions needed per day
+- Has `days` set to `"daily"` or an array of specific days (e.g., `["monday", "wednesday", "friday"]`)
+- Requires template files at `templates/tags/dt/<task-id>/01.md`, `02.md`, etc. (one per targetCount)
 
 ## Plans
 
