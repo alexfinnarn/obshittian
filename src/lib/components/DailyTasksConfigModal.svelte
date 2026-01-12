@@ -238,7 +238,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: 1rem;
-		min-width: 500px;
 		max-height: 60vh;
 		overflow-y: auto;
 	}

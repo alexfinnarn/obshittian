@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A minimal browser-based Markdown editor with dual-pane editing and daily notes functionality. Designed as a lightweight Obsidian alternative.
+A minimal browser-based Markdown editor with dual-pane editing and daily notes functionality. Designed as a lightweight Obsidian alternative. **Fully responsive** with mobile-first bottom tab navigation.
 
 Built with **SvelteKit** (adapter-node), Svelte 5, and TypeScript. The app has server-side file API routes that enable path-based vault access via Node.js `fs` operations.
 
@@ -175,7 +175,7 @@ src/
         write/+server.ts   - Write file content
       vault/
         validate/+server.ts - Validate vault path and set VAULT_PATH
-  app.css              - Global CSS reset and theme variables
+  app.css              - Global CSS reset, theme variables, and responsive utilities
   app.html             - HTML template
   lib/
     server/
@@ -222,6 +222,7 @@ src/
       JournalEntryEditor.svelte - CodeMirror editor for journal entries
       DailyTaskTabs.svelte - Task tabs with progress counters for journal pane
       DailyTasksConfigModal.svelte - Modal for configuring daily tasks
+      MobileNav.svelte     - Bottom tab navigation for mobile (Files/Editor/Journal)
     actions/
       clickOutside.ts      - Svelte action for detecting clicks outside element
       shortcut.ts          - Svelte action for declarative keyboard shortcuts
@@ -506,8 +507,9 @@ scripts/                 - Utility scripts
 
 **EditorPane.svelte** - Left pane editor with tabs
 - Props: `initialViewMode`, `oncontentchange`, `onsave`, `oncancel`
-- Renders TabBar, derives content from tabs store
+- Renders TabBar + Edit/View toggle buttons, derives content from tabs store
 - Listens for `pane:toggleView` events (left pane) to toggle edit/view mode
+- Toggle buttons visible for mobile use (keyboard shortcuts don't work on touch devices)
 - Exposes: `toggleViewMode()`, `getViewMode()`, `setViewMode()`, `focus()`, `hasFocus()`
 
 **CodeMirrorEditor.svelte** - CodeMirror 6 wrapper
@@ -554,6 +556,13 @@ scripts/                 - Utility scripts
 - Sets focus tracking to 'right' pane
 - Exposes: `toggleViewMode()`, `getViewMode()`, `setViewMode()`, `focus()`, `hasFocus()`
 
+**MobileNav.svelte** - Bottom tab navigation for mobile
+- Props: `activeView: MobileView`, `onviewchange: (view: MobileView) => void`
+- `MobileView` type: `'sidebar' | 'editor' | 'journal'`
+- Fixed to bottom of screen, 56px height with safe area padding
+- Three tabs with icons: Files (folder), Editor (pencil), Journal (calendar)
+- Hidden on desktop (768px+ breakpoint)
+
 ### Svelte 5 Runes Notes
 - Module-level `$state` works in `.svelte.ts` files - export the object directly
 - `$derived` CANNOT be exported from modules - use getter functions instead
@@ -584,6 +593,46 @@ scripts/                 - Utility scripts
 - Tasks use `#dt/` tag prefix (e.g., `#dt/gym`) and can be daily or on specific days of the week
 - Task tabs show gray (incomplete) or green (complete) based on entry count vs target
 - Clicking a task tab filters entries and pre-fills new entry with template from `templates/tags/dt/<task>/NN.md`
+
+## Responsive Design
+
+The app is fully responsive with a mobile-first approach.
+
+### Breakpoints
+
+- **Mobile**: < 768px - Single pane with bottom tab navigation
+- **Desktop**: >= 768px - Sidebar + dual pane layout
+
+### Mobile Layout (< 768px)
+
+- **Bottom tab navigation** (`MobileNav.svelte`) with three tabs: Files, Editor, Journal
+- Shows one view at a time; all panes stay mounted (CSS visibility) to preserve state
+- Auto-switches to Editor view when opening a file from sidebar
+- Auto-switches to Journal view when selecting a calendar date
+- Sidebar fills full width
+- Edit/View toggle buttons visible in toolbar (keyboard shortcuts don't work on mobile)
+- Touch-friendly: 44px minimum tap targets for buttons
+
+### CSS Variables (app.css)
+
+```css
+--mobile-nav-height: 56px;
+--mobile-nav-bg: #252525;
+--mobile-nav-border: #333;
+--mobile-nav-active: var(--accent-color);
+--touch-target-min: 44px;
+```
+
+### Mobile Detection
+
+In `+page.svelte`:
+- `isMobile` state tracks viewport width < 768px
+- `mobileView` state: `'sidebar' | 'editor' | 'journal'`
+- Window resize listener updates `isMobile` reactively
+
+### Responsive Modals
+
+Modals use `width: 90vw; max-width: 500px` on mobile instead of fixed min-widths. Desktop restores `min-width: 400px`.
 
 ## Keyboard Shortcuts
 

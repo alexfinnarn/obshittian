@@ -6,6 +6,7 @@
   import PaneResizer from '$lib/components/PaneResizer.svelte';
   import VaultPicker from '$lib/components/VaultPicker.svelte';
   import JournalPane from '$lib/components/JournalPane.svelte';
+  import MobileNav, { type MobileView } from '$lib/components/MobileNav.svelte';
   import { on, emit, type AppEvents } from '$lib/utils/eventBus';
   import { vault, openVault, getIsVaultOpen } from '$lib/stores/vault.svelte';
   import { settings, loadSettings } from '$lib/stores/settings.svelte';
@@ -62,8 +63,21 @@
   // Vault restoration state
   let isRestoringVault = $state(true); // Start true to avoid flash of VaultPicker
 
+  // Mobile layout state
+  const MOBILE_BREAKPOINT = 768;
+  let isMobile = $state(false);
+  let mobileView = $state<MobileView>('journal'); // Default to journal on mobile
+
 
   onMount(async () => {
+    // Detect mobile on mount and window resize
+    function checkMobile() {
+      isMobile = window.innerWidth < MOBILE_BREAKPOINT;
+    }
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    unsubscribers.push(() => window.removeEventListener('resize', checkMobile));
+
     // Load settings first
     loadSettings();
 
@@ -84,6 +98,10 @@
     unsubscribers.push(
       on('file:open', async (data: AppEvents['file:open']) => {
         await openFileInTabs(data.path, data.openInNewTab ?? false);
+        // On mobile, switch to editor view after opening a file
+        if (isMobile) {
+          mobileView = 'editor';
+        }
       })
     );
 
@@ -293,6 +311,10 @@
    */
   function handleDateSelect(date: Date) {
     loadEntriesForDate(date);
+    // On mobile, switch to journal view after selecting a date
+    if (isMobile) {
+      mobileView = 'journal';
+    }
   }
 
   /**
@@ -328,6 +350,13 @@
     }
   }
 
+  /**
+   * Handle mobile view change from bottom nav
+   */
+  function handleMobileViewChange(view: MobileView) {
+    mobileView = view;
+  }
+
 </script>
 
 {#if isRestoringVault}
@@ -338,30 +367,53 @@
 {:else}
   <div
     class="app"
+    class:mobile={isMobile}
     data-testid="app-container"
     use:shortcut={{ binding: 'toggleView', handler: handleToggleView }}
     use:shortcut={{ binding: 'closeTab', handler: handleCloseTab }}
     use:shortcut={{ binding: 'nextTab', handler: handleNextTab }}
     use:shortcut={{ binding: 'prevTab', handler: handlePrevTab }}
   >
-    <Sidebar ondateselect={handleDateSelect} />
+    {#if isMobile}
+      <!-- Mobile layout: all panes mounted, CSS controls visibility -->
+      <main class="mobile-content" data-testid="mobile-content">
+        <div class="mobile-pane" class:active={mobileView === 'sidebar'} data-testid="mobile-sidebar">
+          <Sidebar ondateselect={handleDateSelect} />
+        </div>
+        <div class="mobile-pane" class:active={mobileView === 'editor'} data-testid="mobile-editor">
+          <EditorPane
+            initialViewMode="view"
+            oncontentchange={handleLeftContentChange}
+            onsave={handleLeftPaneSave}
+            oncancel={handleLeftPaneCancel}
+          />
+        </div>
+        <div class="mobile-pane" class:active={mobileView === 'journal'} data-testid="mobile-journal">
+          <JournalPane />
+        </div>
+      </main>
+      <MobileNav activeView={mobileView} onviewchange={handleMobileViewChange} />
+    {:else}
+      <!-- Desktop layout: sidebar + dual panes -->
+      <Sidebar ondateselect={handleDateSelect} />
 
-    <main class="editor-area" data-testid="editor-area">
-      <div class="pane left-pane" style="flex: {leftPaneWidthPercent}" data-testid="left-pane">
-        <EditorPane
-          initialViewMode="view"
-          oncontentchange={handleLeftContentChange}
-          onsave={handleLeftPaneSave}
-          oncancel={handleLeftPaneCancel}
-        />
-      </div>
+      <main class="editor-area" data-testid="editor-area">
+        <div class="pane left-pane" style="flex: {leftPaneWidthPercent}" data-testid="left-pane">
+          <EditorPane
+            initialViewMode="view"
+            oncontentchange={handleLeftContentChange}
+            onsave={handleLeftPaneSave}
+            oncancel={handleLeftPaneCancel}
+          />
+        </div>
 
-      <PaneResizer onresize={handlePaneResize} />
+        <PaneResizer onresize={handlePaneResize} />
 
-      <div class="pane right-pane" style="flex: {100 - leftPaneWidthPercent}" data-testid="right-pane">
-        <JournalPane />
-      </div>
-    </main>
+        <div class="pane right-pane" style="flex: {100 - leftPaneWidthPercent}" data-testid="right-pane">
+          <JournalPane />
+        </div>
+      </main>
+    {/if}
   </div>
 {/if}
 
@@ -369,6 +421,7 @@
   .app {
     display: flex;
     height: 100vh;
+    height: 100dvh; /* Dynamic viewport for mobile */
     width: 100vw;
     overflow: hidden;
   }
@@ -388,5 +441,44 @@
     flex-direction: column;
     min-width: 0;
     background: var(--editor-bg, #1e1e1e);
+  }
+
+  /* Mobile layout */
+  .app.mobile {
+    flex-direction: column;
+  }
+
+  .mobile-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    /* Leave room for bottom nav */
+    padding-bottom: var(--mobile-nav-height, 56px);
+  }
+
+  .mobile-pane {
+    display: none;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+
+  .mobile-pane.active {
+    display: flex;
+    position: relative;
+    flex: 1;
+  }
+
+  /* Make sidebar fill available space on mobile */
+  .mobile-pane :global(.sidebar) {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
   }
 </style>

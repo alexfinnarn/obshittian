@@ -111,12 +111,20 @@
     background: var(--modal-bg, #2d2d2d);
     border: 1px solid var(--border-color, #444);
     border-radius: 8px;
-    min-width: 400px;
-    max-width: 90vw;
+    width: 90vw;
+    max-width: 500px;
     max-height: 90vh;
     display: flex;
     flex-direction: column;
     box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
+  }
+
+  /* Desktop: allow wider modals */
+  @media (min-width: 768px) {
+    .modal {
+      width: auto;
+      min-width: 400px;
+    }
   }
 
   .modal-header {
@@ -140,8 +148,10 @@
     font-size: 1.5rem;
     cursor: pointer;
     padding: 0;
-    width: 32px;
-    height: 32px;
+    width: 44px;
+    height: 44px;
+    min-width: 44px; /* Touch target */
+    min-height: 44px;
     display: flex;
     align-items: center;
     justify-content: center;

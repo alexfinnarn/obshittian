@@ -17,7 +17,22 @@
   --border-color: #333;
   --accent-color: #3794ff;
   --hover-bg: #3a3a3a;
+
+  /* Mobile Navigation */
+  --mobile-nav-height: 56px;
+  --mobile-nav-bg: #252525;
+  --mobile-nav-border: #333;
+  --mobile-nav-active: var(--accent-color);
+
+  /* Touch targets */
+  --touch-target-min: 44px;
 }
+
+/*
+  Responsive Breakpoints:
+  - Mobile: < 768px (single pane with tab navigation)
+  - Desktop: >= 768px (sidebar + dual pane)
+*/
 
 /*
   Modern CSS Reset
@@ -113,4 +128,30 @@ h6 {
 /* App container */
 #app {
   min-height: 100vh;
+  min-height: 100dvh; /* Dynamic viewport height for mobile */
+}
+
+/*
+  Mobile Utilities
+*/
+
+/* Hide on mobile */
+@media (max-width: 767px) {
+  .hide-mobile {
+    display: none !important;
+  }
+}
+
+/* Hide on desktop */
+@media (min-width: 768px) {
+  .hide-desktop {
+    display: none !important;
+  }
+}
+
+/* Safe area padding for notched devices */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }

@@ -127,6 +127,26 @@
 >
   <header class="pane-toolbar" data-testid="pane-toolbar-left">
     <TabBar ontabchange={handleTabChange} onsave={handleSaveClick} oncancel={handleCancelClick} />
+    <div class="view-toggle-group">
+      <button
+        class="view-toggle"
+        class:active={viewMode === 'edit'}
+        onclick={() => (viewMode = 'edit')}
+        aria-label="Edit mode"
+        data-testid="editor-view-toggle-edit"
+      >
+        Edit
+      </button>
+      <button
+        class="view-toggle"
+        class:active={viewMode === 'view'}
+        onclick={() => (viewMode = 'view')}
+        aria-label="View mode"
+        data-testid="editor-view-toggle-view"
+      >
+        View
+      </button>
+    </div>
   </header>
 
   <div class="pane-content">
@@ -162,5 +182,44 @@
     flex: 1;
     overflow: hidden;
     min-height: 0;
+  }
+
+  .view-toggle-group {
+    display: flex;
+    gap: 0.25rem;
+    flex-shrink: 0;
+    margin-left: auto;
+    padding-left: 0.5rem;
+  }
+
+  .view-toggle {
+    background: transparent;
+    border: 1px solid var(--border-color, #333);
+    color: var(--text-muted, #888);
+    padding: 0.25rem 0.75rem;
+    font-size: 0.8rem;
+    cursor: pointer;
+    border-radius: 3px;
+    transition: background 0.15s, color 0.15s;
+    min-height: 32px;
+  }
+
+  .view-toggle:hover {
+    background: var(--hover-bg, #2a2a2a);
+    color: var(--text-color, #e0e0e0);
+  }
+
+  .view-toggle.active {
+    background: var(--accent-color, #0078d4);
+    border-color: var(--accent-color, #0078d4);
+    color: #fff;
+  }
+
+  /* Mobile: larger touch targets */
+  @media (max-width: 767px) {
+    .view-toggle {
+      min-height: 44px;
+      padding: 0.5rem 1rem;
+    }
   }
 </style>

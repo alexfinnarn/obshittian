@@ -60,6 +60,17 @@
     overflow-y: auto;
   }
 
+  /* Mobile: full width sidebar */
+  @media (max-width: 767px) {
+    .sidebar {
+      width: 100%;
+      max-width: none;
+      min-width: 0;
+      border-right: none;
+      height: 100%;
+    }
+  }
+
   .sidebar-section {
     padding: 0.5rem;
     border-bottom: 1px solid var(--border-color, #333);

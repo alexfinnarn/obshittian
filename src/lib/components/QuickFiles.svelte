@@ -219,7 +219,6 @@
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    min-width: 450px;
   }
 
   .file-row {

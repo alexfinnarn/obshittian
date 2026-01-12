@@ -189,7 +189,6 @@
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
-    min-width: 400px;
   }
 
   .link-row {

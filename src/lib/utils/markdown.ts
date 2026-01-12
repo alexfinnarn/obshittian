@@ -9,7 +9,7 @@
  * Ported from js/marked-config.js with TypeScript types.
  */
 
-import { marked, type Tokens, type RendererObject } from 'marked';
+import { marked, type Token, type Tokens, type RendererObject } from 'marked';
 import { splitFrontmatter } from './frontmatter';
 
 export interface RenderResult {
@@ -51,18 +51,31 @@ export function configureMarked(): void {
       }
 
       // Separate content before nested list from the nested list itself
-      const beforeNested: Tokens.Generic[] = [];
+      const beforeNested: Token[] = [];
       const nestedLists: string[] = [];
 
       for (const t of token.tokens) {
         if (t.type === 'list') {
           nestedLists.push(this.parser.parse([t]));
         } else {
-          beforeNested.push(t as Tokens.Generic);
+          beforeNested.push(t);
         }
       }
 
-      const summaryContent = this.parser.parseInline(beforeNested);
+      // Parse the content before nested lists - could be paragraph, text, etc.
+      // Use parse() for block tokens, extract text for inline rendering
+      let summaryContent = '';
+      for (const t of beforeNested) {
+        if (t.type === 'paragraph' && 'tokens' in t) {
+          // Extract inline content from paragraph
+          summaryContent += this.parser.parseInline(t.tokens);
+        } else if (t.type === 'text' && 'tokens' in t && t.tokens) {
+          summaryContent += this.parser.parseInline(t.tokens);
+        } else if ('text' in t) {
+          summaryContent += t.text;
+        }
+      }
+
       const nestedContent = nestedLists.join('');
 
       // Wrap in <details> for native collapsible behavior
