@@ -66,19 +66,6 @@
     align-items: center;
   }
 
-  .tabs-container::-webkit-scrollbar {
-    height: 4px;
-  }
-
-  .tabs-container::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .tabs-container::-webkit-scrollbar-thumb {
-    background: var(--border-color, #333);
-    border-radius: 2px;
-  }
-
   .tab-actions {
     display: flex;
     gap: 4px;

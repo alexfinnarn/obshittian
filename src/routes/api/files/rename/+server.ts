@@ -2,52 +2,44 @@
  * POST /api/files/rename
  * Rename a file or directory in the vault
  */
-import { json } from '@sveltejs/kit';
-import type { RequestHandler } from './$types';
 import { rename, access, mkdir } from 'fs/promises';
 import path from 'path';
-import {
-  validateAndResolvePath,
-  createErrorResponse,
-  validateRequestBody,
-} from '$lib/server/pathUtils';
-import type { RenameRequest, RenameResponse, ErrorResponse } from '$lib/server/fileTypes';
+import { createApiHandler } from '$lib/server/apiFactory';
+import { validateAndResolvePath } from '$lib/server/pathUtils';
+import type { RenameRequest, RenameResponse } from '$lib/server/fileTypes';
 
-export const POST: RequestHandler = async ({ request }) => {
-  try {
-    const body = await request.json();
+export const POST = createApiHandler<RenameRequest, RenameResponse>({
+	requiredFields: ['oldPath', 'newPath'],
+	handler: async ({ oldPath, newPath }) => {
+		// Validate and resolve both paths
+		const resolvedOldPath = validateAndResolvePath(oldPath);
+		const resolvedNewPath = validateAndResolvePath(newPath);
 
-    // Validate request
-    if (!validateRequestBody<RenameRequest>(body, ['oldPath', 'newPath'])) {
-      return json({ error: 'Missing required fields: oldPath, newPath', code: 'BAD_REQUEST' } as ErrorResponse, { status: 400 });
-    }
+		// Check if source exists
+		await access(resolvedOldPath);
 
-    const { oldPath, newPath } = body as RenameRequest;
+		// Check if destination already exists
+		try {
+			await access(resolvedNewPath);
+			// If access succeeds, destination exists - throw to trigger error response
+			const err = new Error('Destination already exists') as NodeJS.ErrnoException;
+			err.code = 'EEXIST';
+			throw err;
+		} catch (e) {
+			// If error is EEXIST (our thrown error), re-throw it
+			if ((e as NodeJS.ErrnoException).code === 'EEXIST') {
+				throw e;
+			}
+			// Otherwise destination doesn't exist, continue
+		}
 
-    // Validate and resolve both paths
-    const resolvedOldPath = validateAndResolvePath(oldPath);
-    const resolvedNewPath = validateAndResolvePath(newPath);
+		// Ensure parent directory of destination exists
+		const parentDir = path.dirname(resolvedNewPath);
+		await mkdir(parentDir, { recursive: true });
 
-    // Check if source exists
-    await access(resolvedOldPath);
+		// Perform rename
+		await rename(resolvedOldPath, resolvedNewPath);
 
-    // Check if destination already exists
-    try {
-      await access(resolvedNewPath);
-      return json({ error: 'Destination already exists', code: 'ALREADY_EXISTS' } as ErrorResponse, { status: 409 });
-    } catch {
-      // Destination doesn't exist, continue with rename
-    }
-
-    // Ensure parent directory of destination exists
-    const parentDir = path.dirname(resolvedNewPath);
-    await mkdir(parentDir, { recursive: true });
-
-    // Perform rename
-    await rename(resolvedOldPath, resolvedNewPath);
-
-    return json({ success: true } as RenameResponse);
-  } catch (err) {
-    return createErrorResponse(err);
-  }
-};
+		return { success: true };
+	}
+});

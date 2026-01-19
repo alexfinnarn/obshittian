@@ -15,6 +15,7 @@ import {
   removeJournalEntryFromIndex,
 } from '../utils/tags';
 import { fileService } from '$lib/services/fileService';
+import { collectJournalDates } from '../utils/directoryScanner';
 
 // ============================================================================
 // State
@@ -455,52 +456,8 @@ export async function scanDatesWithEntries(): Promise<void> {
     return;
   }
 
-  const dates = new Set<string>();
   const dailyNotesFolder = vault.dailyNotesFolder || 'zzz_Daily Notes';
-
-  try {
-    // Check if daily notes folder exists
-    const dailyExists = await fileService.exists(dailyNotesFolder);
-    if (!dailyExists.exists) {
-      journalStore.datesWithEntries = dates;
-      return;
-    }
-
-    // List year folders
-    const yearEntries = await fileService.listDirectory(dailyNotesFolder);
-
-    for (const yearEntry of yearEntries) {
-      if (yearEntry.kind !== 'directory') continue;
-      if (!/^\d{4}$/.test(yearEntry.name)) continue;
-
-      const yearPath = `${dailyNotesFolder}/${yearEntry.name}`;
-      const monthEntries = await fileService.listDirectory(yearPath);
-
-      for (const monthEntry of monthEntries) {
-        if (monthEntry.kind !== 'directory') continue;
-        if (!/^\d{2}$/.test(monthEntry.name)) continue;
-
-        const monthPath = `${yearPath}/${monthEntry.name}`;
-        const fileEntries = await fileService.listDirectory(monthPath);
-
-        // Look for .yaml files
-        for (const fileEntry of fileEntries) {
-          if (fileEntry.kind !== 'file') continue;
-          if (!fileEntry.name.endsWith('.yaml')) continue;
-
-          // Extract date from filename (YYYY-MM-DD.yaml)
-          const match = fileEntry.name.match(/^(\d{4}-\d{2}-\d{2})\.yaml$/);
-          if (match) {
-            dates.add(match[1]);
-          }
-        }
-      }
-    }
-  } catch (err) {
-    console.warn('Error scanning for journal dates:', (err as Error).message);
-  }
-
-  journalStore.datesWithEntries = dates;
+  journalStore.datesWithEntries = await collectJournalDates(dailyNotesFolder, 'yaml');
 }
 
 /**

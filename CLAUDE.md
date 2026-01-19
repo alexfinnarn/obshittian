@@ -181,6 +181,7 @@ src/
     server/
       fileTypes.ts       - Shared types for file API (request/response types)
       pathUtils.ts       - Path validation, traversal protection, error handling
+      apiFactory.ts      - API route factory for reducing boilerplate
     stores/
       vault.svelte.ts      - Vault state (rootDirHandle, dailyNotesFolder)
       settings.svelte.ts   - User preferences (autoOpen, restore, limits)
@@ -236,9 +237,13 @@ src/
       dailyNotes.ts     - Daily note path formatting, template, create/open
       tags.ts           - Tag extraction, indexing, Fuse.js search
       fileOperations.ts - File/folder create, rename, delete, sorting
-      filesystem.ts     - IndexedDB & localStorage helpers
+      filesystem.ts     - localStorage helpers (uses persistence utility)
       frontmatter.ts    - YAML frontmatter parsing
       markdown.ts       - Marked.js configuration and rendering
+      persistence.ts    - Type-safe localStorage utilities
+      directoryScanner.ts - Journal directory traversal (YYYY/MM structure)
+      errors.ts         - Error handling conventions
+      rollback.ts       - Optimistic update helpers with automatic rollback
 tests/
   data/
     testing-files/       - E2E test fixtures (sample markdown files)
@@ -348,7 +353,7 @@ scripts/                 - Utility scripts
 
 ### Utilities (src/lib/utils/)
 
-**filesystem.ts** - localStorage helpers
+**filesystem.ts** - localStorage helpers (uses persistence utility internally)
 - `saveVaultPath(path)` / `getVaultPath()` / `clearVaultPath()` - Vault path persistence
 - `saveLastOpenFile(path)` / `getLastOpenFile()` - Last open file path
 - `savePaneWidth(width)` / `getPaneWidth()` - Pane width persistence
@@ -398,6 +403,32 @@ scripts/                 - Utility scripts
 - `sortEntries(entries)` - Sort folders first, then alphabetically
 - `isVisibleEntry(entry)` - Check if entry should be shown (filters dotfiles, non-md)
 - `getVisibleEntries(dirPath)` - Get sorted, filtered entries from directory
+
+**persistence.ts** - Type-safe localStorage utilities
+- `createStorage<T>(key, options)` - Create storage helper for any serializable type
+- `createStringStorage(key, options)` - Storage helper for strings (no JSON serialization)
+- `createNumberStorage(key, options)` - Storage helper for numbers
+- `STORAGE_KEYS` - Constants for all localStorage keys used in the app
+- Storage helpers return `{ save, load, clear, exists }` interface
+- Options include `onError` callback for custom error handling
+
+**directoryScanner.ts** - Journal directory traversal
+- `traverseJournalDirectory(basePath, options)` - Traverse YYYY/MM structure, returns file info array
+- `collectJournalDates(basePath, extension)` - Collect all dates with entries as a Set
+- `extractDateFromFilename(filename)` - Extract YYYY-MM-DD from filename
+- Used by journal store and tag indexing to scan journal files
+
+**errors.ts** - Error handling conventions
+- Documents error handling patterns by layer (stores, services, utils)
+- `logError(config)` - Configurable error logging helper
+- `tryOrNull<T>(fn)` - Execute async function, return null on error
+- `tryBoolean(fn)` - Execute async function, return boolean success
+
+**rollback.ts** - Optimistic update helpers
+- `withRollback(options)` - Generic rollback wrapper for any mutation
+- `withPropertyRollback(target, key, newValue, save, options)` - Update single property with rollback
+- `withArrayRollback(array, mutate, save, setArray)` - Mutate array with rollback on failure
+- Automatically restores previous state if save operation fails
 
 ### Services (src/lib/services/)
 
@@ -473,6 +504,13 @@ scripts/                 - Utility scripts
 - Request types: `ReadRequest`, `WriteRequest`, `ListRequest`, `CreateRequest`, `DeleteRequest`, `RenameRequest`, `ExistsRequest`, `StatRequest`
 - Response types: `ReadResponse`, `WriteResponse`, `ListResponse`, `DirectoryEntry`, etc.
 - `ErrorResponse` - Standard error format with `error` and `code` fields
+
+**apiFactory.ts** - API route factory
+- `createApiHandler<TRequest, TResponse>(options)` - Factory function that handles boilerplate
+- Options: `requiredFields`, `validate`, `handler`
+- Automatically handles: JSON parsing, required field validation, error responses
+- `validators.fileKind` - Reusable validator for `kind: 'file' | 'directory'`
+- Reduces route code from ~25 lines to ~8 lines per endpoint
 
 ### Actions (src/lib/actions/)
 

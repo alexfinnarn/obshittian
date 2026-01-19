@@ -100,16 +100,6 @@
 		gap: 0.25rem;
 		overflow-x: auto;
 		flex: 1;
-		scrollbar-width: thin;
-	}
-
-	.tabs-container::-webkit-scrollbar {
-		height: 4px;
-	}
-
-	.tabs-container::-webkit-scrollbar-thumb {
-		background: var(--border-color, #333);
-		border-radius: 2px;
 	}
 
 	.task-tab {
