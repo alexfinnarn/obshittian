@@ -1,14 +1,28 @@
 # Local Deployment with Kamal
 
-Deploy to the VPS from your local machine when CI/CD isn't working or for testing.
+This is a maintainer-focused guide for manual VPS deploys when the normal GitHub Actions path is not enough.
+
+For local development and vault setup, use the [developer guide](developer-guide.md).
+
+## Current Deployment Shape
+
+`config/deploy.yml` defines the deployed service:
+
+- host: `notes.finnarn.com`
+- server: `5.161.43.16`
+- image: `ghcr.io/alexfinnarn/editor`
+- app port: `3000`
+- vault volume mounted at `/app/vault`
+- deployed `VAULT_PATH`: `/app/vault`
+
+The deployment uses HTTP Basic Auth when `AUTH_USERNAME` and `AUTH_PASSWORD` are configured.
 
 ## Prerequisites
 
-1. **Ruby** (3.0+)
-2. **Docker** running locally
-3. **SSH access** to the VPS (`ssh root@5.161.43.16` should work)
-
-## Setup
+1. Ruby 3.0+
+2. Docker running locally
+3. SSH access to `root@5.161.43.16`
+4. A GitHub token that can push to GHCR
 
 Install Kamal:
 
@@ -16,74 +30,81 @@ Install Kamal:
 gem install kamal
 ```
 
-Create a GitHub Personal Access Token (PAT) for GHCR:
-
-1. Go to GitHub → Settings → Developer settings → Personal access tokens → Tokens (classic)
-2. Generate new token with `write:packages` scope
-3. Copy the token
+Create a GitHub Personal Access Token with `write:packages` scope for GHCR.
 
 ## Deploy
 
-**Important:** Kamal uses the git commit SHA as the image version tag. You must commit any changes before deploying, otherwise Kamal will reuse the old image:
+Kamal tags images from the current git commit SHA. Commit the exact repo state you want to deploy before running deployment commands.
 
-```bash
-git add -A && git commit -m "Your changes"
-```
-
-You do NOT need to push to GitHub - Kamal builds from your local files and pushes the Docker image directly to GHCR.
-
-Set the required environment variables and deploy:
+Set the required environment variables:
 
 ```bash
 export KAMAL_REGISTRY_USERNAME=your_github_username
 export KAMAL_REGISTRY_PASSWORD=your_github_pat
 export AUTH_USERNAME=your_username
 export AUTH_PASSWORD=your_password
+```
+
+Run the deploy:
+
+```bash
 kamal deploy
 ```
 
-Or in one line:
+One-line variant:
 
 ```bash
 KAMAL_REGISTRY_USERNAME=your_github_username KAMAL_REGISTRY_PASSWORD=your_pat AUTH_USERNAME=user AUTH_PASSWORD=pass kamal deploy
 ```
 
-The `AUTH_USERNAME` and `AUTH_PASSWORD` variables enable HTTP Basic Auth at the application level.
+## First-Time Server Setup
 
-### First-Time Deployment
-
-If Docker isn't installed on the VPS yet, run setup first:
+If Docker and kamal-proxy are not installed on the VPS yet:
 
 ```bash
 KAMAL_REGISTRY_USERNAME=your_github_username KAMAL_REGISTRY_PASSWORD=your_pat AUTH_USERNAME=user AUTH_PASSWORD=pass kamal setup
 ```
 
-This installs Docker and kamal-proxy on the server. Then run `kamal deploy`.
+Then run `kamal deploy`.
 
-## Other Useful Commands
+## Health Checks and Auth
+
+- `/up` is the health endpoint used by `kamal-proxy`
+- `src/hooks.server.ts` bypasses Basic Auth for `/up`
+- local development skips auth entirely when `AUTH_USERNAME` and `AUTH_PASSWORD` are unset
+
+If health checks fail after deploy, inspect `/up` behavior and proxy logs first.
+
+## Useful Commands
 
 ```bash
-kamal deploy          # Full deploy (build, push, deploy)
-kamal redeploy        # Deploy without building (uses existing image)
-kamal app logs        # View application logs
-kamal app exec -i sh  # SSH into the running container
-kamal rollback        # Rollback to previous version
+kamal deploy
+kamal redeploy
+kamal app logs
+kamal app exec -i sh
+kamal app details
+kamal proxy logs
+kamal rollback
+kamal build push
 ```
 
-## Troubleshooting
+## Quick Troubleshooting
 
-**Docker build fails:**
+SSH access:
+
 ```bash
-kamal build push      # Just build and push the image
+ssh root@5.161.43.16
 ```
 
-**SSH issues:**
+Container status:
+
 ```bash
-ssh root@5.161.43.16  # Test SSH connection
+kamal app details
 ```
 
-**Check what's running:**
+Proxy and app logs:
+
 ```bash
-kamal app details     # Show container status
-kamal proxy logs      # View proxy logs
+kamal proxy logs
+kamal app logs
 ```

@@ -4,7 +4,7 @@
  */
 
 import type { DirectoryEntry } from '$lib/server/fileTypes';
-import { FileServiceError, type FileService } from './fileService';
+import { FileServiceError, type ExportArchiveResult, type FileService } from './fileService';
 
 interface MockFileEntry {
   kind: 'file' | 'directory';
@@ -329,6 +329,15 @@ export function createMockFileService(
         size: entry.size,
         modified: entry.modified,
         created: entry.created,
+      };
+    },
+
+    async exportVault(): Promise<ExportArchiveResult> {
+      resolvePath('');
+
+      return {
+        blob: new Blob([]),
+        filename: 'vault-export.zip',
       };
     },
 

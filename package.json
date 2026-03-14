@@ -44,6 +44,7 @@
     "codemirror": "^6.0.2",
     "fuse.js": "^7.1.0",
     "js-yaml": "^4.1.1",
+    "jszip": "^3.10.1",
     "marked": "^17.0.1",
     "vanilla-calendar-pro": "^3.0.5"
   }

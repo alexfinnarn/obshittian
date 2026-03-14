@@ -1,59 +1,74 @@
 # Markdown Editor
 
-A minimal browser-based Markdown editor with dual-pane editing and daily notes functionality. Designed as a lightweight Obsidian alternative.
+A browser-based Markdown editor for a filesystem-backed vault. It combines a left-pane file editor with a right-pane daily journal and is designed as a lightweight Obsidian-style workspace.
 
-**Production:** https://notes.finnarn.com
+Production: [notes.finnarn.com](https://notes.finnarn.com)
 
-## Features
+## What It Does
 
-- Dual-pane editing (left pane for documents, right pane for journal entries)
-- Calendar-based daily notes and journal navigation
-- Tag indexing with fuzzy search
-- Quick Links and Quick Files for fast access
-- Dark theme with CodeMirror 6 editor
-- Markdown preview with collapsible frontmatter and nested lists
+- Edits Markdown files from a real vault directory through SvelteKit API routes
+- Keeps a calendar-backed daily journal in YAML files under the vault
+- Indexes tags across Markdown files and journal entries
+- Stores quick links, quick files, and daily-task configuration in the vault
+- Supports vault export as a ZIP archive for backups
+
+## Stack
+
+- SvelteKit with Svelte 5 and TypeScript
+- Adapter Node for deployment
+- CodeMirror 6 for editing
+- marked for Markdown rendering
+- Fuse.js for tag search
+- Vitest and Playwright for verification
 
 ## Requirements
 
-- Node.js 22+
+- Node.js 22.12+
 
-## Development
-
-```bash
-npm install           # Install dependencies
-npm run dev           # Start dev server at localhost:5173
-npm run build         # Production build to build/
-npm run check         # TypeScript/Svelte type checking
-```
-
-## Testing
+## Quick Start
 
 ```bash
-npm run test:run      # Run Vitest unit tests
-npm run test          # Run tests in watch mode
-npm run test:e2e      # Run Playwright E2E tests
+npm install
+npm run dev
 ```
+
+Then open `http://localhost:5173` and enter a local vault path in the Vault Picker. The app will:
+
+1. Validate the directory with `POST /api/vault/validate`
+2. Set the active server-side vault root for file API routes
+3. Load vault config, tag metadata, journal dates, and any restorable tabs
+
+The app is not useful until a vault is opened because all file operations are scoped to the active vault directory.
+
+## Common Commands
+
+```bash
+npm run dev
+npm run build
+npm run preview
+npm run check
+npm run test
+npm run test:run
+npm run test:e2e
+npm run test:e2e:ui
+npm run test:e2e:headed
+```
+
+## Documentation
+
+- [Developer guide](docs/developer-guide.md)
+- [Architecture overview](docs/architecture/overview.md)
+- [Storage and persistence contracts](docs/reference/storage-contracts.md)
+- [Local deployment with Kamal](docs/local-deployment.md)
+
+## Repo Orientation
+
+- `src/routes/+page.svelte` boots the app, restores state, and wires event handlers
+- `src/lib/components/` contains the UI
+- `src/lib/stores/` owns reactive client state
+- `src/lib/services/` coordinates file and UI operations
+- `src/routes/api/` exposes the filesystem-backed server routes
 
 ## Deployment
 
-The app deploys automatically to a VPS via GitHub Actions when pushing to `main`.
-
-Uses [Kamal 2](https://kamal-deploy.org/) for zero-downtime Docker deployments with automatic SSL.
-
-```bash
-# Manual deploy (requires Ruby + Kamal gem)
-kamal deploy
-```
-
-See `config/deploy.yml` for deployment configuration.
-
-## Tech Stack
-
-- SvelteKit with TypeScript
-- Vite for bundling
-- CodeMirror 6 for editing
-- Vanilla Calendar Pro for calendar
-- marked.js for Markdown rendering
-- Fuse.js for fuzzy search
-- Vitest + Playwright for testing
-- Kamal 2 for deployment
+Deploys automatically to the VPS from `main`. For manual deploys and health-check details, see [docs/local-deployment.md](docs/local-deployment.md).

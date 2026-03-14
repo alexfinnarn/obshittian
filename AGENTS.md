@@ -7,6 +7,12 @@ This file provides guidelines for AI coding agents working in this repository.
 A minimal browser-based Markdown editor with dual-pane editing and daily notes functionality.
 Built with **SvelteKit** (adapter-node), **Svelte 5**, and **TypeScript**.
 
+## Reference Docs
+
+- `README.md` - Product overview, core features, and standard development commands
+- `docs/architecture/` - Architecture reference for services, state, events, and actions
+- `docs/local-deployment.md` - Manual VPS/Kamal deployment workflow
+
 ## Build, Lint, and Test Commands
 
 ### Development

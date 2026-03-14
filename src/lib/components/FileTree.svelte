@@ -12,12 +12,14 @@
     renameEntry,
     deleteEntry,
   } from '$lib/utils/fileOperations';
+  import { fileService } from '$lib/services/fileService';
   import { canAddTab } from '$lib/stores/tabs.svelte';
   import type { DirectoryEntry } from '$lib/server/fileTypes';
 
   // Root entries
   let rootEntries = $state<DirectoryEntry[]>([]);
   let isLoading = $state(false);
+  let isExporting = $state(false);
   let activePath = $state<string | null>(null);
 
   // Context menu state
@@ -271,6 +273,30 @@
     emit('file:open', { path: filePath, pane: 'left', openInNewTab: true });
   }
 
+  async function handleExportFiles() {
+    if (!vault.path || isExporting) return;
+
+    isExporting = true;
+
+    try {
+      const { blob, filename } = await fileService.exportVault();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+
+      link.href = objectUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+    } catch (err) {
+      console.error('Export failed:', err);
+      alert(`Export failed: ${err instanceof Error ? err.message : String(err)}`);
+    } finally {
+      isExporting = false;
+    }
+  }
+
   // Listen for tree:refresh events
   onMount(() => {
     const unsubscribe = on('tree:refresh', () => {
@@ -283,30 +309,45 @@
   });
 </script>
 
-<div
-  class="file-tree"
-  oncontextmenu={handleRootContextMenu}
-  role="tree"
-  tabindex="0"
-  data-testid="file-tree-content"
->
-  {#if vault.path}
-    {#if isLoading}
-      <p class="status-message">Loading...</p>
-    {:else if rootEntries.length === 0}
-      <p class="empty-message">No files</p>
+<div class="file-tree-panel">
+  <div
+    class="file-tree"
+    oncontextmenu={handleRootContextMenu}
+    role="tree"
+    tabindex="0"
+    data-testid="file-tree-content"
+  >
+    {#if vault.path}
+      {#if isLoading}
+        <p class="status-message">Loading...</p>
+      {:else if rootEntries.length === 0}
+        <p class="empty-message">No files</p>
+      {:else}
+        {#each rootEntries as entry (entry.name)}
+          <FileTreeItem
+            {entry}
+            parentPath=""
+            {activePath}
+            oncontextmenu={handleContextMenu}
+          />
+        {/each}
+      {/if}
     {:else}
-      {#each rootEntries as entry (entry.name)}
-        <FileTreeItem
-          {entry}
-          parentPath=""
-          {activePath}
-          oncontextmenu={handleContextMenu}
-        />
-      {/each}
+      <p class="empty-message">Open a folder to browse files</p>
     {/if}
-  {:else}
-    <p class="empty-message">Open a folder to browse files</p>
+  </div>
+
+  {#if vault.path}
+    <div class="file-tree-footer">
+      <button
+        class="btn btn-secondary export-button"
+        onclick={handleExportFiles}
+        disabled={isExporting}
+        data-testid="export-files-button"
+      >
+        {isExporting ? 'Exporting...' : 'Export Files'}
+      </button>
+    </div>
   {/if}
 </div>
 
@@ -328,11 +369,27 @@
 />
 
 <style>
+  .file-tree-panel {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 0;
+  }
+
   .file-tree {
     flex: 1;
     overflow-y: auto;
     padding: 0.5rem 0;
     min-height: 100px;
+  }
+
+  .file-tree-footer {
+    border-top: 1px solid var(--border-color, #333);
+    padding: 0.75rem 1rem 1rem;
+  }
+
+  .export-button {
+    width: 100%;
   }
 
   .empty-message,

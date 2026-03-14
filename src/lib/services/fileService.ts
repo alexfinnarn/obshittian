@@ -5,6 +5,11 @@
 
 import type { DirectoryEntry, ErrorResponse } from '$lib/server/fileTypes';
 
+export interface ExportArchiveResult {
+  blob: Blob;
+  filename: string;
+}
+
 /**
  * Error class for file service operations
  */
@@ -47,6 +52,7 @@ export interface FileService {
     modified: string;
     created: string;
   }>;
+  exportVault(): Promise<ExportArchiveResult>;
 }
 
 /**
@@ -224,6 +230,23 @@ class FileServiceImpl implements FileService {
     return response.json();
   }
 
+  async exportVault(): Promise<ExportArchiveResult> {
+    this.getRequiredVaultPath();
+
+    const response = await fetch('/api/files/export', {
+      method: 'GET',
+    });
+
+    if (!response.ok) {
+      throw await this.createError(response);
+    }
+
+    return {
+      blob: await response.blob(),
+      filename: this.getDownloadFilename(response.headers.get('Content-Disposition')),
+    };
+  }
+
   private getRequiredVaultPath(): string {
     if (!this.vaultPath) {
       throw new FileServiceError(400, 'No vault path configured', 'VAULT_NOT_SET');
@@ -243,6 +266,24 @@ class FileServiceImpl implements FileService {
     } catch {
       return new FileServiceError(response.status, response.statusText);
     }
+  }
+
+  private getDownloadFilename(contentDisposition: string | null): string {
+    if (!contentDisposition) {
+      return 'vault-export.zip';
+    }
+
+    const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+    if (utf8Match) {
+      return decodeURIComponent(utf8Match[1]);
+    }
+
+    const filenameMatch = contentDisposition.match(/filename="?([^"]+)"?/i);
+    if (filenameMatch) {
+      return filenameMatch[1];
+    }
+
+    return 'vault-export.zip';
   }
 }
 

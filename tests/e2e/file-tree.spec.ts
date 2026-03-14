@@ -62,6 +62,21 @@ test.describe('File Tree', () => {
     const testId = await firstItem.getAttribute('data-testid');
     expect(testId).toMatch(/^folder-/);
   });
+
+  test('should request a vault export when Export Files is clicked', async ({ page }) => {
+    await expect(page.getByTestId('export-files-button')).toBeVisible();
+
+    const exportResponse = page.waitForResponse(
+      (response) =>
+        response.url().includes('/api/files/export') &&
+        response.request().method() === 'GET' &&
+        response.status() === 200
+    );
+
+    await page.getByTestId('export-files-button').click();
+
+    await exportResponse;
+  });
 });
 
 test.describe('Context Menu', () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { render, screen, cleanup } from '@testing-library/svelte';
+import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/svelte';
 import FileTree from './FileTree.svelte';
 import { closeVault, openVault } from '$lib/stores/vault.svelte';
 import { clear } from '$lib/utils/eventBus';
@@ -21,6 +21,7 @@ vi.mock('$lib/services/fileService', () => ({
     deleteDirectory: vi.fn(),
     rename: vi.fn(),
     stat: vi.fn(),
+    exportVault: vi.fn(),
   },
 }));
 
@@ -31,6 +32,15 @@ describe('FileTree', () => {
     closeVault();
     clear();
     vi.clearAllMocks();
+    Object.defineProperty(URL, 'createObjectURL', {
+      writable: true,
+      value: vi.fn(() => 'blob:mock-export'),
+    });
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      writable: true,
+      value: vi.fn(),
+    });
+    HTMLAnchorElement.prototype.click = vi.fn();
   });
 
   afterEach(() => {
@@ -48,6 +58,11 @@ describe('FileTree', () => {
     it('renders the tree container', () => {
       render(FileTree);
       expect(screen.getByTestId('file-tree-content')).toBeTruthy();
+    });
+
+    it('does not render the export button', () => {
+      render(FileTree);
+      expect(screen.queryByTestId('export-files-button')).toBeNull();
     });
   });
 
@@ -132,6 +147,60 @@ describe('FileTree', () => {
       // Folder should come first even though 'zeta' > 'alpha' alphabetically
       expect(items[0].getAttribute('data-testid')).toBe('folder-summary-zeta');
       expect(items[1].getAttribute('data-testid')).toBe('file-item-alpha.md');
+    });
+
+    it('renders the export button', async () => {
+      mockFileService.listDirectory.mockResolvedValue([]);
+      openVault('/mock/vault');
+
+      render(FileTree);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('export-files-button')).toBeTruthy();
+      });
+    });
+
+    it('disables the export button while exporting', async () => {
+      mockFileService.listDirectory.mockResolvedValue([]);
+      openVault('/mock/vault');
+
+      let resolveExport: ((value: { blob: Blob; filename: string }) => void) | null = null;
+      mockFileService.exportVault.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveExport = resolve;
+          })
+      );
+
+      render(FileTree);
+
+      const button = await screen.findByTestId('export-files-button');
+      await fireEvent.click(button);
+
+      expect(button.hasAttribute('disabled')).toBe(true);
+      expect(button.textContent).toBe('Exporting...');
+
+      resolveExport?.({ blob: new Blob(['zip']), filename: 'mock.zip' });
+
+      await waitFor(() => {
+        expect(button.hasAttribute('disabled')).toBe(false);
+        expect(button.textContent).toBe('Export Files');
+      });
+    });
+
+    it('shows an alert when export fails', async () => {
+      mockFileService.listDirectory.mockResolvedValue([]);
+      mockFileService.exportVault.mockRejectedValue(new Error('Archive failed'));
+      openVault('/mock/vault');
+
+      const alertSpy = vi.spyOn(window, 'alert');
+      render(FileTree);
+
+      await fireEvent.click(await screen.findByTestId('export-files-button'));
+
+      await waitFor(() => {
+        expect(alertSpy).toHaveBeenCalledWith('Export failed: Archive failed');
+      });
     });
   });
 
