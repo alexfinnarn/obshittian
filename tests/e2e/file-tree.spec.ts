@@ -98,10 +98,10 @@ test.describe('Context Menu', () => {
     await expect(page.locator('[data-testid^="menu-item-"]', { hasText: 'New Folder' })).toBeVisible();
   });
 
-  test('should show Rename option', async ({ page }) => {
+  test('should show Rename / Move option', async ({ page }) => {
     await page.getByTestId('file-item-README.md').click({ button: 'right' });
 
-    await expect(page.locator('[data-testid^="menu-item-"]', { hasText: 'Rename' })).toBeVisible();
+    await expect(page.locator('[data-testid^="menu-item-"]', { hasText: 'Rename / Move' })).toBeVisible();
   });
 
   test('should show Delete option', async ({ page }) => {

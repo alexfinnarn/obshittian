@@ -58,39 +58,48 @@ export async function createFolder(parentPath: string, folderName: string): Prom
 }
 
 /**
- * Rename a file
+ * Validate a vault-relative rename/move target path.
  */
-export async function renameFile(
-  parentPath: string,
-  oldName: string,
-  newName: string
-): Promise<string> {
-  const oldPath = parentPath ? `${parentPath}/${oldName}` : oldName;
-  const newPath = parentPath ? `${parentPath}/${newName}` : newName;
+export function validateRenameMovePath(
+  oldPath: string,
+  newPathInput: string,
+  isDirectory: boolean
+): string {
+  const newPath = newPathInput.trim();
 
-  try {
-    await fileService.rename(oldPath, newPath);
-
-    // Log activity
-    logActivity('file.renamed', { oldPath, newPath });
-
-    return newPath;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    throw new Error(`Failed to rename "${oldName}" to "${newName}": ${message}`);
+  if (!newPath) {
+    throw new Error('Path cannot be empty');
   }
+
+  if (newPath.startsWith('/')) {
+    throw new Error('Path must be vault-relative');
+  }
+
+  if (newPath.includes('\\')) {
+    throw new Error('Path must use forward slashes');
+  }
+
+  const segments = newPath.split('/');
+  if (segments.some((segment) => segment === '' || segment === '.' || segment === '..')) {
+    throw new Error('Path contains invalid segments');
+  }
+
+  if (isDirectory && (newPath === oldPath || newPath.startsWith(`${oldPath}/`))) {
+    throw new Error('Cannot move a folder into itself');
+  }
+
+  return newPath;
 }
 
 /**
- * Rename a folder
+ * Rename or move an entry using vault-relative paths.
  */
-export async function renameFolder(
-  parentPath: string,
-  oldName: string,
-  newName: string
+export async function renameEntry(
+  oldPath: string,
+  newPathInput: string,
+  isDirectory: boolean
 ): Promise<string> {
-  const oldPath = parentPath ? `${parentPath}/${oldName}` : oldName;
-  const newPath = parentPath ? `${parentPath}/${newName}` : newName;
+  const newPath = validateRenameMovePath(oldPath, newPathInput, isDirectory);
 
   try {
     await fileService.rename(oldPath, newPath);
@@ -101,7 +110,8 @@ export async function renameFolder(
     return newPath;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    throw new Error(`Failed to rename folder "${oldName}" to "${newName}": ${message}`);
+    const type = isDirectory ? 'folder' : 'file';
+    throw new Error(`Failed to rename ${type} "${oldPath}" to "${newPath}": ${message}`);
   }
 }
 

@@ -239,6 +239,35 @@ describe('FileService', () => {
       expect(content).toBe('content');
     });
 
+    it('should move file into another folder', async () => {
+      service = createMockFileService({ 'old.md': 'content' });
+      service.setVaultPath('/vault');
+
+      await service.rename('old.md', 'docs/old.md');
+
+      const oldExists = await service.exists('old.md');
+      const newExists = await service.exists('docs/old.md');
+      expect(oldExists.exists).toBe(false);
+      expect(newExists.exists).toBe(true);
+    });
+
+    it('should move directory and its children', async () => {
+      service = createMockFileService({
+        'docs/a.md': 'a',
+        'docs/nested/b.md': 'b',
+      });
+      service.setVaultPath('/vault');
+
+      await service.rename('docs', 'archive/docs');
+
+      const oldExists = await service.exists('docs');
+      const newExists = await service.exists('archive/docs');
+      expect(oldExists.exists).toBe(false);
+      expect(newExists.exists).toBe(true);
+      expect(await service.readFile('archive/docs/a.md')).toBe('a');
+      expect(await service.readFile('archive/docs/nested/b.md')).toBe('b');
+    });
+
     it('should throw 404 for non-existent source', async () => {
       await expect(service.rename('missing.md', 'new.md')).rejects.toMatchObject({
         status: 404,

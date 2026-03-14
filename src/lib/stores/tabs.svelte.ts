@@ -45,6 +45,10 @@ export function findTabByPath(filePath: string): number {
   return tabsStore.tabs.findIndex((tab) => tab.filePath === filePath);
 }
 
+function getFilenameFromPath(filePath: string): string {
+  return filePath.split('/').pop() ?? filePath;
+}
+
 // --- Tab Operations ---
 
 /**
@@ -193,6 +197,31 @@ export function revertTabContent(index: number): void {
   const tab = tabsStore.tabs[index];
   tab.editorContent = tab.savedContent;
   tab.isDirty = false;
+}
+
+/**
+ * Update open tab paths after a file or folder move.
+ */
+export function renameTabPaths(oldPath: string, newPath: string, isDirectory: boolean): void {
+  let changed = false;
+
+  for (const tab of tabsStore.tabs) {
+    const matches = isDirectory
+      ? tab.filePath === oldPath || tab.filePath.startsWith(`${oldPath}/`)
+      : tab.filePath === oldPath;
+
+    if (!matches) continue;
+
+    tab.filePath = isDirectory
+      ? `${newPath}${tab.filePath.slice(oldPath.length)}`
+      : newPath;
+    tab.filename = getFilenameFromPath(tab.filePath);
+    changed = true;
+  }
+
+  if (changed) {
+    saveTabsToStorage();
+  }
 }
 
 // --- Persistence ---

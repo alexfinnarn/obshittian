@@ -18,6 +18,7 @@
     getTabsFromStorage,
     saveTabsToStorage,
     revertTabContent,
+    renameTabPaths,
   } from '$lib/stores/tabs.svelte';
   import { shortcut } from '$lib/actions/shortcut';
   import {
@@ -36,6 +37,7 @@
     buildTagIndex,
     removeFileFromIndex,
     renameFileInIndex,
+    renamePathPrefixInIndex,
     initializeFuseFromIndex,
   } from '$lib/utils/tags';
   import {
@@ -115,7 +117,12 @@
     // Listen for file:renamed events - update tag index
     unsubscribers.push(
       on('file:renamed', (data: AppEvents['file:renamed']) => {
-        renameFileInIndex(data.oldPath, data.newPath);
+        renameTabPaths(data.oldPath, data.newPath, data.isDirectory);
+        if (data.isDirectory) {
+          renamePathPrefixInIndex(data.oldPath, data.newPath);
+        } else {
+          renameFileInIndex(data.oldPath, data.newPath);
+        }
       })
     );
 

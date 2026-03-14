@@ -6,6 +6,7 @@
     title?: string;
     defaultValue?: string;
     placeholder?: string;
+    helperText?: string;
     onconfirm?: (value: string) => void;
     oncancel?: () => void;
   }
@@ -15,6 +16,7 @@
     title = '',
     defaultValue = '',
     placeholder = 'Enter name',
+    helperText = '',
     onconfirm,
     oncancel,
   }: Props = $props();
@@ -65,6 +67,9 @@
     class="filename-input"
     data-testid="filename-input"
   />
+  {#if helperText}
+    <p class="helper-text" data-testid="filename-helper-text">{helperText}</p>
+  {/if}
 
   {#snippet footer()}
     <button
@@ -99,6 +104,12 @@
   .filename-input:focus {
     outline: none;
     border-color: var(--accent-color, #0078d4);
+  }
+
+  .helper-text {
+    margin: 0.5rem 0 0;
+    color: var(--text-muted, #999);
+    font-size: 0.875rem;
   }
 
   .btn {

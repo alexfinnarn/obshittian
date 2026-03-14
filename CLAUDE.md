@@ -116,7 +116,7 @@ env:
     VAULT_PATH: "/app/vault"  # Must match volume mount point
 ```
 
-**Note**: Authentication is not yet implemented. Adding server-side vault storage without auth means anyone with access to the URL can read/write files.
+**Note**: HTTP Basic Auth is implemented via `src/hooks.server.ts`. Set `AUTH_USERNAME` and `AUTH_PASSWORD` env vars to enable it. Auth is skipped if these vars are not set (safe for local dev) and bypassed for the `/up` health check endpoint.
 
 ### GitHub Secrets Required
 

@@ -97,10 +97,8 @@ Detailed outline of what will be created/changed.
 
 ## Archiving
 
-When all phases are complete:
+When all phases are complete (or a plan is abandoned):
 
-1. Create a directory in `zzz_archived/` named after the plan (lowercase with hyphens)
-2. Move all phase files into that directory
-3. Optionally keep or remove the main plan file
-
-See [zzz_archived/README.md](zzz_archived/README.md) for archive structure details.
+1. Create a numbered directory in `zzz_archived/` using the next available number (e.g., `08-my-plan/`)
+2. Move the main plan file and all phase files into that directory
+3. See [zzz_archived/README.md](zzz_archived/README.md) for archive structure details.

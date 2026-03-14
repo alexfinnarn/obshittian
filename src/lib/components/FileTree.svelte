@@ -9,8 +9,7 @@
     getVisibleEntries,
     createFile,
     createFolder,
-    renameFile,
-    renameFolder,
+    renameEntry,
     deleteEntry,
   } from '$lib/utils/fileOperations';
   import { canAddTab } from '$lib/stores/tabs.svelte';
@@ -36,6 +35,7 @@
   let filenameModalVisible = $state(false);
   let filenameModalTitle = $state('');
   let filenameModalDefaultValue = $state('');
+  let filenameModalHelperText = $state('');
   let filenameModalAction = $state<'new-file' | 'new-folder' | 'rename' | null>(null);
 
   // Load root entries when vault opens
@@ -99,6 +99,10 @@
     contextMenuVisible = false;
   }
 
+  function getEntryPath(parentPath: string, name: string): string {
+    return parentPath ? `${parentPath}/${name}` : name;
+  }
+
   // Build context menu items based on target
   const contextMenuItems = $derived.by(() => {
     if (!contextMenuTarget) return [];
@@ -124,7 +128,7 @@
     if (!contextMenuTarget.isRoot) {
       items.push(
         { label: '', action: () => {}, separator: true },
-        { label: 'Rename', action: () => handleAction('rename') },
+        { label: 'Rename / Move', action: () => handleAction('rename') },
         { label: 'Delete', action: () => handleAction('delete') }
       );
     }
@@ -153,12 +157,18 @@
     if (action === 'new-file') {
       filenameModalTitle = 'New File';
       filenameModalDefaultValue = 'untitled.md';
+      filenameModalHelperText = '';
     } else if (action === 'new-folder') {
       filenameModalTitle = 'New Folder';
       filenameModalDefaultValue = 'New Folder';
+      filenameModalHelperText = '';
     } else if (action === 'rename') {
-      filenameModalTitle = 'Rename';
-      filenameModalDefaultValue = contextMenuTarget.entry.name;
+      filenameModalTitle = 'Rename / Move';
+      filenameModalDefaultValue = getEntryPath(
+        contextMenuTarget.parentPath,
+        contextMenuTarget.entry.name
+      );
+      filenameModalHelperText = 'Enter a vault-relative path like docs/api.md';
     }
 
     filenameModalVisible = true;
@@ -168,6 +178,15 @@
     filenameModalVisible = false;
 
     if (!contextMenuTarget || !filenameModalAction) return;
+
+    if (filenameModalAction === 'rename') {
+      const oldPath = getEntryPath(contextMenuTarget.parentPath, contextMenuTarget.entry.name);
+      if (value === oldPath) {
+        filenameModalAction = null;
+        filenameModalHelperText = '';
+        return;
+      }
+    }
 
     try {
       // Determine target directory path
@@ -188,19 +207,13 @@
       } else if (filenameModalAction === 'new-folder') {
         await createFolder(targetPath, value);
       } else if (filenameModalAction === 'rename') {
-        const oldName = contextMenuTarget.entry.name;
-        if (value === oldName) return;
-
-        const oldPath = contextMenuTarget.parentPath
-          ? `${contextMenuTarget.parentPath}/${oldName}`
-          : oldName;
-
-        if (contextMenuTarget.isDirectory) {
-          await renameFolder(contextMenuTarget.parentPath, oldName, value);
-        } else {
-          const newPath = await renameFile(contextMenuTarget.parentPath, oldName, value);
-          emit('file:renamed', { oldPath, newPath });
-        }
+        const oldPath = getEntryPath(contextMenuTarget.parentPath, contextMenuTarget.entry.name);
+        const newPath = await renameEntry(oldPath, value, contextMenuTarget.isDirectory);
+        emit('file:renamed', {
+          oldPath,
+          newPath,
+          isDirectory: contextMenuTarget.isDirectory,
+        });
       }
 
       await refreshTree();
@@ -210,11 +223,13 @@
     }
 
     filenameModalAction = null;
+    filenameModalHelperText = '';
   }
 
   function handleFilenameCancel() {
     filenameModalVisible = false;
     filenameModalAction = null;
+    filenameModalHelperText = '';
   }
 
   async function handleDelete() {
@@ -307,6 +322,7 @@
   visible={filenameModalVisible}
   title={filenameModalTitle}
   defaultValue={filenameModalDefaultValue}
+  helperText={filenameModalHelperText}
   onconfirm={handleFilenameConfirm}
   oncancel={handleFilenameCancel}
 />

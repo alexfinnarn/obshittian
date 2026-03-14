@@ -1,31 +1,33 @@
 # Archived Plans
 
-Place archived plans in this directory. If the plans are not self-contained in a directory, then 
-please create a new directory and place all the related plans in that directory. 
+Each archived plan lives in a numbered directory: `NN-plan-name/` (e.g., `08-qmd-search/`).
+Use the next available number when archiving a new plan.
 
-For example, here is a potential plan before archiving. 
+The directory contains the main plan file and all phase files.
+
+For example, a plan before archiving:
 
 ```
-- plans
--- README.md # Main plans readme
--- _archived/
---- README.md  # Main archive readme 
--- MAIN_PLAN.md # Overview plan
--- main_plan-phase-01-start.md # phase of plan
--- main_plan-phase-02-middle.md
--- main_plan-phase-03-end.md
+plans/
+├── README.md
+├── zzz_archived/
+│   └── README.md
+├── MAIN_PLAN.md
+├── main_plan-phase-01-start.md
+├── main_plan-phase-02-middle.md
+└── main_plan-phase-03-end.md
 ```
 
-And after archiving all the old plans have been moved to the `main-plan` directory in the 
-archive folder. 
+After archiving:
 
-``` 
-- plans
--- README.md # Main plans readme
--- _archived/
---- README.md  # Main archive readme 
---- main-plan/
----- phase-01-start.md # phase of plan
----- phase-02-middle.md
----- phase-03-end.md
+```
+plans/
+├── README.md
+└── zzz_archived/
+    ├── README.md
+    └── 08-main-plan/
+        ├── MAIN_PLAN.md
+        ├── main_plan-phase-01-start.md
+        ├── main_plan-phase-02-middle.md
+        └── main_plan-phase-03-end.md
 ```

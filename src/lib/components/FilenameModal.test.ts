@@ -49,6 +49,16 @@ describe('FilenameModal', () => {
       const input = screen.getByTestId('filename-input') as HTMLInputElement;
       expect(input.value).toBe('notes.md');
     });
+
+    it('shows helper text when provided', () => {
+      render(FilenameModal, {
+        props: { visible: true, title: 'Test', helperText: 'Enter a vault-relative path' },
+      });
+
+      expect(screen.getByTestId('filename-helper-text').textContent).toContain(
+        'vault-relative path'
+      );
+    });
   });
 
   describe('button actions', () => {

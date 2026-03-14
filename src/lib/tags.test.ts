@@ -29,6 +29,7 @@ import {
   updateFileInIndex,
   removeFileFromIndex,
   renameFileInIndex,
+  renamePathPrefixInIndex,
   getAllTags,
   initializeFuseFromIndex,
 } from '$lib/utils/tags';
@@ -397,6 +398,30 @@ tags: [rename, test]
     it('does nothing for non-existent file', () => {
       renameFileInIndex('nonexistent.md', 'also-nonexistent.md');
       // Should not throw
+    });
+  });
+
+  describe('renamePathPrefixInIndex', () => {
+    it('updates all indexed files under a moved folder', () => {
+      updateFileInIndex('docs/a.md', `---
+tags: [alpha]
+---`);
+      updateFileInIndex('docs/nested/b.md', `---
+tags: [beta]
+---`);
+      updateFileInIndex('other/c.md', `---
+tags: [gamma]
+---`);
+
+      renamePathPrefixInIndex('docs', 'archive/docs');
+
+      expect(tagsStore.index.files['archive/docs/a.md']).toEqual(['alpha']);
+      expect(tagsStore.index.files['archive/docs/nested/b.md']).toEqual(['beta']);
+      expect(tagsStore.index.files['docs/a.md']).toBeUndefined();
+      expect(tagsStore.index.files['docs/nested/b.md']).toBeUndefined();
+      expect(tagsStore.index.files['other/c.md']).toEqual(['gamma']);
+      expect(tagsStore.index.tags['alpha']).toContain('archive/docs/a.md');
+      expect(tagsStore.index.tags['beta']).toContain('archive/docs/nested/b.md');
     });
   });
 

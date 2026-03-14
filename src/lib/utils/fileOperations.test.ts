@@ -5,6 +5,8 @@ import {
   getVisibleEntries,
   createFile,
   createFolder,
+  renameEntry,
+  validateRenameMovePath,
   deleteEntry,
 } from './fileOperations';
 import { fileService } from '$lib/services/fileService';
@@ -26,6 +28,10 @@ vi.mock('$lib/services/fileService', () => ({
     rename: vi.fn(),
     stat: vi.fn(),
   },
+}));
+
+vi.mock('$lib/services/activityLogger', () => ({
+  logActivity: vi.fn(),
 }));
 
 const mockFileService = vi.mocked(fileService);
@@ -154,6 +160,69 @@ describe('fileOperations', () => {
 
       expect(mockFileService.createDirectory).toHaveBeenCalledWith('folder/new-folder');
       expect(result).toBe('folder/new-folder');
+    });
+  });
+
+  describe('validateRenameMovePath', () => {
+    it('allows same-folder rename', () => {
+      expect(validateRenameMovePath('notes.md', 'ideas.md', false)).toBe('ideas.md');
+    });
+
+    it('allows file move to another folder', () => {
+      expect(validateRenameMovePath('notes.md', 'docs/notes.md', false)).toBe('docs/notes.md');
+    });
+
+    it('allows folder move to another folder', () => {
+      expect(validateRenameMovePath('docs', 'archive/docs', true)).toBe('archive/docs');
+    });
+
+    it('rejects absolute paths', () => {
+      expect(() => validateRenameMovePath('notes.md', '/docs/notes.md', false)).toThrow(
+        'vault-relative'
+      );
+    });
+
+    it('rejects parent traversal', () => {
+      expect(() => validateRenameMovePath('notes.md', '../docs/notes.md', false)).toThrow(
+        'invalid segments'
+      );
+    });
+
+    it('rejects moving a directory into itself', () => {
+      expect(() => validateRenameMovePath('docs', 'docs/archive', true)).toThrow(
+        'Cannot move a folder into itself'
+      );
+    });
+
+    it('treats unchanged path as valid no-op input', () => {
+      expect(validateRenameMovePath('docs/note.md', 'docs/note.md', false)).toBe('docs/note.md');
+    });
+  });
+
+  describe('renameEntry', () => {
+    it('renames or moves a file using fileService', async () => {
+      mockFileService.rename.mockResolvedValue(undefined);
+
+      const result = await renameEntry('notes.md', 'docs/notes.md', false);
+
+      expect(mockFileService.rename).toHaveBeenCalledWith('notes.md', 'docs/notes.md');
+      expect(result).toBe('docs/notes.md');
+    });
+
+    it('renames or moves a folder using fileService', async () => {
+      mockFileService.rename.mockResolvedValue(undefined);
+
+      const result = await renameEntry('docs', 'archive/docs', true);
+
+      expect(mockFileService.rename).toHaveBeenCalledWith('docs', 'archive/docs');
+      expect(result).toBe('archive/docs');
+    });
+
+    it('throws validation errors before calling fileService', async () => {
+      await expect(renameEntry('docs', 'docs/archive', true)).rejects.toThrow(
+        'Cannot move a folder into itself'
+      );
+      expect(mockFileService.rename).not.toHaveBeenCalled();
     });
   });
 

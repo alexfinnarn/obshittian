@@ -26,7 +26,7 @@ export interface AppEvents {
   /** Save the active tab file */
   'file:save': void;
   'file:created': { path: string };
-  'file:renamed': { oldPath: string; newPath: string };
+  'file:renamed': { oldPath: string; newPath: string; isDirectory: boolean };
   'file:deleted': { path: string };
   'tree:refresh': void;
   'modal:open': { id: string };

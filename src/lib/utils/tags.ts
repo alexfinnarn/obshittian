@@ -290,6 +290,43 @@ export function renameFileInIndex(oldPath: string, newPath: string): void {
   emit('tags:reindex', eventData);
 }
 
+/**
+ * Rename all indexed file paths under a moved folder.
+ */
+export function renamePathPrefixInIndex(oldPrefix: string, newPrefix: string): void {
+  const matchingPaths = Object.keys(tagsStore.index.files).filter(
+    (filePath) => filePath === oldPrefix || filePath.startsWith(`${oldPrefix}/`)
+  );
+
+  if (matchingPaths.length === 0) return;
+
+  for (const oldPath of matchingPaths) {
+    const newPath = `${newPrefix}${oldPath.slice(oldPrefix.length)}`;
+    const tags = tagsStore.index.files[oldPath];
+
+    tagsStore.index.files[newPath] = tags;
+    delete tagsStore.index.files[oldPath];
+
+    for (const tag of tags) {
+      if (!tagsStore.index.tags[tag]) continue;
+      const idx = tagsStore.index.tags[tag].indexOf(oldPath);
+      if (idx !== -1) {
+        tagsStore.index.tags[tag][idx] = newPath;
+      }
+    }
+  }
+
+  setTagIndex(tagsStore.index);
+  saveTagIndexToStorage();
+
+  emit('tags:reindex', {
+    type: 'rename',
+    filesAdded: matchingPaths.map((oldPath) => `${newPrefix}${oldPath.slice(oldPrefix.length)}`),
+    filesRemoved: matchingPaths,
+    meta: getTagIndexMeta(),
+  });
+}
+
 // ============================================================================
 // Journal Tag Integration
 // ============================================================================

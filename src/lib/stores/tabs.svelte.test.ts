@@ -13,6 +13,7 @@ import {
   updateTabContent,
   markTabDirty,
   markTabClean,
+  renameTabPaths,
   saveTabsToStorage,
   getTabsFromStorage,
   clearTabsStorage,
@@ -282,6 +283,39 @@ describe('tabs store', () => {
       addTab(tab);
 
       expect(findTabByPath('nonexistent.md')).toBe(-1);
+    });
+  });
+
+  describe('renameTabPaths', () => {
+    it('updates an open file tab path after a file move', () => {
+      addTab(createMockTab('note.md', 'notes/note.md'));
+
+      renameTabPaths('notes/note.md', 'docs/note.md', false);
+
+      expect(tabsStore.tabs[0].filePath).toBe('docs/note.md');
+      expect(tabsStore.tabs[0].filename).toBe('note.md');
+    });
+
+    it('updates all open tabs under a moved folder', () => {
+      addTab(createMockTab('a.md', 'docs/a.md'));
+      addTab(createMockTab('b.md', 'docs/nested/b.md'));
+      addTab(createMockTab('other.md', 'other/other.md'));
+
+      renameTabPaths('docs', 'archive/docs', true);
+
+      expect(tabsStore.tabs[0].filePath).toBe('archive/docs/a.md');
+      expect(tabsStore.tabs[1].filePath).toBe('archive/docs/nested/b.md');
+      expect(tabsStore.tabs[2].filePath).toBe('other/other.md');
+    });
+
+    it('leaves unrelated tabs unchanged', () => {
+      addTab(createMockTab('note.md', 'notes/note.md'));
+      addTab(createMockTab('todo.md', 'todo.md'));
+
+      renameTabPaths('notes/other.md', 'docs/other.md', false);
+
+      expect(tabsStore.tabs[0].filePath).toBe('notes/note.md');
+      expect(tabsStore.tabs[1].filePath).toBe('todo.md');
     });
   });
 
