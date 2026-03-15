@@ -10,3 +10,5 @@ Service behavior is documented in:
 Current note:
 
 - `fileService` is the browser-side boundary for filesystem access and talks to `/api/files/*`
+- `aiSupport` owns `.editor-agent/` install/status behavior on the client side
+- `agentRuntime` owns Codex command context, diff planning, and confirmed journal writes on the server side

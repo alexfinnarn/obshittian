@@ -95,6 +95,21 @@ Detailed outline of what will be created/changed.
 - Update main plan phase table when status changes
 - Check off acceptance criteria when verified
 
+## Execution Guidance
+
+Phase files are planning and tracking tools. They are not a requirement to stop work after each phase.
+
+- Prefer continuing through adjacent phases in the same conversation when they share a contract, data model, or recently settled design decisions.
+- Use phase boundaries as checkpoints for verification and documentation, not automatic handoff points.
+- If a phase review happens, update the relevant plan files immediately and continue execution from the same conversation when practical.
+- Avoid splitting work into separate "phase generation -> phase review -> phase execution" conversations unless there is a real reason to hand off.
+- Start a new conversation only when it materially helps:
+  - an unresolved architecture decision needs separate discussion
+  - external review or approval is needed before implementation
+  - the work is paused long enough that a clean restart is better than preserving context
+
+In general, preserving implementation context across tightly coupled phases reduces re-analysis, prevents contract drift, and wastes fewer tokens.
+
 ## Archiving
 
 When all phases are complete (or a plan is abandoned):

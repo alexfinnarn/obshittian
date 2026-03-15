@@ -52,6 +52,11 @@ The important split is:
 - vault-shared configuration lives in vault-owned files
 - session UI state lives in stores and is rebuilt during bootstrap
 
+Additional current state boundaries:
+
+- AI support install state lives in `aiSupportStore` and is derived from `.editor-agent/`
+- Codex command execution is not handled in the browser UI; the app exposes server-side runtime routes for external callers instead
+
 ## File and Journal Data Flow
 
 ### Markdown files
@@ -77,6 +82,18 @@ Current event contracts:
 
 Journal entries are indexed with synthetic keys like `journal:2025-12-08#entry-id`, not with filesystem paths.
 
+### AI support and command runtime
+
+- `App Settings` opens a modal-based AI support surface from the sidebar
+- install state is detected from managed files under `.editor-agent/`
+- command override files are optional and user-owned
+- Codex commands use:
+  - `/api/agent/context`
+  - `/api/agent/journal/plan`
+  - `/api/agent/journal/apply`
+
+The app owns diff planning, YAML serialization, and confirmed journal writes for this runtime.
+
 ## Client/Server Boundary
 
 Client code uses `fileService`, which wraps the filesystem API routes:
@@ -91,6 +108,9 @@ Client code uses `fileService`, which wraps the filesystem API routes:
 - `/api/files/stat`
 - `/api/files/export`
 - `/api/vault/validate`
+- `/api/agent/context`
+- `/api/agent/journal/plan`
+- `/api/agent/journal/apply`
 
 `/api/vault/validate` is special because it establishes the active vault root by setting `process.env.VAULT_PATH` for later file operations.
 
@@ -117,10 +137,13 @@ The page component is the main subscriber for file lifecycle events. Keep that i
 - If vault validation fails, file APIs cannot be used
 - If tag-index localStorage is missing or invalid, the app rebuilds the index from disk
 - If `.editor-config.json` or `.editor-tags.yaml` is missing or malformed, the app falls back to defaults or regenerated data
+- If `.editor-agent/` is missing, partial, or malformed, AI support reports install state rather than assuming it is valid
 - Journal saves delete empty daily YAML files rather than keeping empty files around
 
 ## Where To Document Details
 
 - Storage shapes and persisted files: [../reference/storage-contracts.md](../reference/storage-contracts.md)
+- Daily tasks and AI support summary: [../reference/daily-tasks-and-ai-support.md](../reference/daily-tasks-and-ai-support.md)
+- AI command runtime contract: [../reference/ai-command-runtime.md](../reference/ai-command-runtime.md)
 - Local run and contributor workflow: [../developer-guide.md](../developer-guide.md)
 - Deployment and health checks: [../local-deployment.md](../local-deployment.md)

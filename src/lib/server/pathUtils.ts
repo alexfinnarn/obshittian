@@ -84,6 +84,16 @@ export class VaultNotConfiguredError extends Error {
 }
 
 /**
+ * Custom error for bad request payloads that are otherwise syntactically valid JSON.
+ */
+export class BadRequestError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'BadRequestError';
+  }
+}
+
+/**
  * Create a JSON error response with appropriate status code
  */
 export function createErrorResponse(err: unknown): Response {
@@ -93,6 +103,10 @@ export function createErrorResponse(err: unknown): Response {
 
   if (err instanceof VaultNotConfiguredError) {
     return json({ error: 'Vault not configured', code: 'VAULT_NOT_CONFIGURED' } as ErrorResponse, { status: 503 });
+  }
+
+  if (err instanceof BadRequestError) {
+    return json({ error: err.message, code: 'BAD_REQUEST' } as ErrorResponse, { status: 400 });
   }
 
   if (err instanceof Error) {

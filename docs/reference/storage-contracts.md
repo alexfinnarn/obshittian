@@ -61,6 +61,74 @@ Notes:
 - if the file does not exist, the app rebuilds vocabulary from the current tag index and writes the file
 - this file is for autocomplete vocabulary, not the full tag index
 
+### `.editor-agent/`
+
+Purpose:
+
+- stores the vault-local AI support contract installed through App Settings
+
+Current shape:
+
+```text
+.editor-agent/
+  contract.md
+  config.json
+  commands/
+    README.md
+```
+
+`config.json` shape:
+
+```json
+{
+  "version": 1,
+  "templateVersion": 2,
+  "installedAt": "2026-03-15T10:00:00.000Z",
+  "updatedAt": "2026-03-15T10:00:00.000Z",
+  "commands": {
+    "schedule-daily-tasks": {
+      "overridePath": ".editor-agent/commands/schedule-daily-tasks.md"
+    },
+    "morning-standup": {
+      "overridePath": ".editor-agent/commands/morning-standup.md"
+    },
+    "evening-review": {
+      "overridePath": ".editor-agent/commands/evening-review.md"
+    }
+  }
+}
+```
+
+Notes:
+
+- these files are installed only through explicit user actions
+- `contract.md`, `config.json`, and `commands/README.md` are app-managed files
+- command override files under `.editor-agent/commands/` are optional and user-owned
+- override-file presence does not determine install state
+- the installed contract documents the supported Codex commands and the agent runtime endpoints
+- recurring-task templates remain separate under `templates/tags/dt/<task-id>/NN.md`
+
+### Agent runtime API
+
+Purpose:
+
+- provides a stable app-owned contract for Codex commands to inspect date-specific context, preview diffs, and apply confirmed journal writes
+
+Routes:
+
+```text
+POST /api/agent/context
+POST /api/agent/journal/plan
+POST /api/agent/journal/apply
+```
+
+Notes:
+
+- `context` returns recurring-task definitions, current journal state for a date, and optional command-override content
+- `plan` returns a proposed journal result plus a diff without writing files
+- `apply` performs the same plan and writes it only when `confirm: true`
+- the runtime accepts an optional `dailyNotesFolder` so Codex can target non-default journal directories when needed
+
 ### Daily journal YAML
 
 Path pattern:

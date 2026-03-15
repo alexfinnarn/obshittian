@@ -16,9 +16,9 @@ Add vault-installed AI support and upgrade daily tasks from template-driven jour
 |-------|-------------|--------|
 | 01 | Journal and daily-task data model upgrade | Complete |
 | 02 | Journal UI and task-slot interactions | Complete |
-| 03 | AI Support configuration and vault template install | Pending |
-| 04 | Codex skill package and command runtime | Pending |
-| 05 | Testing, migration coverage, and documentation | Pending |
+| 03 | AI Support configuration and vault template install | Complete |
+| 04 | Codex skill package and command runtime | Complete |
+| 05 | Testing, migration coverage, and documentation | Complete |
 
 ## Background
 

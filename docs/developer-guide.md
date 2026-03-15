@@ -32,6 +32,7 @@ The app works with a normal directory of Markdown files. It also creates and rea
 
 - `.editor-config.json` for quick links, quick files, and daily tasks
 - `.editor-tags.yaml` for tag autocomplete vocabulary
+- `.editor-agent/` for vault-local AI support install metadata and command override locations
 - `zzz_Daily Notes/YYYY/MM/YYYY-MM-DD.yaml` for journal entries by default
 - `zzz_Daily Notes/YYYY/MM/YYYY-MM-DD.md` for daily Markdown notes by default
 
@@ -75,6 +76,28 @@ This is not a pure client-side app. The browser UI talks to SvelteKit API routes
 - API routes read and write the active vault on disk
 
 Do not import Node filesystem modules into client code. Keep filesystem access behind `src/routes/api/` and `src/lib/services/fileService.ts`.
+
+## AI Support And Codex Runtime
+
+The AI support install flow is user-driven from `App Settings` in the sidebar. Installing AI support creates `.editor-agent/` inside the active vault.
+
+Codex daily-task commands use the app-owned runtime instead of writing YAML directly:
+
+- `POST /api/agent/context`
+- `POST /api/agent/journal/plan`
+- `POST /api/agent/journal/apply`
+
+The intended flow is:
+
+1. fetch fresh command context for a date
+2. build an in-memory proposal
+3. preview the diff from `plan`
+4. apply only after explicit confirmation
+
+If you change this runtime, update both:
+
+- `docs/reference/ai-command-runtime.md`
+- `docs/skills/vault-agent-daily-tasks/`
 
 ## Core Editing Behaviors
 

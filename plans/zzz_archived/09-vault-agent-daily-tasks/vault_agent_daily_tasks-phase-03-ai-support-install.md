@@ -1,6 +1,6 @@
 # Phase 03: AI Support Configuration and Vault Template Install
 
-**Status:** Pending
+**Status:** Complete
 **Output:** `App Settings` sidebar entry, `AI Support` modal section, `.editor-agent/` install service, install/status tests, storage docs
 
 ## Objective
@@ -112,6 +112,7 @@ Phase 03 installs this hidden vault structure:
 - Implement AI-support state and file-management logic in a dedicated service/store layer rather than extending `vaultConfig`.
 - Reuse existing `fileService` operations; phase 03 should not require new server endpoints.
 - Keep `.editor-config.json` unchanged.
+- Keep the existing recurring-task template system unchanged. Phase 03 does not move or redefine task templates under `templates/tags/dt/<task-id>/NN.md`.
 - No file-tree visibility changes are needed because hidden files are already suppressed from the UI.
 
 ## Dependencies
@@ -125,6 +126,7 @@ Phase 03 installs this hidden vault structure:
 - A vault may contain a partially created `.editor-agent/` directory from manual experimentation; phase 03 must report that as `invalid`, not silently trust it.
 - Install and upgrade must preserve any optional command override files if they already exist.
 - An unreadable or malformed `config.json` must not crash the settings modal.
+- Recurring-task templates and AI command overrides are separate systems; phase 03 docs and UI copy should not imply that `.editor-agent/commands/` replaces `templates/tags/dt/<task-id>/NN.md`.
 - `App Settings` should still open even when no AI support is installed, and the empty state should make the next action obvious.
 
 ## Acceptance Criteria
@@ -144,3 +146,4 @@ Phase 03 installs this hidden vault structure:
 - Command override editing remains out of scope until phase 04 or later.
 - Install and upgrade flows are explicit user actions only.
 - Bundled template versioning is numeric and app-owned.
+- AI/API-created task items remain allowed to persist provided content directly without depending on recurring-task templates.

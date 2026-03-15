@@ -10,6 +10,8 @@ Production: [notes.finnarn.com](https://notes.finnarn.com)
 - Keeps a calendar-backed daily journal in YAML files under the vault
 - Indexes tags across Markdown files and journal entries
 - Stores quick links, quick files, and daily-task configuration in the vault
+- Installs optional vault-local AI support under `.editor-agent/`
+- Exposes a diff-first agent runtime for Codex daily-task commands
 - Supports vault export as a ZIP archive for backups
 
 ## Stack
@@ -58,6 +60,8 @@ npm run test:e2e:headed
 
 - [Developer guide](docs/developer-guide.md)
 - [Architecture overview](docs/architecture/overview.md)
+- [Daily tasks and AI support summary](docs/reference/daily-tasks-and-ai-support.md)
+- [AI command runtime](docs/reference/ai-command-runtime.md)
 - [Storage and persistence contracts](docs/reference/storage-contracts.md)
 - [Local deployment with Kamal](docs/local-deployment.md)
 

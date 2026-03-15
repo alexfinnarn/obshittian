@@ -78,4 +78,11 @@ describe('Sidebar', () => {
     expect(screen.getByTestId('quick-files-section')).toBeTruthy();
     expect(screen.getByText('Quick Files')).toBeTruthy();
   });
+
+  it('renders App Settings entry at the bottom of the sidebar', () => {
+    render(Sidebar);
+    expect(screen.getByTestId('sidebar-footer')).toBeTruthy();
+    expect(screen.getByTestId('open-app-settings')).toBeTruthy();
+    expect(screen.getByText('App Settings')).toBeTruthy();
+  });
 });
