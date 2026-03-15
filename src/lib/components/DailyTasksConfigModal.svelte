@@ -22,7 +22,6 @@
 	interface EditingTask {
 		id: string;
 		name: string;
-		targetCount: number;
 		isDaily: boolean;
 		days: DayOfWeek[];
 	}
@@ -44,7 +43,6 @@
 			editingTasks = vaultConfig.dailyTasks.map((task) => ({
 				id: task.id,
 				name: task.name,
-				targetCount: task.targetCount,
 				isDaily: task.days === 'daily',
 				days: task.days === 'daily' ? [...ALL_DAYS] : [...task.days]
 			}));
@@ -57,7 +55,6 @@
 			{
 				id: '',
 				name: '',
-				targetCount: 1,
 				isDaily: true,
 				days: [...ALL_DAYS]
 			}
@@ -87,10 +84,6 @@
 			.toLowerCase()
 			.replace(/[^a-z0-9-]+/g, '-')
 			.replace(/^-|-$/g, '');
-	}
-
-	function updateTargetCount(index: number, count: number) {
-		editingTasks[index].targetCount = Math.max(1, count);
 	}
 
 	function toggleDaily(index: number) {
@@ -123,8 +116,6 @@
 			.map((task) => ({
 				id: task.id,
 				name: task.name.trim(),
-				tag: `${DAILY_TASK_PREFIX}${task.id}`,
-				targetCount: task.targetCount,
 				days: task.isDaily ? 'daily' : task.days
 			}));
 
@@ -170,18 +161,6 @@
 									data-testid="task-id-{i}"
 								/>
 							</div>
-						</div>
-						<div class="input-group input-group-small">
-							<label for="task-target-{i}">Target</label>
-							<input
-								id="task-target-{i}"
-								type="number"
-								class="task-target"
-								min="1"
-								value={task.targetCount}
-								oninput={(e) => updateTargetCount(i, parseInt(e.currentTarget.value) || 1)}
-								data-testid="task-target-{i}"
-							/>
 						</div>
 					</div>
 					<button
@@ -273,11 +252,6 @@
 		min-width: 120px;
 	}
 
-	.input-group-small {
-		flex: 0 0 70px;
-		min-width: 70px;
-	}
-
 	.input-group label {
 		font-size: 0.7rem;
 		color: var(--text-muted, #888);
@@ -286,8 +260,7 @@
 	}
 
 	.task-name,
-	.task-id,
-	.task-target {
+	.task-id {
 		padding: 0.5rem;
 		background: var(--bg-color, #1e1e1e);
 		border: 1px solid var(--border-color, #555);
@@ -297,8 +270,7 @@
 	}
 
 	.task-name:focus,
-	.task-id:focus,
-	.task-target:focus {
+	.task-id:focus {
 		outline: none;
 		border-color: var(--accent-color, #0078d4);
 	}
@@ -330,11 +302,6 @@
 	.tag-input-wrapper .task-id:focus {
 		outline: none;
 		border: none;
-	}
-
-	.task-target {
-		width: 100%;
-		text-align: center;
 	}
 
 	.task-delete {

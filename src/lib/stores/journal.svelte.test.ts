@@ -7,7 +7,9 @@ import {
   hasEntriesForDate,
   getDatesWithEntries,
   addEntry,
+  addTaskItem,
   removeEntry,
+  removeTaskItem,
   updateEntryText,
   updateEntryTags,
   addTagToEntry,
@@ -18,6 +20,7 @@ import {
   resetJournal,
 } from './journal.svelte';
 import { vault, closeVault, openVault } from './vault.svelte';
+import { resetTagIndex, tagsStore } from '$lib/stores/tags.svelte';
 import { fileService } from '$lib/services/fileService';
 
 // Mock the fileService
@@ -43,6 +46,7 @@ const mockFileService = vi.mocked(fileService);
 describe('journal store', () => {
   beforeEach(() => {
     resetJournal();
+    resetTagIndex();
     closeVault();
     vi.clearAllMocks();
   });
@@ -136,6 +140,35 @@ entries:
       expect(entries[0].text).toBe('Test entry');
       expect(entries[0].tags).toEqual(['note', 'important']);
     });
+
+    it('loads task items from version 3 files', async () => {
+      openVault('/mock/vault');
+      mockFileService.exists.mockResolvedValue({ exists: true, kind: 'file' });
+      mockFileService.readFile.mockResolvedValue(`version: 3
+entries: []
+taskItems:
+  - id: task-1
+    taskId: gym
+    text: Warm up
+    status: completed
+    tags:
+      - "#dt/gym"
+    order: 1
+    createdAt: "2025-01-15T10:00:00.000Z"
+    updatedAt: "2025-01-15T10:05:00.000Z"
+`);
+
+      await loadEntriesForDate(new Date(2025, 0, 15));
+
+      expect(journalStore.taskItems).toEqual([
+        expect.objectContaining({
+          id: 'task-1',
+          taskId: 'gym',
+          status: 'completed',
+          tags: ['#dt/gym'],
+        }),
+      ]);
+    });
   });
 
   describe('addEntry', () => {
@@ -215,6 +248,49 @@ entries:
       await removeEntry(entryId);
 
       expect(hasEntriesForDate('2025-01-15')).toBe(false);
+    });
+
+    it('keeps datesWithEntries when task items still exist', async () => {
+      await addTaskItem('gym', 'Warm up', ['#dt/gym']);
+
+      const entryId = journalStore.entries[0].id;
+      await removeEntry(entryId);
+
+      expect(hasEntriesForDate('2025-01-15')).toBe(true);
+    });
+  });
+
+  describe('task item CRUD', () => {
+    beforeEach(() => {
+      openVault('/mock/vault');
+      mockFileService.exists.mockResolvedValue({ exists: true, kind: 'directory' });
+      mockFileService.writeFile.mockResolvedValue(undefined);
+      journalStore.selectedDate = new Date(2025, 0, 15);
+    });
+
+    it('adds task items with tag index entries', async () => {
+      const item = await addTaskItem('gym', 'Warm up', ['#dt/gym', 'workout']);
+
+      expect(item).not.toBeNull();
+      expect(hasEntriesForDate('2025-01-15')).toBe(true);
+
+      const [sourceKey] = Object.keys(tagsStore.index.files);
+      expect(sourceKey).toMatch(/^taskItem:2025-01-15#/);
+      expect(tagsStore.index.files[sourceKey]).toEqual(['#dt/gym', 'workout']);
+      expect(tagsStore.index.tags['#dt/gym']).toContain(sourceKey);
+      expect(tagsStore.index.tags.workout).toContain(sourceKey);
+    });
+
+    it('removes task item tag index entries and clears datesWithEntries when empty', async () => {
+      const item = await addTaskItem('gym', 'Warm up', ['#dt/gym']);
+      expect(item).not.toBeNull();
+
+      const removed = await removeTaskItem(item!.id);
+
+      expect(removed).toBe(true);
+      expect(hasEntriesForDate('2025-01-15')).toBe(false);
+      expect(Object.keys(tagsStore.index.files)).toEqual([]);
+      expect(tagsStore.index.tags['#dt/gym']).toBeUndefined();
     });
   });
 
@@ -415,6 +491,7 @@ entries:
 
       expect(journalStore.selectedDate).toBeNull();
       expect(journalStore.entries).toEqual([]);
+      expect(journalStore.taskItems).toEqual([]);
       expect(journalStore.isLoading).toBe(false);
       expect(journalStore.datesWithEntries.size).toBe(0);
     });

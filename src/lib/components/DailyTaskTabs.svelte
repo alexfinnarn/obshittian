@@ -1,11 +1,10 @@
 <script lang="ts">
 	import type { DailyTask } from '$lib/types/dailyTasks';
-	import type { JournalEntry } from '$lib/types/journal';
-	import { getTaskEntryCount, isTaskComplete } from '$lib/types/dailyTasks';
+	import type { DailyTaskItem } from '$lib/types/journal';
 
 	interface Props {
-		/** Entries for the selected date */
-		entries: JournalEntry[];
+		/** Task items for the selected date */
+		taskItems: DailyTaskItem[];
 		/** Daily tasks visible on selected date */
 		tasks: DailyTask[];
 		/** Currently active task ID (null = "All" view) */
@@ -16,11 +15,24 @@
 		onconfigure?: () => void;
 	}
 
-	let { entries, tasks, activeTaskId, onselect, onconfigure }: Props = $props();
+	let { taskItems, tasks, activeTaskId, onselect, onconfigure }: Props = $props();
+
+	function getTaskItemsForTask(taskId: string): DailyTaskItem[] {
+		return taskItems.filter((item) => item.taskId === taskId);
+	}
 
 	function getProgress(task: DailyTask): string {
-		const count = getTaskEntryCount(task, entries);
-		return `${count}/${task.targetCount}`;
+		const items = getTaskItemsForTask(task.id);
+		const completed = items.filter((item) => item.status === 'completed').length;
+		return `${completed}/${items.length}`;
+	}
+
+	function getTaskStatus(task: DailyTask): 'pending' | 'in-progress' | 'completed' | 'neutral' {
+		const items = getTaskItemsForTask(task.id);
+		if (items.length === 0) return 'neutral';
+		if (items.every((item) => item.status === 'completed')) return 'completed';
+		if (items.some((item) => item.status === 'in-progress')) return 'in-progress';
+		return 'pending';
 	}
 </script>
 
@@ -40,17 +52,24 @@
 
 		<!-- Task tabs -->
 		{#each tasks as task (task.id)}
-			{@const complete = isTaskComplete(task, entries)}
+			{@const status = getTaskStatus(task)}
+			{@const isComplete = status === 'completed'}
+			{@const inProgress = status === 'in-progress'}
 			<button
 				class="task-tab"
 				class:active={activeTaskId === task.id}
-				class:complete
+				class:complete={isComplete}
+				class:in-progress={inProgress}
 				onclick={() => onselect(task.id)}
 				role="tab"
 				aria-selected={activeTaskId === task.id}
 				data-testid="task-tab-{task.id}"
 			>
-				<span class="completion-indicator" class:complete></span>
+				<span
+					class="completion-indicator"
+					class:complete={isComplete}
+					class:in-progress={inProgress}
+				></span>
 				<span class="task-name">{task.name}</span>
 				<span class="task-progress">{getProgress(task)}</span>
 			</button>
@@ -142,6 +161,16 @@
 		border-color: var(--dt-complete-border);
 	}
 
+	.task-tab.in-progress {
+		border-color: var(--accent-color, #3794ff);
+		background: var(--bg-color, #1e1e1e);
+		color: var(--text-color, #e0e0e0);
+	}
+
+	.task-tab.in-progress.active {
+		border-color: var(--accent-color, #3794ff);
+	}
+
 	.completion-indicator {
 		width: 6px;
 		height: 6px;
@@ -151,6 +180,10 @@
 
 	.completion-indicator.complete {
 		background: var(--dt-complete-text);
+	}
+
+	.completion-indicator.in-progress {
+		background: var(--accent-color, #3794ff);
 	}
 
 	.task-name {

@@ -25,6 +25,9 @@ import { fileService } from '$lib/services/fileService';
 // Journal source key prefix
 const JOURNAL_PREFIX = 'journal:';
 
+// Task item source key prefix
+const TASK_ITEM_PREFIX = 'taskItem:';
+
 // Fuse.js configuration for fuzzy matching
 const FUSE_OPTIONS: IFuseOptions<TagEntry> = {
   keys: ['tag'],
@@ -358,6 +361,32 @@ export function createJournalSourceKey(date: string, entryId: string): string {
 }
 
 /**
+ * Check if a source key is a task item
+ */
+export function isTaskItemSource(key: string): boolean {
+  return key.startsWith(TASK_ITEM_PREFIX);
+}
+
+/**
+ * Parse a task item source key into date and item ID
+ */
+export function parseTaskItemSource(key: string): { date: string; itemId: string } | null {
+  if (!isTaskItemSource(key)) return null;
+
+  const match = key.match(/^taskItem:(\d{4}-\d{2}-\d{2})#(.+)$/);
+  if (!match) return null;
+
+  return { date: match[1], itemId: match[2] };
+}
+
+/**
+ * Create a task item source key from date and item ID
+ */
+export function createTaskItemSourceKey(date: string, itemId: string): string {
+  return `${TASK_ITEM_PREFIX}${date}#${itemId}`;
+}
+
+/**
  * Scan journal files and add their tags to the index
  */
 export async function scanJournalForTags(
@@ -407,6 +436,17 @@ export async function scanJournalForTags(
                   const sourceKey = createJournalSourceKey(dateStr, entry.id);
                   tagsStore.index.files[sourceKey] = entry.tags;
                   addFileTagReferences(sourceKey, entry.tags);
+                }
+              }
+            }
+
+            // Also index task items (version 3+)
+            if (data?.taskItems) {
+              for (const item of data.taskItems) {
+                if (item.tags && item.tags.length > 0) {
+                  const sourceKey = createTaskItemSourceKey(dateStr, item.id);
+                  tagsStore.index.files[sourceKey] = item.tags;
+                  addFileTagReferences(sourceKey, item.tags);
                 }
               }
             }
@@ -460,5 +500,46 @@ export function updateJournalEntryInIndex(date: string, entryId: string, tags: s
  */
 export function removeJournalEntryFromIndex(date: string, entryId: string): void {
   const sourceKey = createJournalSourceKey(date, entryId);
+  removeFileFromIndex(sourceKey);
+}
+
+/**
+ * Update a task item in the tag index
+ */
+export function updateTaskItemInIndex(date: string, itemId: string, tags: string[]): void {
+  const sourceKey = createTaskItemSourceKey(date, itemId);
+
+  const oldTags = tagsStore.index.files[sourceKey] || [];
+  const removedTags = removeFileTagReferences(sourceKey);
+
+  let addedTags: string[] = [];
+
+  if (tags.length > 0) {
+    tagsStore.index.files[sourceKey] = tags;
+    addedTags = addFileTagReferences(sourceKey, tags);
+  } else {
+    delete tagsStore.index.files[sourceKey];
+  }
+
+  rebuildSearchIndex();
+  setTagIndex(tagsStore.index);
+  saveTagIndexToStorage();
+
+  const eventData: ReindexEventData = {
+    type: 'update',
+    filesAdded: tags.length > 0 ? [sourceKey] : undefined,
+    filesRemoved: oldTags.length > 0 && tags.length === 0 ? [sourceKey] : undefined,
+    tagsAdded: addedTags.length > 0 ? addedTags : undefined,
+    tagsRemoved: removedTags.length > 0 ? removedTags : undefined,
+    meta: getTagIndexMeta(),
+  };
+  emit('tags:reindex', eventData);
+}
+
+/**
+ * Remove a task item from the tag index
+ */
+export function removeTaskItemFromIndex(date: string, itemId: string): void {
+  const sourceKey = createTaskItemSourceKey(date, itemId);
   removeFileFromIndex(sourceKey);
 }

@@ -26,8 +26,6 @@ Current shape:
     {
       "id": "gym",
       "name": "Gym",
-      "tag": "#dt/gym",
-      "targetCount": 1,
       "days": "daily"
     }
   ]
@@ -39,6 +37,7 @@ Notes:
 - the file is optional
 - if it is missing or invalid, the app falls back to defaults
 - `dailyTasks` is part of the real contract and is consumed by the journal pane
+- the task tag (e.g., `#dt/gym`) is derived from `id` at runtime
 
 ### `.editor-tags.yaml`
 
@@ -70,26 +69,47 @@ Path pattern:
 {dailyNotesFolder}/YYYY/MM/YYYY-MM-DD.yaml
 ```
 
-Current shape:
+Current shape (version 3):
 
 ```yaml
-version: 2
+version: 3
 entries:
   - id: 2d5b7c1b-3f62-4eb5-9f2f-4b6d3d2e4a11
     text: Example note
     tags:
       - project
-      - "#dt/gym"
     order: 1
     createdAt: "2026-03-14T10:00:00.000Z"
     updatedAt: "2026-03-14T10:00:00.000Z"
+taskItems:
+  - id: a1d6cb0d-55d2-4f8a-a7e4-3f4cdb2d3c1b
+    taskId: gym
+    text: Warm up for 10 minutes
+    status: pending
+    tags:
+      - "#dt/gym"
+      - workout
+    order: 1
+    createdAt: "2026-03-14T10:05:00.000Z"
+    updatedAt: "2026-03-14T10:05:00.000Z"
+  - id: c3b2d1b8-e9c2-4a37-b33b-7d7d6929d0af
+    taskId: gym
+    text: Mobility routine
+    status: completed
+    tags:
+      - "#dt/gym"
+    order: 2
+    createdAt: "2026-03-14T10:06:00.000Z"
+    updatedAt: "2026-03-14T10:30:00.000Z"
 ```
 
 Notes:
 
-- the file is deleted when a day has zero entries
-- missing files are treated as “no entries for this date”
+- the file is deleted when a day has zero entries AND zero task items
+- missing files are treated as "no entries for this date"
 - tags are normalized at load time so older entries without `tags` become `[]`
+- task items store their own tags for search/indexing, but task completion is derived from task item status
+- version 2 files are migrated to version 3 in memory with empty `taskItems` array
 
 ### Daily Markdown note
 

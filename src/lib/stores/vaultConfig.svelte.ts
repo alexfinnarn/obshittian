@@ -91,8 +91,31 @@ export async function setDailyTasks(tasks: DailyTask[]): Promise<boolean> {
 }
 
 /**
+ * Migration interface for old daily task format
+ */
+interface LegacyDailyTask {
+  id: string;
+  name: string;
+  tag?: string;
+  targetCount?: number;
+  days?: DailyTask['days'];
+}
+
+/**
+ * Migrate legacy daily task definitions to the new simplified format
+ */
+function migrateDailyTasks(tasks: LegacyDailyTask[]): DailyTask[] {
+  return tasks.map((task) => ({
+    id: task.id,
+    name: task.name,
+    days: task.days ?? 'daily',
+  }));
+}
+
+/**
  * Load vault config from .editor-config.json
  * Falls back to defaults when file doesn't exist.
+ * Migrates legacy data to the current schema on load.
  */
 export async function loadVaultConfig(
   defaults?: Partial<VaultConfig>
@@ -115,12 +138,19 @@ export async function loadVaultConfig(
     }
 
     const text = await fileService.readFile(CONFIG_FILENAME);
-    const parsed = JSON.parse(text) as Partial<VaultConfig>;
+    const parsed = JSON.parse(text) as {
+      quickLinks?: QuickLink[];
+      quickFiles?: QuickFile[];
+      dailyTasks?: LegacyDailyTask[];
+    };
 
     // Use vault config values, falling back to provided defaults
     vaultConfig.quickLinks = parsed.quickLinks ?? defaults?.quickLinks ?? DEFAULT_CONFIG.quickLinks;
     vaultConfig.quickFiles = parsed.quickFiles ?? defaults?.quickFiles ?? DEFAULT_CONFIG.quickFiles;
-    vaultConfig.dailyTasks = parsed.dailyTasks ?? defaults?.dailyTasks ?? DEFAULT_CONFIG.dailyTasks;
+
+    // Migrate daily tasks if they exist
+    const rawDailyTasks = parsed.dailyTasks ?? defaults?.dailyTasks ?? DEFAULT_CONFIG.dailyTasks;
+    vaultConfig.dailyTasks = migrateDailyTasks(rawDailyTasks as LegacyDailyTask[]);
   } catch (err) {
     // File doesn't exist or is invalid - use defaults
     console.warn('Error reading vault config:', (err as Error).message);
