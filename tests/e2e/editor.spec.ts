@@ -316,3 +316,40 @@ test.describe('Pane Resizer', () => {
     expect(newBox.width).toBeGreaterThan(initialWidth);
   });
 });
+
+test.describe('Pane Collapse', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByTestId('app-container')).toBeVisible();
+  });
+
+  test('should collapse and restore the journal pane', async ({ page }) => {
+    await expect(page.getByTestId('right-pane')).toBeVisible();
+
+    await page.getByTestId('collapse-right-pane').click();
+
+    await expect(page.getByTestId('right-pane')).toHaveCount(0);
+    await expect(page.getByTestId('pane-divider')).toHaveCount(0);
+    await expect(page.getByTestId('expand-right-pane')).toBeVisible();
+
+    await page.getByTestId('expand-right-pane').click();
+
+    await expect(page.getByTestId('right-pane')).toBeVisible();
+    await expect(page.getByTestId('pane-divider')).toBeVisible();
+  });
+
+  test('should collapse and restore the files pane', async ({ page }) => {
+    await expect(page.getByTestId('left-pane')).toBeVisible();
+
+    await page.getByTestId('collapse-left-pane').click();
+
+    await expect(page.getByTestId('left-pane')).toHaveCount(0);
+    await expect(page.getByTestId('pane-divider')).toHaveCount(0);
+    await expect(page.getByTestId('expand-left-pane')).toBeVisible();
+
+    await page.getByTestId('expand-left-pane').click();
+
+    await expect(page.getByTestId('left-pane')).toBeVisible();
+    await expect(page.getByTestId('pane-divider')).toBeVisible();
+  });
+});

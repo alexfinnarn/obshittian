@@ -168,4 +168,20 @@ describe('JournalPane', () => {
 			3
 		);
 	});
+
+	it('calls oncollapse when the collapse button is clicked', async () => {
+		const oncollapse = vi.fn();
+
+		render(JournalPane, { props: { oncollapse } });
+
+		await fireEvent.click(screen.getByTestId('collapse-right-pane'));
+
+		expect(oncollapse).toHaveBeenCalledTimes(1);
+	});
+
+	it('disables the collapse button when collapsing is not allowed', () => {
+		render(JournalPane, { props: { oncollapse: vi.fn(), cancollapse: false } });
+
+		expect(screen.getByTestId('collapse-right-pane').getAttribute('disabled')).not.toBeNull();
+	});
 });

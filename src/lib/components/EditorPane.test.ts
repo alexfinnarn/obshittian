@@ -55,6 +55,21 @@ describe('EditorPane', () => {
       // The handler is wired up (actual content change would require CM interaction)
       expect(screen.getByTestId('codemirror-editor')).toBeTruthy();
     });
+
+    it('should call oncollapse when collapse button is clicked', async () => {
+      const oncollapse = vi.fn();
+      render(EditorPane, { props: { oncollapse } });
+
+      await fireEvent.click(screen.getByTestId('collapse-left-pane'));
+
+      expect(oncollapse).toHaveBeenCalledTimes(1);
+    });
+
+    it('should disable collapse button when collapsing is not allowed', () => {
+      render(EditorPane, { props: { oncollapse: vi.fn(), cancollapse: false } });
+
+      expect(screen.getByTestId('collapse-left-pane').getAttribute('disabled')).not.toBeNull();
+    });
   });
 
   describe('exported methods', () => {

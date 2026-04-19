@@ -18,8 +18,12 @@
   interface Props {
     /** Initial view mode: 'edit' or 'view' */
     initialViewMode?: 'edit' | 'view';
+    /** Whether the pane can currently collapse */
+    cancollapse?: boolean;
     /** Content change callback */
     oncontentchange?: (content: string) => void;
+    /** Collapse callback */
+    oncollapse?: () => void;
     /** Save callback */
     onsave?: () => void;
     /** Cancel callback (revert changes) */
@@ -28,7 +32,9 @@
 
   let {
     initialViewMode = 'edit',
+    cancollapse = true,
     oncontentchange,
+    oncollapse,
     onsave,
     oncancel,
   }: Props = $props();
@@ -61,6 +67,10 @@
 
   function handleSaveClick() {
     onsave?.();
+  }
+
+  function handleCollapseClick() {
+    oncollapse?.();
   }
 
   function handleCancelClick() {
@@ -126,7 +136,34 @@
   }}
 >
   <header class="pane-toolbar" data-testid="pane-toolbar-left">
-    <TabBar ontabchange={handleTabChange} onsave={handleSaveClick} oncancel={handleCancelClick} />
+    <div class="pane-toolbar-start">
+      {#if oncollapse}
+        <button
+          class="pane-collapse-button"
+          onclick={handleCollapseClick}
+          aria-label="Collapse files pane"
+          title="Collapse files pane"
+          data-testid="collapse-left-pane"
+          disabled={!cancollapse}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            aria-hidden="true"
+          >
+            <path d="m15 18-6-6 6-6"></path>
+          </svg>
+        </button>
+      {/if}
+      <TabBar ontabchange={handleTabChange} onsave={handleSaveClick} oncancel={handleCancelClick} />
+    </div>
     <div class="view-toggle-group">
       <button
         class="view-toggle"
@@ -169,8 +206,8 @@
 
   .pane-toolbar {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    gap: 0.5rem;
     padding: 0.5rem 1rem;
     background: var(--toolbar-bg, #252526);
     border-bottom: 1px solid var(--border-color, #333);
@@ -182,6 +219,39 @@
     flex: 1;
     overflow: hidden;
     min-height: 0;
+  }
+
+  .pane-toolbar-start {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .pane-collapse-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+    border: 1px solid var(--border-color, #333);
+    border-radius: 4px;
+    background: transparent;
+    color: var(--text-muted, #888);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+  }
+
+  .pane-collapse-button:hover:not(:disabled) {
+    background: var(--hover-bg, #2a2a2a);
+    color: var(--text-color, #e0e0e0);
+  }
+
+  .pane-collapse-button:disabled {
+    opacity: 0.45;
+    cursor: default;
   }
 
   .view-toggle-group {

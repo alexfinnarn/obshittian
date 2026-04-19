@@ -20,6 +20,15 @@
 		type DailyTask,
 	} from '$lib/types/dailyTasks';
 
+	interface Props {
+		/** Whether the pane can currently collapse */
+		cancollapse?: boolean;
+		/** Collapse callback */
+		oncollapse?: () => void;
+	}
+
+	let { cancollapse = true, oncollapse }: Props = $props();
+
 	let newEntryText = $state('');
 	let newEntryTags = $state<string[]>([]);
 	let isAdding = $state(false);
@@ -79,6 +88,14 @@
 
 	function closeConfigModal() {
 		showConfigModal = false;
+	}
+
+	function handleCollapseClick() {
+		oncollapse?.();
+	}
+
+	function collapseButtonLabel(): string {
+		return activeTaskId ? `Collapse ${activeTask?.name ?? 'journal'} pane` : 'Collapse journal pane';
 	}
 
 	function formatDateHeader(date: Date | null): string {
@@ -159,7 +176,34 @@
 
 <div class="journal-pane" data-testid="journal-pane">
 	<header class="journal-header">
-		<h2>{formatDateHeader(journalStore.selectedDate)}</h2>
+		<div class="journal-header-main">
+			{#if oncollapse}
+				<button
+					class="pane-collapse-button"
+					onclick={handleCollapseClick}
+					aria-label={collapseButtonLabel()}
+					title={collapseButtonLabel()}
+					data-testid="collapse-right-pane"
+					disabled={!cancollapse}
+				>
+					<svg
+						xmlns="http://www.w3.org/2000/svg"
+						width="14"
+						height="14"
+						viewBox="0 0 24 24"
+						fill="none"
+						stroke="currentColor"
+						stroke-width="2"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						aria-hidden="true"
+					>
+						<path d="m9 18 6-6-6-6"></path>
+					</svg>
+				</button>
+			{/if}
+			<h2>{formatDateHeader(journalStore.selectedDate)}</h2>
+		</div>
 	</header>
 
 	<DailyTaskTabs
@@ -247,11 +291,44 @@
 		flex-shrink: 0;
 	}
 
+	.journal-header-main {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		min-width: 0;
+	}
+
 	.journal-header h2 {
 		margin: 0;
 		font-size: 1rem;
 		font-weight: 600;
 		color: var(--text-color, #fff);
+		min-width: 0;
+	}
+
+	.pane-collapse-button {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 32px;
+		height: 32px;
+		flex-shrink: 0;
+		border: 1px solid var(--border-color, #444);
+		border-radius: 4px;
+		background: transparent;
+		color: var(--text-muted, #888);
+		cursor: pointer;
+		transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+	}
+
+	.pane-collapse-button:hover:not(:disabled) {
+		background: var(--hover-bg, #2a2a2a);
+		color: var(--text-color, #fff);
+	}
+
+	.pane-collapse-button:disabled {
+		opacity: 0.45;
+		cursor: default;
 	}
 
 	/* Task Add Section */

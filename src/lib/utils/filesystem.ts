@@ -6,11 +6,14 @@
  */
 
 import {
+	createStorage,
 	createStringStorage,
 	createNumberStorage,
 	silentErrorHandler,
 	STORAGE_KEYS
 } from './persistence';
+
+export type CollapsedPane = 'left' | 'right';
 
 // ============================================================================
 // Storage instances
@@ -25,6 +28,10 @@ const lastOpenFileStorage = createStringStorage(STORAGE_KEYS.LAST_OPEN_FILE, {
 });
 
 const paneWidthStorage = createNumberStorage(STORAGE_KEYS.PANE_WIDTH, {
+	onError: silentErrorHandler
+});
+
+const collapsedPaneStorage = createStorage<CollapsedPane>(STORAGE_KEYS.COLLAPSED_PANE, {
 	onError: silentErrorHandler
 });
 
@@ -83,4 +90,26 @@ export function savePaneWidth(width: number): void {
  */
 export function getPaneWidth(): number | null {
 	return paneWidthStorage.load();
+}
+
+/**
+ * Save which pane is collapsed.
+ */
+export function saveCollapsedPane(pane: CollapsedPane): void {
+	collapsedPaneStorage.save(pane);
+}
+
+/**
+ * Get the saved collapsed pane.
+ */
+export function getCollapsedPane(): CollapsedPane | null {
+	const pane = collapsedPaneStorage.load();
+	return pane === 'left' || pane === 'right' ? pane : null;
+}
+
+/**
+ * Clear the saved collapsed pane.
+ */
+export function clearCollapsedPane(): void {
+	collapsedPaneStorage.clear();
 }

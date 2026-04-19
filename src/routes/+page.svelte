@@ -30,6 +30,10 @@
   import {
     savePaneWidth,
     getPaneWidth,
+    saveCollapsedPane,
+    getCollapsedPane,
+    clearCollapsedPane,
+    type CollapsedPane,
     getVaultPath,
     saveLastOpenFile,
   } from '$lib/utils/filesystem';
@@ -61,6 +65,7 @@
 
   // Pane width state (percentage for left pane)
   let leftPaneWidthPercent = $state(50);
+  let collapsedPane = $state<CollapsedPane | null>(null);
 
   // Vault restoration state
   let isRestoringVault = $state(true); // Start true to avoid flash of VaultPicker
@@ -88,6 +93,8 @@
     if (savedWidth) {
       leftPaneWidthPercent = savedWidth;
     }
+
+    collapsedPane = getCollapsedPane();
 
     // Try to auto-restore vault if configured
     if (settings.autoOpenLastDirectory) {
@@ -332,6 +339,16 @@
     savePaneWidth(leftWidthPercent);
   }
 
+  function handleCollapsePane(pane: CollapsedPane) {
+    collapsedPane = pane;
+    saveCollapsedPane(pane);
+  }
+
+  function handleExpandPane() {
+    collapsedPane = null;
+    clearCollapsedPane();
+  }
+
   /**
    * Handle content change from left editor pane (tabs mode)
    */
@@ -404,21 +421,90 @@
       <!-- Desktop layout: sidebar + dual panes -->
       <Sidebar ondateselect={handleDateSelect} />
 
-      <main class="editor-area" data-testid="editor-area">
-        <div class="pane left-pane" style="flex: {leftPaneWidthPercent}" data-testid="left-pane">
-          <EditorPane
-            initialViewMode="view"
-            oncontentchange={handleLeftContentChange}
-            onsave={handleLeftPaneSave}
-            oncancel={handleLeftPaneCancel}
-          />
-        </div>
+      <main class="editor-area" class:has-collapsed-pane={collapsedPane !== null} data-testid="editor-area">
+        {#if collapsedPane !== 'left'}
+          <div
+            class="pane left-pane"
+            class:expanded={collapsedPane === 'right'}
+            style:flex={collapsedPane === null ? leftPaneWidthPercent : undefined}
+            data-testid="left-pane"
+          >
+            <EditorPane
+              initialViewMode="view"
+              cancollapse={collapsedPane === null}
+              oncollapse={() => handleCollapsePane('left')}
+              oncontentchange={handleLeftContentChange}
+              onsave={handleLeftPaneSave}
+              oncancel={handleLeftPaneCancel}
+            />
+          </div>
+        {:else}
+          <button
+            class="collapsed-pane-rail left"
+            onclick={handleExpandPane}
+            aria-label="Expand files pane"
+            title="Expand files pane"
+            data-testid="expand-left-pane"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="m9 18 6-6-6-6"></path>
+            </svg>
+            <span>Files</span>
+          </button>
+        {/if}
 
-        <PaneResizer onresize={handlePaneResize} />
+        {#if collapsedPane === null}
+          <PaneResizer onresize={handlePaneResize} />
+        {/if}
 
-        <div class="pane right-pane" style="flex: {100 - leftPaneWidthPercent}" data-testid="right-pane">
-          <JournalPane />
-        </div>
+        {#if collapsedPane !== 'right'}
+          <div
+            class="pane right-pane"
+            class:expanded={collapsedPane === 'left'}
+            style:flex={collapsedPane === null ? 100 - leftPaneWidthPercent : undefined}
+            data-testid="right-pane"
+          >
+            <JournalPane
+              cancollapse={collapsedPane === null}
+              oncollapse={() => handleCollapsePane('right')}
+            />
+          </div>
+        {:else}
+          <button
+            class="collapsed-pane-rail right"
+            onclick={handleExpandPane}
+            aria-label="Expand journal pane"
+            title="Expand journal pane"
+            data-testid="expand-right-pane"
+          >
+            <span>Journal</span>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="m15 18-6-6 6-6"></path>
+            </svg>
+          </button>
+        {/if}
       </main>
     {/if}
   </div>
@@ -443,11 +529,56 @@
     min-width: 0;
   }
 
+  .editor-area.has-collapsed-pane {
+    gap: 0;
+  }
+
   .pane {
     display: flex;
     flex-direction: column;
     min-width: 0;
     background: var(--editor-bg, #1e1e1e);
+  }
+
+  .pane.expanded {
+    flex: 1;
+  }
+
+  .collapsed-pane-rail {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 40px;
+    padding: 0.75rem 0.25rem;
+    border: none;
+    background: var(--toolbar-bg, #252526);
+    color: var(--text-muted, #888);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  .collapsed-pane-rail.left {
+    border-right: 1px solid var(--border-color, #333);
+  }
+
+  .collapsed-pane-rail.right {
+    border-left: 1px solid var(--border-color, #333);
+  }
+
+  .collapsed-pane-rail:hover {
+    background: var(--hover-bg, #2a2a2a);
+    color: var(--text-color, #e0e0e0);
+  }
+
+  .collapsed-pane-rail span {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
 
   /* Mobile layout */

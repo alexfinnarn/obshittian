@@ -191,7 +191,8 @@ export const STORAGE_KEYS = {
 	SETTINGS: 'editorSettings',
 	VAULT_PATH: 'vaultPath',
 	LAST_OPEN_FILE: 'editorLastOpenFile',
-	PANE_WIDTH: 'editorPaneWidth'
+	PANE_WIDTH: 'editorPaneWidth',
+	COLLAPSED_PANE: 'editorCollapsedPane'
 } as const;
 
 export type StorageKey = (typeof STORAGE_KEYS)[keyof typeof STORAGE_KEYS];

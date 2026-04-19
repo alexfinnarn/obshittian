@@ -4,6 +4,9 @@ import {
   getLastOpenFile,
   savePaneWidth,
   getPaneWidth,
+  saveCollapsedPane,
+  getCollapsedPane,
+  clearCollapsedPane,
 } from './filesystem';
 
 describe('filesystem utilities', () => {
@@ -42,6 +45,28 @@ describe('filesystem utilities', () => {
     it('handles decimal values', () => {
       savePaneWidth(350.5);
       expect(getPaneWidth()).toBe(350.5);
+    });
+  });
+
+  describe('saveCollapsedPane / getCollapsedPane / clearCollapsedPane', () => {
+    it('saves and retrieves collapsed pane', () => {
+      saveCollapsedPane('left');
+      expect(getCollapsedPane()).toBe('left');
+    });
+
+    it('returns null when no collapsed pane is saved', () => {
+      expect(getCollapsedPane()).toBeNull();
+    });
+
+    it('clears the saved collapsed pane', () => {
+      saveCollapsedPane('right');
+      clearCollapsedPane();
+      expect(getCollapsedPane()).toBeNull();
+    });
+
+    it('ignores invalid stored values', () => {
+      localStorage.setItem('editorCollapsedPane', JSON.stringify('invalid'));
+      expect(getCollapsedPane()).toBeNull();
     });
   });
 });

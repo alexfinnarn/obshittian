@@ -188,6 +188,7 @@ describe('persistence utilities', () => {
 			expect(STORAGE_KEYS.VAULT_PATH).toBe('vaultPath');
 			expect(STORAGE_KEYS.LAST_OPEN_FILE).toBe('editorLastOpenFile');
 			expect(STORAGE_KEYS.PANE_WIDTH).toBe('editorPaneWidth');
+			expect(STORAGE_KEYS.COLLAPSED_PANE).toBe('editorCollapsedPane');
 		});
 	});
 });
