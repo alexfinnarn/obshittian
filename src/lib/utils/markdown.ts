@@ -68,7 +68,7 @@ export function configureMarked(): void {
       for (const t of beforeNested) {
         if (t.type === 'paragraph' && 'tokens' in t) {
           // Extract inline content from paragraph
-          summaryContent += this.parser.parseInline(t.tokens);
+          summaryContent += this.parser.parseInline(t.tokens ?? []);
         } else if (t.type === 'text' && 'tokens' in t && t.tokens) {
           summaryContent += this.parser.parseInline(t.tokens);
         } else if ('text' in t) {

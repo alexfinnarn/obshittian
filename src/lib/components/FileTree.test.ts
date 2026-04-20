@@ -164,7 +164,8 @@ describe('FileTree', () => {
       mockFileService.listDirectory.mockResolvedValue([]);
       openVault('/mock/vault');
 
-      let resolveExport: ((value: { blob: Blob; filename: string }) => void) | null = null;
+      // eslint-disable-next-line prefer-const
+      let resolveExport!: (value: { blob: Blob; filename: string }) => void;
       mockFileService.exportVault.mockImplementation(
         () =>
           new Promise((resolve) => {
@@ -180,7 +181,7 @@ describe('FileTree', () => {
       expect(button.hasAttribute('disabled')).toBe(true);
       expect(button.textContent).toBe('Exporting...');
 
-      resolveExport?.({ blob: new Blob(['zip']), filename: 'mock.zip' });
+      resolveExport({ blob: new Blob(['zip']), filename: 'mock.zip' });
 
       await waitFor(() => {
         expect(button.hasAttribute('disabled')).toBe(false);

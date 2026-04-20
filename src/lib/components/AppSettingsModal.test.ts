@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import AppSettingsModal from './AppSettingsModal.svelte';
+import type { AiSupportStatus } from '$lib/services/aiSupport';
 
 const mocks = vi.hoisted(() => ({
 	mockedStore: {
-		report: null,
+		report: null as AiSupportStatus | null,
 		isLoading: false,
 		isApplying: false,
 		error: null,

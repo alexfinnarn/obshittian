@@ -114,7 +114,7 @@
 
 			<div class="actions" data-testid="ai-support-actions">
 				{#if getActionForState(aiSupportStore.report.state)}
-					{@const nextAction = getActionForState(aiSupportStore.report.state)}
+					{@const nextAction = getActionForState(aiSupportStore.report.state)!}
 					<button
 						class="btn btn-primary"
 						disabled={aiSupportStore.isApplying}
