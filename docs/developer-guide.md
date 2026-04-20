@@ -1,6 +1,7 @@
 # Developer Guide
 
-This guide is the fastest path to running the app locally, opening a vault, and making safe changes without reverse-engineering startup behavior.
+This guide is the fastest path to running the app locally, opening a vault, and making safe 
+changes without reverse-engineering startup behavior.
 
 ## Local Setup
 
@@ -28,7 +29,8 @@ If vault validation fails, the rest of the app cannot function because file acce
 
 ## Expected Vault Shape
 
-The app works with a normal directory of Markdown files. It also creates and reads a few app-owned files inside that vault:
+The app works with a normal directory of Markdown files. It also creates and reads a few 
+app-owned files inside that vault:
 
 - `.editor-config.json` for quick links and quick files
 - `.editor-tags.yaml` for tag autocomplete vocabulary
@@ -40,7 +42,8 @@ The daily-notes folder name comes from config and defaults to `zzz_Daily Notes`.
 
 ## What Happens After a Vault Opens
 
-The app bootstrap lives in `src/routes/+page.svelte`. After a vault is restored or manually opened, it:
+The app bootstrap lives in `src/routes/+page.svelte`. After a vault is restored or manually 
+opened, it:
 
 1. loads vault-owned config from `.editor-config.json`
 2. scans journal dates for the calendar
@@ -69,17 +72,20 @@ Recommended workflow:
 
 ## Runtime Model
 
-This is not a pure client-side app. The browser UI talks to SvelteKit API routes for all filesystem operations.
+This is not a pure client-side app. The browser UI talks to SvelteKit API routes for all 
+filesystem operations.
 
 - Client code uses `fileService`
 - `fileService` calls `/api/files/*`
 - API routes read and write the active vault on disk
 
-Do not import Node filesystem modules into client code. Keep filesystem access behind `src/routes/api/` and `src/lib/services/fileService.ts`.
+Do not import Node filesystem modules into client code. Keep filesystem access behind 
+`src/routes/api/` and `src/lib/services/fileService.ts`.
 
 ## AI Support And Codex Runtime
 
-The AI support install flow is user-driven from `App Settings` in the sidebar. Installing AI support creates `.editor-agent/` inside the active vault.
+The AI support install flow is user-driven from `App Settings` in the sidebar. Installing AI 
+support creates `.editor-agent/` inside the active vault.
 
 Codex journal commands use the app-owned runtime instead of writing YAML directly:
 
@@ -106,7 +112,8 @@ If you change this runtime, update both:
 - `file:open` events are handled at the page level and open files into the left pane
 - `file:save` has no payload and saves the active left-pane tab
 
-If you are changing open/save behavior, verify the event contract in `src/lib/utils/eventBus.ts` and the page-level handlers in `src/routes/+page.svelte`.
+If you are changing open/save behavior, verify the event contract in `src/lib/utils/eventBus.ts` 
+and the page-level handlers in `src/routes/+page.svelte`.
 
 ## Safe Places To Look First
 
@@ -116,6 +123,8 @@ If you are changing open/save behavior, verify the event contract in `src/lib/ut
 
 ## Known Current-State Nuances
 
-- The app persists `editorLastOpenFile`, but current bootstrap restores tabs from `editorLeftPaneTabs`; it does not reopen a single last file from that key.
+- The app persists `editorLastOpenFile`, but current bootstrap restores tabs from 
+  `editorLeftPaneTabs`; it does not reopen a single last file from that key.
 - The pane width is restored from localStorage during bootstrap after settings load.
-- Journal tags are indexed alongside file tags, but journal entries use synthetic source keys instead of normal file paths.
+- Journal tags are indexed alongside file tags, but journal entries use synthetic source keys 
+  instead of normal file paths.

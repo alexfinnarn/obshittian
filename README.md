@@ -1,8 +1,7 @@
 # Markdown Editor
 
-A browser-based Markdown editor for a filesystem-backed vault. It combines a left-pane file editor with a right-pane daily journal and is designed as a lightweight Obsidian-style workspace.
-
-Production: [notes.finnarn.com](https://notes.finnarn.com)
+A browser-based Markdown editor for a filesystem-backed vault. It combines a left-pane file 
+editor with a right-pane daily journal and is designed as a lightweight Obsidian-style workspace.
 
 ## What It Does
 
@@ -40,21 +39,8 @@ Then open `http://localhost:5173` and enter a local vault path in the Vault Pick
 2. Set the active server-side vault root for file API routes
 3. Load vault config, tag metadata, journal dates, and any restorable tabs
 
-The app is not useful until a vault is opened because all file operations are scoped to the active vault directory.
-
-## Common Commands
-
-```bash
-npm run dev
-npm run build
-npm run preview
-npm run check
-npm run test
-npm run test:run
-npm run test:e2e
-npm run test:e2e:ui
-npm run test:e2e:headed
-```
+The app is not useful until a vault is opened because all file operations are scoped to the 
+active vault directory.
 
 ## Documentation
 
@@ -74,4 +60,5 @@ npm run test:e2e:headed
 
 ## Deployment
 
-Deploys automatically to the VPS from `main`. For manual deploys and health-check details, see [docs/local-deployment.md](docs/local-deployment.md).
+Deploys automatically to the VPS from `main`. For manual deploys and health check details, see 
+[docs/local-deployment.md](docs/local-deployment.md).

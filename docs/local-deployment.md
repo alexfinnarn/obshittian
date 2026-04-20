@@ -1,6 +1,7 @@
 # Local Deployment with Kamal
 
-This is a maintainer-focused guide for manual VPS deploys when the normal GitHub Actions path is not enough.
+This is a maintainer-focused guide for manual VPS deploys when the normal GitHub Actions path is 
+not enough.
 
 For local development and vault setup, use the [developer guide](developer-guide.md).
 
@@ -34,7 +35,8 @@ Create a GitHub Personal Access Token with `write:packages` scope for GHCR.
 
 ## Deploy
 
-Kamal tags images from the current git commit SHA. Commit the exact repo state you want to deploy before running deployment commands.
+Kamal tags images from the current git commit SHA. Commit the exact repo state you want to 
+deploy before running deployment commands.
 
 Set the required environment variables:
 
