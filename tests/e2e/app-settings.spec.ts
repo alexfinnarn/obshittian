@@ -50,10 +50,10 @@ test.describe('App Settings AI Support', () => {
 		expect(JSON.parse(configText)).toEqual(
 			expect.objectContaining({
 				version: 1,
-				templateVersion: 2
+				templateVersion: 3
 			})
 		);
 		expect(readmeText).toContain('/api/agent/journal/plan');
-		expect(contractText).toContain('schedule-daily-tasks');
+		expect(contractText).toContain('morning-standup');
 	});
 });

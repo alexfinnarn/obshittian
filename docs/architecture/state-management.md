@@ -9,4 +9,4 @@ State ownership and persistence are documented in:
 
 Current note:
 
-- `vaultConfig` includes `dailyTasks` (simplified to `id`, `name`, `days`) in addition to quick links and quick files
+- `vaultConfig` includes quick links and quick files

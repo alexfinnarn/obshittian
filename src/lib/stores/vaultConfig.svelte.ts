@@ -1,13 +1,12 @@
 /**
  * Vault Config Store - Svelte 5 runes-based store for vault-specific configuration
  *
- * Stores quick links, quick files, and daily tasks from .editor-config.json.
+ * Stores quick links and quick files from .editor-config.json.
  * Falls back to defaults when vault config doesn't exist.
  */
 
 import { vault } from './vault.svelte';
 import { fileService } from '$lib/services/fileService';
-import type { DailyTask } from '$lib/types/dailyTasks';
 
 const CONFIG_FILENAME = '.editor-config.json';
 
@@ -24,7 +23,6 @@ export interface QuickFile {
 export interface VaultConfig {
   quickLinks: QuickLink[];
   quickFiles: QuickFile[];
-  dailyTasks: DailyTask[];
 }
 
 /**
@@ -33,7 +31,6 @@ export interface VaultConfig {
 const DEFAULT_CONFIG: VaultConfig = {
   quickLinks: [],
   quickFiles: [],
-  dailyTasks: [],
 };
 
 /**
@@ -42,7 +39,6 @@ const DEFAULT_CONFIG: VaultConfig = {
 export const vaultConfig = $state<VaultConfig>({
   quickLinks: [],
   quickFiles: [],
-  dailyTasks: [],
 });
 
 /**
@@ -76,46 +72,9 @@ export async function setQuickFiles(files: QuickFile[]): Promise<boolean> {
 }
 
 /**
- * Get current daily tasks
- */
-export function getDailyTasks(): DailyTask[] {
-  return vaultConfig.dailyTasks;
-}
-
-/**
- * Set daily tasks and save to vault
- */
-export async function setDailyTasks(tasks: DailyTask[]): Promise<boolean> {
-  vaultConfig.dailyTasks = tasks;
-  return await saveVaultConfig();
-}
-
-/**
- * Migration interface for old daily task format
- */
-interface LegacyDailyTask {
-  id: string;
-  name: string;
-  tag?: string;
-  targetCount?: number;
-  days?: DailyTask['days'];
-}
-
-/**
- * Migrate legacy daily task definitions to the new simplified format
- */
-function migrateDailyTasks(tasks: LegacyDailyTask[]): DailyTask[] {
-  return tasks.map((task) => ({
-    id: task.id,
-    name: task.name,
-    days: task.days ?? 'daily',
-  }));
-}
-
-/**
  * Load vault config from .editor-config.json
  * Falls back to defaults when file doesn't exist.
- * Migrates legacy data to the current schema on load.
+ * Legacy fields such as dailyTasks are tolerated on read and dropped on the next save.
  */
 export async function loadVaultConfig(
   defaults?: Partial<VaultConfig>
@@ -124,7 +83,6 @@ export async function loadVaultConfig(
     // No vault open, use defaults
     vaultConfig.quickLinks = defaults?.quickLinks ?? DEFAULT_CONFIG.quickLinks;
     vaultConfig.quickFiles = defaults?.quickFiles ?? DEFAULT_CONFIG.quickFiles;
-    vaultConfig.dailyTasks = defaults?.dailyTasks ?? DEFAULT_CONFIG.dailyTasks;
     return { ...vaultConfig };
   }
 
@@ -133,7 +91,6 @@ export async function loadVaultConfig(
     if (!existsResult.exists) {
       vaultConfig.quickLinks = defaults?.quickLinks ?? DEFAULT_CONFIG.quickLinks;
       vaultConfig.quickFiles = defaults?.quickFiles ?? DEFAULT_CONFIG.quickFiles;
-      vaultConfig.dailyTasks = defaults?.dailyTasks ?? DEFAULT_CONFIG.dailyTasks;
       return { ...vaultConfig };
     }
 
@@ -141,22 +98,16 @@ export async function loadVaultConfig(
     const parsed = JSON.parse(text) as {
       quickLinks?: QuickLink[];
       quickFiles?: QuickFile[];
-      dailyTasks?: LegacyDailyTask[];
     };
 
     // Use vault config values, falling back to provided defaults
     vaultConfig.quickLinks = parsed.quickLinks ?? defaults?.quickLinks ?? DEFAULT_CONFIG.quickLinks;
     vaultConfig.quickFiles = parsed.quickFiles ?? defaults?.quickFiles ?? DEFAULT_CONFIG.quickFiles;
-
-    // Migrate daily tasks if they exist
-    const rawDailyTasks = parsed.dailyTasks ?? defaults?.dailyTasks ?? DEFAULT_CONFIG.dailyTasks;
-    vaultConfig.dailyTasks = migrateDailyTasks(rawDailyTasks as LegacyDailyTask[]);
   } catch (err) {
     // File doesn't exist or is invalid - use defaults
     console.warn('Error reading vault config:', (err as Error).message);
     vaultConfig.quickLinks = defaults?.quickLinks ?? DEFAULT_CONFIG.quickLinks;
     vaultConfig.quickFiles = defaults?.quickFiles ?? DEFAULT_CONFIG.quickFiles;
-    vaultConfig.dailyTasks = defaults?.dailyTasks ?? DEFAULT_CONFIG.dailyTasks;
   }
 
   return { ...vaultConfig };
@@ -175,7 +126,6 @@ export async function saveVaultConfig(): Promise<boolean> {
     const data: VaultConfig = {
       quickLinks: vaultConfig.quickLinks,
       quickFiles: vaultConfig.quickFiles,
-      dailyTasks: vaultConfig.dailyTasks,
     };
     await fileService.writeFile(CONFIG_FILENAME, JSON.stringify(data, null, 2));
     return true;
@@ -191,5 +141,4 @@ export async function saveVaultConfig(): Promise<boolean> {
 export function resetVaultConfig(): void {
   vaultConfig.quickLinks = [];
   vaultConfig.quickFiles = [];
-  vaultConfig.dailyTasks = [];
 }

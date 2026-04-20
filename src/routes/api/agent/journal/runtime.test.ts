@@ -36,17 +36,20 @@ describe('agent journal runtime', () => {
 			journalPath,
 			yaml.dump({
 				version: 3,
-				entries: [],
-				taskItems: [
+				entries: [
 					{
-						id: 'existing-task',
-						taskId: 'gym',
-						text: 'Warm up',
-						status: 'pending',
-						tags: ['#dt/gym'],
-						order: 1,
+						id: 'entry-1',
+						text: 'Existing note',
+						tags: ['standup'],
 						createdAt: '2026-03-15T08:00:00.000Z',
 						updatedAt: '2026-03-15T08:00:00.000Z'
+					}
+				],
+				taskItems: [
+					{
+						id: 'legacy-task',
+						taskId: 'gym',
+						text: 'Warm up'
 					}
 				]
 			})
@@ -65,13 +68,6 @@ describe('agent journal runtime', () => {
 							text: '## Standup\n\n- Focus on shipping phase 04',
 							tags: ['standup']
 						}
-					],
-					taskItemUpserts: [
-						{
-							taskId: 'gym',
-							text: 'Lift',
-							status: 'pending'
-						}
 					]
 				})
 			})
@@ -83,10 +79,9 @@ describe('agent journal runtime', () => {
 		expect(data.hasChanges).toBe(true);
 		expect(data.summary.fileAction).toBe('update');
 		expect(data.summary.entryAdds).toBe(1);
-		expect(data.summary.taskItemAdds).toBe(1);
 		expect(data.diff).toContain('+++ Daily/2026/03/2026-03-15.yaml');
 		expect(data.diff).toContain('Focus on shipping phase 04');
-		expect(data.diff).toContain('Lift');
+		expect(data.proposedData).not.toHaveProperty('taskItems');
 		expect(after).toBe(before);
 	});
 
@@ -100,8 +95,7 @@ describe('agent journal runtime', () => {
 			journalPath,
 			yaml.dump({
 				version: 3,
-				entries: [],
-				taskItems: []
+				entries: []
 			})
 		);
 
@@ -113,7 +107,7 @@ describe('agent journal runtime', () => {
 					date: '2026-03-15',
 					dailyNotesFolder: 'Daily',
 					confirm: false,
-					taskItemUpserts: [{ taskId: 'gym', text: 'Workout' }]
+					entryUpserts: [{ text: 'Workout note', tags: ['health'] }]
 				})
 			})
 		} as never);
@@ -127,24 +121,23 @@ describe('agent journal runtime', () => {
 					date: '2026-03-15',
 					dailyNotesFolder: 'Daily',
 					confirm: true,
-					taskItemUpserts: [{ taskId: 'gym', text: 'Workout', tags: ['#dt/gym'] }]
+					entryUpserts: [{ text: 'Workout note', tags: ['health'] }]
 				})
 			})
 		} as never);
 		const data = await accepted.json();
 		const saved = yaml.load(await readFile(journalPath, 'utf-8')) as {
-			taskItems: Array<{ taskId: string; text: string; tags: string[] }>;
+			entries: Array<{ text: string; tags: string[] }>;
 		};
 
 		expect(accepted.status).toBe(200);
 		expect(data.success).toBe(true);
 		expect(data.summary.fileAction).toBe('create');
-		expect(saved.taskItems).toHaveLength(1);
-		expect(saved.taskItems[0]).toEqual(
+		expect(saved.entries).toHaveLength(1);
+		expect(saved.entries[0]).toEqual(
 			expect.objectContaining({
-				taskId: 'gym',
-				text: 'Workout',
-				tags: ['#dt/gym']
+				text: 'Workout note',
+				tags: ['health']
 			})
 		);
 	});
@@ -161,7 +154,7 @@ describe('agent journal runtime', () => {
 				body: JSON.stringify({
 					date: '2026-03-15',
 					dailyNotesFolder: 'Daily',
-					taskItemDeleteIds: ['missing-id']
+					entryDeleteIds: ['missing-id']
 				})
 			})
 		} as never);

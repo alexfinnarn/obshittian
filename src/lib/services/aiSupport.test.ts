@@ -120,14 +120,14 @@ describe('aiSupport service', () => {
 	it('reinstalls invalid managed files without overwriting optional overrides', async () => {
 		await mockFileService.writeFile(AI_SUPPORT_CONTRACT_PATH, '# broken');
 		await mockFileService.writeFile(
-			AI_SUPPORT_COMMANDS['schedule-daily-tasks'].overridePath,
+			AI_SUPPORT_COMMANDS['morning-standup'].overridePath,
 			'# keep me'
 		);
 
 		const result = await reinstallAiSupport(mockFileService);
 
 		expect(result.state).toBe('installed');
-		expect(await mockFileService.readFile(AI_SUPPORT_COMMANDS['schedule-daily-tasks'].overridePath)).toBe(
+		expect(await mockFileService.readFile(AI_SUPPORT_COMMANDS['morning-standup'].overridePath)).toBe(
 			'# keep me'
 		);
 	});

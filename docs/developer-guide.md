@@ -30,7 +30,7 @@ If vault validation fails, the rest of the app cannot function because file acce
 
 The app works with a normal directory of Markdown files. It also creates and reads a few app-owned files inside that vault:
 
-- `.editor-config.json` for quick links, quick files, and daily tasks
+- `.editor-config.json` for quick links and quick files
 - `.editor-tags.yaml` for tag autocomplete vocabulary
 - `.editor-agent/` for vault-local AI support install metadata and command override locations
 - `zzz_Daily Notes/YYYY/MM/YYYY-MM-DD.yaml` for journal entries by default
@@ -81,7 +81,7 @@ Do not import Node filesystem modules into client code. Keep filesystem access b
 
 The AI support install flow is user-driven from `App Settings` in the sidebar. Installing AI support creates `.editor-agent/` inside the active vault.
 
-Codex daily-task commands use the app-owned runtime instead of writing YAML directly:
+Codex journal commands use the app-owned runtime instead of writing YAML directly:
 
 - `POST /api/agent/context`
 - `POST /api/agent/journal/plan`
@@ -97,7 +97,7 @@ The intended flow is:
 If you change this runtime, update both:
 
 - `docs/reference/ai-command-runtime.md`
-- `docs/skills/vault-agent-daily-tasks/`
+- `docs/skills/vault-agent-journal/`
 
 ## Core Editing Behaviors
 

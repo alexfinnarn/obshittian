@@ -19,6 +19,10 @@
     {
       "name": "New Test Link",
       "url": "https://newtest.example.com"
+    },
+    {
+      "name": "New Test Link",
+      "url": "https://newtest.example.com"
     }
   ],
   "quickFiles": [

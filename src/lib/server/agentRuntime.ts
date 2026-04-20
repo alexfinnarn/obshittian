@@ -8,15 +8,11 @@ import {
 	type AiSupportConfig
 } from '$lib/services/aiSupport';
 import {
-	createDailyTaskItem,
 	createJournalEntry,
 	JOURNAL_DATA_VERSION,
-	type DailyTaskItem,
-	type DailyTaskItemStatus,
 	type JournalData,
 	type JournalEntry
 } from '$lib/types/journal';
-import type { DailyTask, DayOfWeek } from '$lib/types/dailyTasks';
 import {
 	BadRequestError,
 	getVaultRoot,
@@ -24,23 +20,11 @@ import {
 	VaultNotConfiguredError
 } from './pathUtils';
 
-const VAULT_CONFIG_PATH = '.editor-config.json';
-
-interface VaultConfigFile {
-	dailyTasks?: DailyTask[];
-}
-
 const DEFAULT_DAILY_NOTES_FOLDER = 'zzz_Daily Notes';
 
 export interface AgentCommandContext {
 	date: string;
 	journalPath: string;
-	dailyTasks: Array<
-		DailyTask & {
-			taskTag: string;
-			visibleOnDate: boolean;
-		}
-	>;
 	journal: JournalData;
 	override: {
 		commandId: AiSupportCommandId;
@@ -57,16 +41,6 @@ export interface JournalEntryUpsert {
 	id?: string;
 	text: string;
 	tags?: string[];
-	order?: number;
-}
-
-export interface TaskItemUpsert {
-	id?: string;
-	taskId: string;
-	text: string;
-	status?: DailyTaskItemStatus;
-	tags?: string[];
-	order?: number;
 }
 
 export interface JournalChangeRequest {
@@ -74,8 +48,6 @@ export interface JournalChangeRequest {
 	dailyNotesFolder?: string;
 	entryUpserts?: JournalEntryUpsert[];
 	entryDeleteIds?: string[];
-	taskItemUpserts?: TaskItemUpsert[];
-	taskItemDeleteIds?: string[];
 }
 
 export interface JournalPlanSummary {
@@ -83,9 +55,6 @@ export interface JournalPlanSummary {
 	entryAdds: number;
 	entryUpdates: number;
 	entryDeletes: number;
-	taskItemAdds: number;
-	taskItemUpdates: number;
-	taskItemDeletes: number;
 }
 
 export interface JournalPlanResult {
@@ -135,30 +104,15 @@ function normalizeJournalEntry(entry: Partial<JournalEntry>): JournalEntry {
 		id: entry.id ?? crypto.randomUUID(),
 		text: entry.text ?? '',
 		tags: entry.tags ?? [],
-		order: entry.order ?? 1,
 		createdAt: entry.createdAt ?? new Date().toISOString(),
 		updatedAt: entry.updatedAt ?? entry.createdAt ?? new Date().toISOString()
-	};
-}
-
-function normalizeTaskItem(item: Partial<DailyTaskItem>): DailyTaskItem {
-	return {
-		id: item.id ?? crypto.randomUUID(),
-		taskId: item.taskId ?? '',
-		text: item.text ?? '',
-		status: item.status ?? 'pending',
-		tags: item.tags ?? [],
-		order: item.order ?? 1,
-		createdAt: item.createdAt ?? new Date().toISOString(),
-		updatedAt: item.updatedAt ?? item.createdAt ?? new Date().toISOString()
 	};
 }
 
 function normalizeJournalData(data?: Partial<JournalData>): JournalData {
 	return {
 		version: JOURNAL_DATA_VERSION,
-		entries: (data?.entries ?? []).map(normalizeJournalEntry).sort((a, b) => a.order - b.order),
-		taskItems: (data?.taskItems ?? []).map(normalizeTaskItem).sort((a, b) => a.order - b.order)
+		entries: (data?.entries ?? []).map(normalizeJournalEntry)
 	};
 }
 
@@ -173,8 +127,7 @@ function serializeJournalData(data: JournalData): string {
 function getEmptyJournalData(): JournalData {
 	return {
 		version: JOURNAL_DATA_VERSION,
-		entries: [],
-		taskItems: []
+		entries: []
 	};
 }
 
@@ -184,17 +137,6 @@ async function maybeReadFile(relativePath: string): Promise<string | null> {
 		return await readFile(resolved, 'utf-8');
 	} catch {
 		return null;
-	}
-}
-
-async function loadVaultConfig(): Promise<VaultConfigFile> {
-	const text = await maybeReadFile(VAULT_CONFIG_PATH);
-	if (!text) return {};
-
-	try {
-		return JSON.parse(text) as VaultConfigFile;
-	} catch {
-		return {};
 	}
 }
 
@@ -221,25 +163,6 @@ async function loadJournalDataForDate(dateString: string, dailyNotesFolder: stri
 	}
 }
 
-function getTaskTag(taskId: string): string {
-	return `#dt/${taskId}`;
-}
-
-const DAY_NAMES: DayOfWeek[] = [
-	'sunday',
-	'monday',
-	'tuesday',
-	'wednesday',
-	'thursday',
-	'friday',
-	'saturday'
-];
-
-function isTaskVisibleOnDate(task: DailyTask, date: Date): boolean {
-	if (task.days === 'daily') return true;
-	return task.days.includes(DAY_NAMES[date.getDay()]);
-}
-
 async function readCommandOverride(
 	commandId: AiSupportCommandId
 ): Promise<{ commandId: AiSupportCommandId; path: string; content: string | null }> {
@@ -261,35 +184,10 @@ function validateEntryUpsert(input: JournalEntryUpsert): void {
 	}
 }
 
-function validateTaskItemUpsert(input: TaskItemUpsert): void {
-	if (typeof input.taskId !== 'string' || !input.taskId.trim()) {
-		throw new BadRequestError('Task item upserts require a taskId.');
-	}
-	if (typeof input.text !== 'string') {
-		throw new BadRequestError('Task item upserts require string text.');
-	}
-	if (input.tags && !Array.isArray(input.tags)) {
-		throw new BadRequestError('Task item upsert tags must be an array when provided.');
-	}
-	if (input.status && !['pending', 'in-progress', 'completed'].includes(input.status)) {
-		throw new BadRequestError('Task item status must be pending, in-progress, or completed.');
-	}
-}
-
-function nextEntryOrder(entries: JournalEntry[]): number {
-	return entries.length === 0 ? 1 : Math.max(...entries.map((entry) => entry.order)) + 1;
-}
-
-function nextTaskItemOrder(taskItems: DailyTaskItem[], taskId: string): number {
-	const matching = taskItems.filter((item) => item.taskId === taskId);
-	return matching.length === 0 ? 1 : Math.max(...matching.map((item) => item.order)) + 1;
-}
-
 function cloneJournalData(data: JournalData): JournalData {
 	return {
 		version: data.version,
-		entries: data.entries.map((entry) => ({ ...entry, tags: [...entry.tags] })),
-		taskItems: data.taskItems.map((item) => ({ ...item, tags: [...item.tags] }))
+		entries: data.entries.map((entry) => ({ ...entry, tags: [...entry.tags] }))
 	};
 }
 
@@ -353,23 +251,7 @@ function countEntryUpdates(before: JournalEntry[], after: JournalEntry[]): numbe
 		if (!previous) return false;
 		return (
 			previous.text !== entry.text ||
-			previous.order !== entry.order ||
 			JSON.stringify(previous.tags) !== JSON.stringify(entry.tags)
-		);
-	}).length;
-}
-
-function countTaskItemUpdates(before: DailyTaskItem[], after: DailyTaskItem[]): number {
-	const beforeById = new Map(before.map((item) => [item.id, item]));
-	return after.filter((item) => {
-		const previous = beforeById.get(item.id);
-		if (!previous) return false;
-		return (
-			previous.text !== item.text ||
-			previous.order !== item.order ||
-			previous.status !== item.status ||
-			previous.taskId !== item.taskId ||
-			JSON.stringify(previous.tags) !== JSON.stringify(item.tags)
 		);
 	}).length;
 }
@@ -377,41 +259,21 @@ function countTaskItemUpdates(before: DailyTaskItem[], after: DailyTaskItem[]): 
 function buildSummary(before: JournalData, after: JournalData): JournalPlanSummary {
 	const beforeEntryIds = new Set(before.entries.map((entry) => entry.id));
 	const afterEntryIds = new Set(after.entries.map((entry) => entry.id));
-	const beforeTaskIds = new Set(before.taskItems.map((item) => item.id));
-	const afterTaskIds = new Set(after.taskItems.map((item) => item.id));
 
 	const entryAdds = after.entries.filter((entry) => !beforeEntryIds.has(entry.id)).length;
 	const entryDeletes = before.entries.filter((entry) => !afterEntryIds.has(entry.id)).length;
-	const taskItemAdds = after.taskItems.filter((item) => !beforeTaskIds.has(item.id)).length;
-	const taskItemDeletes = before.taskItems.filter((item) => !afterTaskIds.has(item.id)).length;
 	const entryUpdates = countEntryUpdates(before.entries, after.entries);
-	const taskItemUpdates = countTaskItemUpdates(before.taskItems, after.taskItems);
-
-	const beforeHasContent = before.entries.length > 0 || before.taskItems.length > 0;
-	const afterHasContent = after.entries.length > 0 || after.taskItems.length > 0;
 
 	let fileAction: JournalPlanSummary['fileAction'] = 'noop';
-	if (!beforeHasContent && afterHasContent) fileAction = 'create';
-	else if (beforeHasContent && !afterHasContent) fileAction = 'delete';
-	else if (
-		entryAdds > 0 ||
-		entryDeletes > 0 ||
-		entryUpdates > 0 ||
-		taskItemAdds > 0 ||
-		taskItemDeletes > 0 ||
-		taskItemUpdates > 0
-	) {
-		fileAction = 'update';
-	}
+	if (before.entries.length === 0 && after.entries.length > 0) fileAction = 'create';
+	else if (before.entries.length > 0 && after.entries.length === 0) fileAction = 'delete';
+	else if (entryAdds > 0 || entryDeletes > 0 || entryUpdates > 0) fileAction = 'update';
 
 	return {
 		fileAction,
 		entryAdds,
 		entryUpdates,
-		entryDeletes,
-		taskItemAdds,
-		taskItemUpdates,
-		taskItemDeletes
+		entryDeletes
 	};
 }
 
@@ -440,56 +302,13 @@ function applyEntryChanges(base: JournalData, request: JournalChangeRequest): Jo
 			}
 			existing.text = upsert.text;
 			existing.tags = upsert.tags ?? existing.tags;
-			existing.order = upsert.order ?? existing.order;
 			existing.updatedAt = new Date().toISOString();
 		} else {
-			const entry = createJournalEntry(
-				upsert.text,
-				upsert.tags ?? [],
-				upsert.order ?? nextEntryOrder(next.entries)
-			);
+			const entry = createJournalEntry(upsert.text, upsert.tags ?? []);
 			next.entries = [...next.entries, entry];
 		}
 	}
 
-	next.entries.sort((a, b) => a.order - b.order);
-	return next;
-}
-
-function applyTaskItemChanges(base: JournalData, request: JournalChangeRequest): JournalData {
-	const next = cloneJournalData(base);
-	const deleteIds = request.taskItemDeleteIds ?? [];
-	const upserts = request.taskItemUpserts ?? [];
-
-	ensureKnownIds(next.taskItems, deleteIds, 'taskItemDeleteIds');
-	next.taskItems = next.taskItems.filter((item) => !deleteIds.includes(item.id));
-
-	for (const upsert of upserts) {
-		validateTaskItemUpsert(upsert);
-		if (upsert.id) {
-			const existing = next.taskItems.find((item) => item.id === upsert.id);
-			if (!existing) {
-				throw new BadRequestError(`taskItemUpserts references unknown id: ${upsert.id}`);
-			}
-			existing.taskId = upsert.taskId;
-			existing.text = upsert.text;
-			existing.status = upsert.status ?? existing.status;
-			existing.tags = upsert.tags ?? existing.tags;
-			existing.order = upsert.order ?? existing.order;
-			existing.updatedAt = new Date().toISOString();
-		} else {
-			const item = createDailyTaskItem(
-				upsert.taskId,
-				upsert.text,
-				upsert.tags ?? [getTaskTag(upsert.taskId)],
-				upsert.order ?? nextTaskItemOrder(next.taskItems, upsert.taskId)
-			);
-			item.status = upsert.status ?? item.status;
-			next.taskItems = [...next.taskItems, item];
-		}
-	}
-
-	next.taskItems.sort((a, b) => a.order - b.order);
 	return next;
 }
 
@@ -499,20 +318,14 @@ export async function buildAgentContext(
 	dailyNotesFolder = DEFAULT_DAILY_NOTES_FOLDER
 ): Promise<AgentCommandContext> {
 	getVaultRoot();
+	parseDateString(dateString);
 
-	const parsedDate = parseDateString(dateString);
-	const vaultConfig = await loadVaultConfig();
 	const aiSupportConfig = await loadAiSupportConfig();
 	const journal = await loadJournalDataForDate(dateString, dailyNotesFolder);
 
 	return {
 		date: dateString,
 		journalPath: getJournalRelativePath(dateString, dailyNotesFolder),
-		dailyTasks: (vaultConfig.dailyTasks ?? []).map((task) => ({
-			...task,
-			taskTag: getTaskTag(task.id),
-			visibleOnDate: isTaskVisibleOnDate(task, parsedDate.date)
-		})),
 		journal,
 		override: commandId ? await readCommandOverride(commandId) : null,
 		aiSupport: {
@@ -527,13 +340,10 @@ export async function planJournalChanges(request: JournalChangeRequest): Promise
 
 	const dailyNotesFolder = request.dailyNotesFolder ?? DEFAULT_DAILY_NOTES_FOLDER;
 	const currentData = await loadJournalDataForDate(request.date, dailyNotesFolder);
-	const withEntryChanges = applyEntryChanges(currentData, request);
-	const proposedData = applyTaskItemChanges(withEntryChanges, request);
+	const proposedData = applyEntryChanges(currentData, request);
 	const journalPath = getJournalRelativePath(request.date, dailyNotesFolder);
-	const beforeHasContent = currentData.entries.length > 0 || currentData.taskItems.length > 0;
-	const afterHasContent = proposedData.entries.length > 0 || proposedData.taskItems.length > 0;
-	const currentText = beforeHasContent ? serializeJournalData(currentData) : '';
-	const proposedText = afterHasContent ? serializeJournalData(proposedData) : '';
+	const currentText = currentData.entries.length > 0 ? serializeJournalData(currentData) : '';
+	const proposedText = proposedData.entries.length > 0 ? serializeJournalData(proposedData) : '';
 	const diff = createLineDiff(currentText, proposedText, journalPath);
 	const summary = buildSummary(currentData, proposedData);
 
@@ -556,8 +366,7 @@ export async function applyJournalChanges(request: JournalChangeRequest): Promis
 		return plan;
 	}
 
-	const hasContent = plan.proposedData.entries.length > 0 || plan.proposedData.taskItems.length > 0;
-	if (!hasContent) {
+	if (plan.proposedData.entries.length === 0) {
 		try {
 			await unlink(resolvedPath);
 		} catch {
@@ -580,9 +389,6 @@ export function validateJournalChangeRequest(body: JournalChangeRequest): void {
 
 	for (const upsert of body.entryUpserts ?? []) {
 		validateEntryUpsert(upsert);
-	}
-	for (const upsert of body.taskItemUpserts ?? []) {
-		validateTaskItemUpsert(upsert);
 	}
 }
 

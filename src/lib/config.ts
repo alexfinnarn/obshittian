@@ -92,7 +92,7 @@ export const defaultConfig: EditorConfig = {
   ],
 
   // Journal Settings
-  defaultJournalEntryTypes: ['note', 'task', 'idea'],
+  defaultJournalEntryTypes: ['note', 'idea'],
 
   // Keyboard Shortcuts
   // Note: 'meta' = Cmd on Mac, Ctrl on Windows/Linux

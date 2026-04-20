@@ -7,14 +7,11 @@ import {
   hasEntriesForDate,
   getDatesWithEntries,
   addEntry,
-  addTaskItem,
   removeEntry,
-  removeTaskItem,
   updateEntryText,
   updateEntryTags,
   addTagToEntry,
   removeTagFromEntry,
-  updateEntryOrder,
   loadEntriesForDate,
   saveEntries,
   resetJournal,
@@ -139,9 +136,10 @@ entries:
       expect(entries[0].id).toBe('test-1');
       expect(entries[0].text).toBe('Test entry');
       expect(entries[0].tags).toEqual(['note', 'important']);
+      expect(entries[0]).not.toHaveProperty('order');
     });
 
-    it('loads task items from version 3 files', async () => {
+    it('ignores legacy task items from version 3 files', async () => {
       openVault('/mock/vault');
       mockFileService.exists.mockResolvedValue({ exists: true, kind: 'file' });
       mockFileService.readFile.mockResolvedValue(`version: 3
@@ -160,14 +158,7 @@ taskItems:
 
       await loadEntriesForDate(new Date(2025, 0, 15));
 
-      expect(journalStore.taskItems).toEqual([
-        expect.objectContaining({
-          id: 'task-1',
-          taskId: 'gym',
-          status: 'completed',
-          tags: ['#dt/gym'],
-        }),
-      ]);
+      expect(journalStore.entries).toEqual([]);
     });
   });
 
@@ -191,17 +182,9 @@ taskItems:
       expect(entry).not.toBeNull();
       expect(entry!.text).toBe('Test entry');
       expect(entry!.tags).toEqual(['note', 'important']);
-      expect(entry!.order).toBe(1);
       expect(entry!.id).toBeDefined();
       expect(entry!.createdAt).toBeDefined();
       expect(entry!.updatedAt).toBeDefined();
-    });
-
-    it('auto-increments order', async () => {
-      await addEntry('First');
-      const second = await addEntry('Second');
-
-      expect(second!.order).toBe(2);
     });
 
     it('uses empty tags array when not specified', async () => {
@@ -250,48 +233,6 @@ taskItems:
       expect(hasEntriesForDate('2025-01-15')).toBe(false);
     });
 
-    it('keeps datesWithEntries when task items still exist', async () => {
-      await addTaskItem('gym', 'Warm up', ['#dt/gym']);
-
-      const entryId = journalStore.entries[0].id;
-      await removeEntry(entryId);
-
-      expect(hasEntriesForDate('2025-01-15')).toBe(true);
-    });
-  });
-
-  describe('task item CRUD', () => {
-    beforeEach(() => {
-      openVault('/mock/vault');
-      mockFileService.exists.mockResolvedValue({ exists: true, kind: 'directory' });
-      mockFileService.writeFile.mockResolvedValue(undefined);
-      journalStore.selectedDate = new Date(2025, 0, 15);
-    });
-
-    it('adds task items with tag index entries', async () => {
-      const item = await addTaskItem('gym', 'Warm up', ['#dt/gym', 'workout']);
-
-      expect(item).not.toBeNull();
-      expect(hasEntriesForDate('2025-01-15')).toBe(true);
-
-      const [sourceKey] = Object.keys(tagsStore.index.files);
-      expect(sourceKey).toMatch(/^taskItem:2025-01-15#/);
-      expect(tagsStore.index.files[sourceKey]).toEqual(['#dt/gym', 'workout']);
-      expect(tagsStore.index.tags['#dt/gym']).toContain(sourceKey);
-      expect(tagsStore.index.tags.workout).toContain(sourceKey);
-    });
-
-    it('removes task item tag index entries and clears datesWithEntries when empty', async () => {
-      const item = await addTaskItem('gym', 'Warm up', ['#dt/gym']);
-      expect(item).not.toBeNull();
-
-      const removed = await removeTaskItem(item!.id);
-
-      expect(removed).toBe(true);
-      expect(hasEntriesForDate('2025-01-15')).toBe(false);
-      expect(Object.keys(tagsStore.index.files)).toEqual([]);
-      expect(tagsStore.index.tags['#dt/gym']).toBeUndefined();
-    });
   });
 
   describe('updateEntryText', () => {
@@ -422,29 +363,6 @@ taskItems:
     });
   });
 
-  describe('updateEntryOrder', () => {
-    beforeEach(async () => {
-      openVault('/mock/vault');
-      mockFileService.exists.mockResolvedValue({ exists: true, kind: 'directory' });
-      mockFileService.writeFile.mockResolvedValue(undefined);
-      journalStore.selectedDate = new Date(2025, 0, 15);
-      await addEntry('Test');
-    });
-
-    it('updates order', async () => {
-      const entryId = journalStore.entries[0].id;
-      const result = await updateEntryOrder(entryId, 5);
-
-      expect(result).toBe(true);
-      expect(journalStore.entries[0].order).toBe(5);
-    });
-
-    it('returns false for non-existent id', async () => {
-      const result = await updateEntryOrder('non-existent', 5);
-      expect(result).toBe(false);
-    });
-  });
-
   describe('saveEntries', () => {
     it('returns false when no vault is open', async () => {
       journalStore.selectedDate = new Date(2025, 0, 15);
@@ -491,7 +409,6 @@ taskItems:
 
       expect(journalStore.selectedDate).toBeNull();
       expect(journalStore.entries).toEqual([]);
-      expect(journalStore.taskItems).toEqual([]);
       expect(journalStore.isLoading).toBe(false);
       expect(journalStore.datesWithEntries.size).toBe(0);
     });

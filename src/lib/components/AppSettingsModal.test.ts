@@ -44,8 +44,8 @@ describe('AppSettingsModal', () => {
 			],
 			overrideFiles: [
 				{
-					commandId: 'schedule-daily-tasks',
-					path: '.editor-agent/commands/schedule-daily-tasks.md',
+					commandId: 'morning-standup',
+					path: '.editor-agent/commands/morning-standup.md',
 					exists: false
 				}
 			],
@@ -59,7 +59,7 @@ describe('AppSettingsModal', () => {
 		expect(screen.getByText('AI Support')).toBeTruthy();
 		expect(screen.getByTestId('ai-support-state').textContent).toContain('installed');
 		expect(screen.getByText('.editor-agent/config.json')).toBeTruthy();
-		expect(screen.getByText('.editor-agent/commands/schedule-daily-tasks.md')).toBeTruthy();
+		expect(screen.getByText('.editor-agent/commands/morning-standup.md')).toBeTruthy();
 		expect(screen.getByText('AI support is up to date.')).toBeTruthy();
 	});
 

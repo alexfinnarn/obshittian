@@ -39,7 +39,7 @@ The main state boundaries are:
 
 - `vault`: active vault path and daily-notes folder
 - `settings`: user preferences from localStorage
-- `vaultConfig`: vault-owned quick links, quick files, and daily tasks
+- `vaultConfig`: vault-owned quick links and quick files
 - `tabsStore`: left-pane tab state
 - `journalStore`: selected date and journal entries
 - `tagsStore`: tag index and search metadata
@@ -143,7 +143,6 @@ The page component is the main subscriber for file lifecycle events. Keep that i
 ## Where To Document Details
 
 - Storage shapes and persisted files: [../reference/storage-contracts.md](../reference/storage-contracts.md)
-- Daily tasks and AI support summary: [../reference/daily-tasks-and-ai-support.md](../reference/daily-tasks-and-ai-support.md)
 - AI command runtime contract: [../reference/ai-command-runtime.md](../reference/ai-command-runtime.md)
 - Local run and contributor workflow: [../developer-guide.md](../developer-guide.md)
 - Deployment and health checks: [../local-deployment.md](../local-deployment.md)

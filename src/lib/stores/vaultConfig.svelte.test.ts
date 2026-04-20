@@ -98,6 +98,7 @@ describe('vaultConfig store', () => {
         JSON.stringify({
           quickLinks: [{ name: 'Test', url: 'https://test.com' }],
           quickFiles: [{ name: 'Todo', path: 'todo.md' }],
+          dailyTasks: [{ id: 'gym', name: 'Gym', days: 'daily' }],
         })
       );
 
@@ -105,6 +106,22 @@ describe('vaultConfig store', () => {
 
       expect(result.quickLinks).toEqual([{ name: 'Test', url: 'https://test.com' }]);
       expect(result.quickFiles).toEqual([{ name: 'Todo', path: 'todo.md' }]);
+    });
+
+    it('ignores legacy dailyTasks config on load', async () => {
+      openVault('/mock/vault');
+      mockFileService.exists.mockResolvedValue({ exists: true, kind: 'file' });
+      mockFileService.readFile.mockResolvedValue(
+        JSON.stringify({
+          quickLinks: [],
+          quickFiles: [],
+          dailyTasks: [{ id: 'gym', name: 'Gym', days: 'daily' }],
+        })
+      );
+
+      const result = await loadVaultConfig();
+
+      expect(result).not.toHaveProperty('dailyTasks');
     });
 
     it('uses defaults when file not found', async () => {
@@ -141,7 +158,17 @@ describe('vaultConfig store', () => {
       const result = await saveVaultConfig();
 
       expect(result).toBe(true);
-      expect(mockFileService.writeFile).toHaveBeenCalled();
+      expect(mockFileService.writeFile).toHaveBeenCalledWith(
+        '.editor-config.json',
+        JSON.stringify(
+          {
+            quickLinks: [{ name: 'Test', url: 'https://test.com' }],
+            quickFiles: [{ name: 'File', path: 'file.md' }],
+          },
+          null,
+          2
+        )
+      );
     });
 
     it('returns false when no vault is open', async () => {

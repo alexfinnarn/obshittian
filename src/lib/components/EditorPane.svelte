@@ -187,11 +187,17 @@
   </header>
 
   <div class="pane-content">
-    {#if viewMode === 'edit'}
-      <CodeMirrorEditor bind:this={editorComponent} content={effectiveContent} onchange={handleContentChange} />
-    {:else}
-      <MarkdownPreview content={effectiveContent} />
-    {/if}
+    <div
+      class="pane-content-shell"
+      class:writing-shell={viewMode === 'edit'}
+      class:reading-shell={viewMode === 'view'}
+    >
+      {#if viewMode === 'edit'}
+        <CodeMirrorEditor bind:this={editorComponent} content={effectiveContent} onchange={handleContentChange} />
+      {:else}
+        <MarkdownPreview content={effectiveContent} />
+      {/if}
+    </div>
   </div>
 </div>
 
@@ -217,8 +223,25 @@
 
   .pane-content {
     flex: 1;
+    display: flex;
     overflow: hidden;
     min-height: 0;
+  }
+
+  .pane-content-shell {
+    flex: 1;
+    width: min(100%, var(--content-measure));
+    min-width: 0;
+    height: 100%;
+    margin-inline: auto;
+  }
+
+  .pane-content-shell.reading-shell {
+    --content-measure: 72ch;
+  }
+
+  .pane-content-shell.writing-shell {
+    --content-measure: 84ch;
   }
 
   .pane-toolbar-start {

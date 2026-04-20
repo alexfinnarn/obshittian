@@ -2,16 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { readFile } from 'fs/promises';
 import path from 'path';
 
-const skillDir = path.resolve('docs/skills/vault-agent-daily-tasks');
+const skillDir = path.resolve('docs/skills/vault-agent-journal');
 
-describe('vault-agent daily tasks skill package', () => {
-	it('includes the shared package file and all three command docs', async () => {
-		const filenames = [
-			'README.md',
-			'schedule-daily-tasks.md',
-			'morning-standup.md',
-			'evening-review.md'
-		];
+describe('vault-agent journal skill package', () => {
+	it('includes the shared package file and both command docs', async () => {
+		const filenames = ['README.md', 'morning-standup.md', 'evening-review.md'];
 
 		const contents = await Promise.all(
 			filenames.map(async (filename) => {
@@ -23,8 +18,7 @@ describe('vault-agent daily tasks skill package', () => {
 		expect(contents[0]).toContain('POST /api/agent/context');
 		expect(contents[0]).toContain('POST /api/agent/journal/plan');
 		expect(contents[0]).toContain('POST /api/agent/journal/apply');
-		expect(contents[1]).toContain('schedule-daily-tasks');
-		expect(contents[2]).toContain('morning-standup');
-		expect(contents[3]).toContain('evening-review');
+		expect(contents[1]).toContain('morning-standup');
+		expect(contents[2]).toContain('evening-review');
 	});
 });

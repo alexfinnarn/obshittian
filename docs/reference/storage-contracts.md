@@ -10,7 +10,6 @@ Purpose:
 
 - stores vault-specific quick links
 - stores vault-specific quick files
-- stores daily-task definitions used by the journal UI
 
 Current shape:
 
@@ -21,13 +20,6 @@ Current shape:
   ],
   "quickFiles": [
     { "name": "Todo", "path": "01_Todo.md" }
-  ],
-  "dailyTasks": [
-    {
-      "id": "gym",
-      "name": "Gym",
-      "days": "daily"
-    }
   ]
 }
 ```
@@ -36,8 +28,7 @@ Notes:
 
 - the file is optional
 - if it is missing or invalid, the app falls back to defaults
-- `dailyTasks` is part of the real contract and is consumed by the journal pane
-- the task tag (e.g., `#dt/gym`) is derived from `id` at runtime
+- legacy `dailyTasks` fields are ignored on load and dropped on the next save
 
 ### `.editor-tags.yaml`
 
@@ -82,13 +73,10 @@ Current shape:
 ```json
 {
   "version": 1,
-  "templateVersion": 2,
+  "templateVersion": 3,
   "installedAt": "2026-03-15T10:00:00.000Z",
   "updatedAt": "2026-03-15T10:00:00.000Z",
   "commands": {
-    "schedule-daily-tasks": {
-      "overridePath": ".editor-agent/commands/schedule-daily-tasks.md"
-    },
     "morning-standup": {
       "overridePath": ".editor-agent/commands/morning-standup.md"
     },
@@ -106,9 +94,8 @@ Notes:
 - command override files under `.editor-agent/commands/` are optional and user-owned
 - override-file presence does not determine install state
 - the installed contract documents the supported Codex commands and the agent runtime endpoints
-- recurring-task templates remain separate under `templates/tags/dt/<task-id>/NN.md`
 
-### Agent runtime API
+### Agent Runtime API
 
 Purpose:
 
@@ -124,12 +111,12 @@ POST /api/agent/journal/apply
 
 Notes:
 
-- `context` returns recurring-task definitions, current journal state for a date, and optional command-override content
+- `context` returns current journal state for a date and optional command-override content
 - `plan` returns a proposed journal result plus a diff without writing files
 - `apply` performs the same plan and writes it only when `confirm: true`
 - the runtime accepts an optional `dailyNotesFolder` so Codex can target non-default journal directories when needed
 
-### Daily journal YAML
+### Daily Journal YAML
 
 Path pattern:
 
@@ -146,40 +133,19 @@ entries:
     text: Example note
     tags:
       - project
-    order: 1
     createdAt: "2026-03-14T10:00:00.000Z"
     updatedAt: "2026-03-14T10:00:00.000Z"
-taskItems:
-  - id: a1d6cb0d-55d2-4f8a-a7e4-3f4cdb2d3c1b
-    taskId: gym
-    text: Warm up for 10 minutes
-    status: pending
-    tags:
-      - "#dt/gym"
-      - workout
-    order: 1
-    createdAt: "2026-03-14T10:05:00.000Z"
-    updatedAt: "2026-03-14T10:05:00.000Z"
-  - id: c3b2d1b8-e9c2-4a37-b33b-7d7d6929d0af
-    taskId: gym
-    text: Mobility routine
-    status: completed
-    tags:
-      - "#dt/gym"
-    order: 2
-    createdAt: "2026-03-14T10:06:00.000Z"
-    updatedAt: "2026-03-14T10:30:00.000Z"
 ```
 
 Notes:
 
-- the file is deleted when a day has zero entries AND zero task items
+- the file is deleted when a day has zero entries
 - missing files are treated as "no entries for this date"
 - tags are normalized at load time so older entries without `tags` become `[]`
-- task items store their own tags for search/indexing, but task completion is derived from task item status
-- version 2 files are migrated to version 3 in memory with empty `taskItems` array
+- legacy entry `order` values are ignored on load and omitted from new writes
+- legacy `taskItems` fields are tolerated on read and dropped on the next write
 
-### Daily Markdown note
+### Daily Markdown Note
 
 Path pattern:
 
@@ -195,29 +161,6 @@ Notes:
 
 - this is separate from the journal YAML file for the same date
 - the app creates parent year/month folders as needed
-
-### Daily task templates
-
-Path pattern:
-
-```text
-templates/tags/dt/<task-id>/NN.md
-```
-
-Example:
-
-```text
-templates/tags/dt/gym/01.md
-```
-
-Purpose:
-
-- provides template text for task-specific journal entries
-
-Notes:
-
-- task tabs in the journal pane can load these templates
-- missing templates are a validation failure when task template validation is run
 
 ## Browser Persistence
 
@@ -256,93 +199,20 @@ Current shape:
 }
 ```
 
-Notes:
-
-- this is user-local state, not vault-shared state
-- some stored preferences describe intended behavior more broadly than current bootstrap actually uses
-
 ### `editorLeftPaneTabs`
 
 Purpose:
 
-- persists the open left-pane file list and active tab index
-
-Current shape:
-
-```json
-{
-  "tabs": [
-    { "filePath": "README.md", "filename": "README.md" }
-  ],
-  "activeIndex": 0
-}
-```
-
-Notes:
-
-- only file paths and display names are persisted
-- file contents are reloaded from disk during restore
-- this is the active mechanism used for reopening editor tabs
-
-### `editorTagIndex`
-
-Purpose:
-
-- caches the full tag index to avoid rescanning the vault on every load
-
-Current shape:
-
-```json
-{
-  "index": {
-    "files": {
-      "notes/todo.md": ["project"],
-      "journal:2026-03-14#entry-id": ["project", "#dt/gym"]
-    },
-    "tags": {
-      "project": ["notes/todo.md", "journal:2026-03-14#entry-id"]
-    },
-    "allTags": [
-      { "tag": "project", "count": 2 }
-    ]
-  },
-  "meta": {
-    "fileCount": 2,
-    "tagCount": 1,
-    "lastIndexed": 1710420000000
-  }
-}
-```
-
-Notes:
-
-- both Markdown files and journal entries are indexed
-- journal entries use synthetic source keys prefixed with `journal:`
-- if this cache is missing or invalid, the app rebuilds it from the vault
-
-### `editorLastOpenFile`
-
-Purpose:
-
-- stores the path of the most recently active left-pane file
-
-Current behavior:
-
-- the app writes this key when the active tab changes
-- current bootstrap does not use this key to reopen a file; tab restoration comes from `editorLeftPaneTabs`
+- stores the open left-pane tabs and active index between browser sessions
 
 ### `editorPaneWidth`
 
 Purpose:
 
-- stores the left-pane width percentage
+- stores the left/right pane split position
 
-Current behavior:
+### `editorCollapsedPane`
 
-- bootstrap restores this value if present
+Purpose:
 
-## Ownership Rules
-
-- If multiple developers or devices should share it, it belongs in the vault
-- If it is personal browser state, it belongs in localStorage
-- If it is ephemeral session state, it should stay in memory and be recreated during bootstrap
+- stores which pane is collapsed, if any

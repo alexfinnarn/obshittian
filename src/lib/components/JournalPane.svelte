@@ -1,24 +1,8 @@
 <script lang="ts">
-	import {
-		journalStore,
-		getEntries,
-		getTaskItemsByTaskId,
-		addEntry,
-		addTaskItem,
-	} from '$lib/stores/journal.svelte';
-	import { vaultConfig } from '$lib/stores/vaultConfig.svelte';
+	import { journalStore, getEntries, addEntry } from '$lib/stores/journal.svelte';
 	import JournalEntry from './JournalEntry.svelte';
-	import TaskItem from './TaskItem.svelte';
 	import CodeMirrorEditor from './CodeMirrorEditor.svelte';
 	import TagInput from './TagInput.svelte';
-	import DailyTaskTabs from './DailyTaskTabs.svelte';
-	import DailyTasksConfigModal from './DailyTasksConfigModal.svelte';
-	import {
-		isTaskVisibleOnDate,
-		loadNextTemplate,
-		getTaskTag,
-		type DailyTask,
-	} from '$lib/types/dailyTasks';
 
 	interface Props {
 		/** Whether the pane can currently collapse */
@@ -32,70 +16,26 @@
 	let newEntryText = $state('');
 	let newEntryTags = $state<string[]>([]);
 	let isAdding = $state(false);
-	let activeTaskId = $state<string | null>(null);
-	let showConfigModal = $state(false);
-	let isLoadingTemplate = $state(false);
 
-	// Get entries sorted by order
-	const sortedEntries = $derived([...getEntries()].sort((a, b) => a.order - b.order));
-
-	// Get tasks visible on selected date
-	const visibleTasks = $derived(
-		journalStore.selectedDate
-			? vaultConfig.dailyTasks.filter((task) =>
-					isTaskVisibleOnDate(task, journalStore.selectedDate!)
-				)
-			: []
-	);
-
-	// Get active task (if any)
-	const activeTask = $derived(
-		activeTaskId ? visibleTasks.find((t) => t.id === activeTaskId) ?? null : null
-	);
-
-	// Task mode: true when a task tab is selected
-	const isTaskMode = $derived(activeTaskId !== null);
-
-	// Get task items for the active task
-	const taskItemsForActiveTask = $derived(
-		activeTaskId ? getTaskItemsByTaskId(activeTaskId) : []
-	);
-
-	// Sort task items by order
-	const sortedTaskItems = $derived(
-		[...taskItemsForActiveTask].sort((a, b) => a.order - b.order)
-	);
-
-	// Reset activeTaskId when date changes if task not visible on new date
-	$effect(() => {
-		if (activeTaskId && journalStore.selectedDate) {
-			const stillVisible = visibleTasks.some((t) => t.id === activeTaskId);
-			if (!stillVisible) {
-				activeTaskId = null;
-			}
-		}
-	});
-
-	function handleTaskSelect(taskId: string | null) {
-		activeTaskId = taskId;
-		newEntryTags = [];
-		newEntryText = '';
+	function getCreatedAtTime(createdAt: string): number {
+		const timestamp = Date.parse(createdAt);
+		return Number.isNaN(timestamp) ? 0 : timestamp;
 	}
 
-	function openConfigModal() {
-		showConfigModal = true;
-	}
-
-	function closeConfigModal() {
-		showConfigModal = false;
-	}
+	// Journal entries read better newest-first.
+	const sortedEntries = $derived(
+		[...getEntries()].sort((a, b) => {
+			const createdAtDifference = getCreatedAtTime(b.createdAt) - getCreatedAtTime(a.createdAt);
+			return createdAtDifference;
+		})
+	);
 
 	function handleCollapseClick() {
 		oncollapse?.();
 	}
 
 	function collapseButtonLabel(): string {
-		return activeTaskId ? `Collapse ${activeTask?.name ?? 'journal'} pane` : 'Collapse journal pane';
+		return 'Collapse journal pane';
 	}
 
 	function formatDateHeader(date: Date | null): string {
@@ -105,7 +45,7 @@
 			weekday: 'long',
 			year: 'numeric',
 			month: 'long',
-			day: 'numeric',
+			day: 'numeric'
 		};
 
 		const formatted = date.toLocaleDateString('en-US', options);
@@ -116,52 +56,19 @@
 		return formatted;
 	}
 
-	// Handle journal entry creation (All tab)
 	async function handleAddEntry() {
 		const text = newEntryText.trim();
 		if (!text || isAdding) return;
 
 		isAdding = true;
 		try {
-			let tagsToAdd = [...newEntryTags];
-			const taskTag = activeTask ? getTaskTag(activeTask.id) : null;
-			if (taskTag && !tagsToAdd.includes(taskTag)) {
-				tagsToAdd = [taskTag, ...tagsToAdd];
+			const entry = await addEntry(text, newEntryTags.length > 0 ? newEntryTags : undefined);
+			if (entry) {
+				newEntryText = '';
+				newEntryTags = [];
 			}
-
-			await addEntry(text, tagsToAdd.length > 0 ? tagsToAdd : undefined);
-			newEntryText = '';
-			newEntryTags = [];
 		} finally {
 			isAdding = false;
-		}
-	}
-
-	// Handle task item creation (task tab)
-	async function handleAddTaskItem() {
-		if (!activeTask || !journalStore.selectedDate || isAdding) return;
-
-		isAdding = true;
-		isLoadingTemplate = true;
-
-		try {
-			const currentOrder =
-				sortedTaskItems.length > 0 ? Math.max(...sortedTaskItems.map((item) => item.order)) : 0;
-			let content = '';
-
-			try {
-				content = await loadNextTemplate(activeTask, currentOrder);
-			} catch {
-				content = '';
-			}
-
-			const taskTag = getTaskTag(activeTask.id);
-			await addTaskItem(activeTask.id, content, [taskTag]);
-		} catch (err) {
-			console.error('Failed to add task item:', err);
-		} finally {
-			isAdding = false;
-			isLoadingTemplate = false;
 		}
 	}
 
@@ -176,7 +83,7 @@
 
 <div class="journal-pane" data-testid="journal-pane">
 	<header class="journal-header">
-		<div class="journal-header-main">
+		<div class="journal-header-main journal-writing-shell">
 			{#if oncollapse}
 				<button
 					class="pane-collapse-button"
@@ -206,42 +113,8 @@
 		</div>
 	</header>
 
-	<DailyTaskTabs
-		taskItems={journalStore.taskItems}
-		tasks={visibleTasks}
-		activeTaskId={activeTaskId}
-		onselect={handleTaskSelect}
-		onconfigure={openConfigModal}
-	/>
-
-	{#if isTaskMode}
-		<!-- Task Mode: Add Task Item Button -->
-		<div class="task-add-section">
-			<button
-				class="add-btn"
-				onclick={handleAddTaskItem}
-				disabled={isAdding || isLoadingTemplate}
-				data-testid="add-task-item-btn"
-			>
-				{isAdding || isLoadingTemplate ? 'Adding...' : '+ Add Task Item'}
-			</button>
-		</div>
-
-		<!-- Task Items List -->
-		<div class="task-items-list" data-testid="task-items-list">
-			{#if journalStore.isLoading}
-				<p class="loading-state">Loading...</p>
-			{:else if sortedTaskItems.length === 0}
-				<p class="empty-state">No task items yet. Click "Add Task Item" to create one.</p>
-			{:else}
-				{#each sortedTaskItems as item (item.id)}
-					<TaskItem {item} />
-				{/each}
-			{/if}
-		</div>
-	{:else}
-		<!-- All Tab: Entry Composer -->
-		<div class="new-entry-section">
+	<div class="new-entry-section">
+		<div class="journal-content-shell journal-writing-shell">
 			<div class="new-entry-controls">
 				<div class="tags-input-wrapper">
 					<TagInput tags={newEntryTags} onchange={handleTagsChange} placeholder="Add tags..." />
@@ -259,9 +132,10 @@
 				<CodeMirrorEditor content={newEntryText} onchange={handleEditorChange} />
 			</div>
 		</div>
+	</div>
 
-		<!-- Journal Entries List -->
-		<div class="entries-list" data-testid="entries-list">
+	<div class="entries-list" data-testid="entries-list">
+		<div class="journal-content-shell journal-reading-shell">
 			{#if journalStore.isLoading}
 				<p class="loading-state">Loading entries...</p>
 			{:else if sortedEntries.length === 0}
@@ -272,10 +146,8 @@
 				{/each}
 			{/if}
 		</div>
-	{/if}
+	</div>
 </div>
-
-<DailyTasksConfigModal visible={showConfigModal} onclose={closeConfigModal} />
 
 <style>
 	.journal-pane {
@@ -296,6 +168,20 @@
 		align-items: center;
 		gap: 0.75rem;
 		min-width: 0;
+	}
+
+	.journal-content-shell {
+		width: min(100%, var(--content-measure));
+		margin-inline: auto;
+		min-width: 0;
+	}
+
+	.journal-reading-shell {
+		--content-measure: 72ch;
+	}
+
+	.journal-writing-shell {
+		--content-measure: 84ch;
 	}
 
 	.journal-header h2 {
@@ -331,21 +217,6 @@
 		cursor: default;
 	}
 
-	/* Task Add Section */
-	.task-add-section {
-		padding: 0.75rem 1rem;
-		border-bottom: 1px solid var(--border-color, #444);
-		flex-shrink: 0;
-	}
-
-	/* Task Items List */
-	.task-items-list {
-		flex: 1;
-		overflow-y: auto;
-		padding: 0.75rem 1rem;
-	}
-
-	/* New Entry Section */
 	.new-entry-section {
 		padding: 0.75rem 1rem;
 		border-bottom: 1px solid var(--border-color, #444);
@@ -398,7 +269,6 @@
 		cursor: not-allowed;
 	}
 
-	/* Entries List */
 	.entries-list {
 		flex: 1;
 		overflow-y: auto;

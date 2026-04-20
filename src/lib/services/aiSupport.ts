@@ -5,13 +5,10 @@ export const AI_SUPPORT_CONTRACT_PATH = `${AI_SUPPORT_ROOT}/contract.md`;
 export const AI_SUPPORT_CONFIG_PATH = `${AI_SUPPORT_ROOT}/config.json`;
 export const AI_SUPPORT_COMMANDS_DIR = `${AI_SUPPORT_ROOT}/commands`;
 export const AI_SUPPORT_COMMANDS_README_PATH = `${AI_SUPPORT_COMMANDS_DIR}/README.md`;
-export const AI_SUPPORT_TEMPLATE_VERSION = 2;
+export const AI_SUPPORT_TEMPLATE_VERSION = 3;
 export const AI_SUPPORT_CONFIG_VERSION = 1;
 
-export type AiSupportCommandId =
-	| 'schedule-daily-tasks'
-	| 'morning-standup'
-	| 'evening-review';
+export type AiSupportCommandId = 'morning-standup' | 'evening-review';
 
 export type AiSupportInstallState = 'not installed' | 'installed' | 'outdated' | 'invalid';
 export type AiSupportInstallAction = 'install' | 'upgrade' | 'reinstall';
@@ -49,9 +46,6 @@ export interface AiSupportStatus {
 }
 
 export const AI_SUPPORT_COMMANDS: Record<AiSupportCommandId, AiSupportCommandConfig> = {
-	'schedule-daily-tasks': {
-		overridePath: `${AI_SUPPORT_COMMANDS_DIR}/schedule-daily-tasks.md`
-	},
 	'morning-standup': {
 		overridePath: `${AI_SUPPORT_COMMANDS_DIR}/morning-standup.md`
 	},
@@ -156,7 +150,6 @@ Managed files:
 
 Optional user-owned command overrides:
 
-- \`${AI_SUPPORT_COMMANDS['schedule-daily-tasks'].overridePath}\`
 - \`${AI_SUPPORT_COMMANDS['morning-standup'].overridePath}\`
 - \`${AI_SUPPORT_COMMANDS['evening-review'].overridePath}\`
 
@@ -164,7 +157,6 @@ The app may install, upgrade, or reinstall managed files, but it must not overwr
 
 Supported Codex commands:
 
-- \`schedule-daily-tasks\`
 - \`morning-standup\`
 - \`evening-review\`
 
@@ -177,7 +169,7 @@ Command runtime endpoints:
 Recommended workflow:
 
 1. Read \`/api/agent/context\` for the target date and command.
-2. Build a change proposal for journal entries and task items.
+2. Build a change proposal for journal entries.
 3. Preview the result with \`/api/agent/journal/plan\`.
 4. Show the diff to the user.
 5. Call \`/api/agent/journal/apply\` only after explicit confirmation.
@@ -191,7 +183,6 @@ This folder is reserved for optional user-owned command overrides.
 
 Supported override files:
 
-- \`schedule-daily-tasks.md\`
 - \`morning-standup.md\`
 - \`evening-review.md\`
 

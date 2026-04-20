@@ -12,6 +12,7 @@ Built with **SvelteKit** (adapter-node), **Svelte 5**, and **TypeScript**.
 - `README.md` - Product overview, core features, and standard development commands
 - `docs/architecture/` - Architecture reference for services, state, events, and actions
 - `docs/local-deployment.md` - Manual VPS/Kamal deployment workflow
+- `plans/README.md` - Canonical planning system, naming, phase structure, and archiving rules for active plans
 
 ## Build, Lint, and Test Commands
 
@@ -157,3 +158,10 @@ Shortcuts are configured in `src/lib/config.ts`:
 - Document error conditions and edge cases
 - Keep comments focused on "why", not "what"
 - Don't add comments unless they add value
+
+### Planning
+
+- Before creating a new plan or reviewable implementation roadmap, read `plans/README.md`
+- Put active plans in `plans/` using the naming and phase conventions defined there
+- Do not create active plan artifacts under `docs/` unless explicitly requested
+- When executing against an existing plan, keep the main plan and phase file statuses up to date

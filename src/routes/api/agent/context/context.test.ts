@@ -25,31 +25,19 @@ describe('POST /api/agent/context', () => {
 		}
 	});
 
-	it('returns daily task context, journal data, and override content for a command', async () => {
+	it('returns journal context and override content for a command', async () => {
 		if (!tempVaultPath) throw new Error('Missing temp vault path');
 
 		process.env.VAULT_PATH = tempVaultPath;
-		await writeFile(
-			path.join(tempVaultPath, '.editor-config.json'),
-			JSON.stringify({
-				dailyTasks: [
-					{ id: 'gym', name: 'Gym', days: 'daily' },
-					{ id: 'review', name: 'Review', days: ['monday'] }
-				]
-			})
-		);
 		await mkdir(path.join(tempVaultPath, '.editor-agent', 'commands'), { recursive: true });
 		await writeFile(
 			path.join(tempVaultPath, '.editor-agent', 'config.json'),
 			JSON.stringify({
 				version: 1,
-				templateVersion: 2,
+				templateVersion: 3,
 				installedAt: '2026-03-15T10:00:00.000Z',
 				updatedAt: '2026-03-15T10:00:00.000Z',
 				commands: {
-					'schedule-daily-tasks': {
-						overridePath: '.editor-agent/commands/schedule-daily-tasks.md'
-					},
 					'morning-standup': {
 						overridePath: '.editor-agent/commands/morning-standup.md'
 					},
@@ -60,7 +48,7 @@ describe('POST /api/agent/context', () => {
 			})
 		);
 		await writeFile(
-			path.join(tempVaultPath, '.editor-agent', 'commands', 'schedule-daily-tasks.md'),
+			path.join(tempVaultPath, '.editor-agent', 'commands', 'morning-standup.md'),
 			'# override'
 		);
 		await mkdir(path.join(tempVaultPath, 'Daily', '2026', '03'), { recursive: true });
@@ -68,17 +56,20 @@ describe('POST /api/agent/context', () => {
 			path.join(tempVaultPath, 'Daily', '2026', '03', '2026-03-16.yaml'),
 			yaml.dump({
 				version: 3,
-				entries: [],
-				taskItems: [
+				entries: [
 					{
-						id: 'task-1',
-						taskId: 'gym',
-						text: 'Warm up',
-						status: 'pending',
-						tags: ['#dt/gym'],
-						order: 1,
+						id: 'entry-1',
+						text: 'Morning note',
+						tags: ['standup'],
 						createdAt: '2026-03-16T09:00:00.000Z',
 						updatedAt: '2026-03-16T09:00:00.000Z'
+					}
+				],
+				taskItems: [
+					{
+						id: 'legacy-task',
+						taskId: 'gym',
+						text: 'Warm up'
 					}
 				]
 			})
@@ -90,7 +81,7 @@ describe('POST /api/agent/context', () => {
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					date: '2026-03-16',
-					commandId: 'schedule-daily-tasks',
+					commandId: 'morning-standup',
 					dailyNotesFolder: 'Daily'
 				})
 			})
@@ -100,14 +91,11 @@ describe('POST /api/agent/context', () => {
 		expect(response.status).toBe(200);
 		expect(data.journalPath).toBe('Daily/2026/03/2026-03-16.yaml');
 		expect(data.aiSupport.installed).toBe(true);
-		expect(data.aiSupport.templateVersion).toBe(2);
+		expect(data.aiSupport.templateVersion).toBe(3);
 		expect(data.override.content).toBe('# override');
-		expect(data.dailyTasks).toEqual(
-			expect.arrayContaining([
-				expect.objectContaining({ id: 'gym', visibleOnDate: true, taskTag: '#dt/gym' }),
-				expect.objectContaining({ id: 'review', visibleOnDate: true, taskTag: '#dt/review' })
-			])
-		);
-		expect(data.journal.taskItems).toHaveLength(1);
+		expect(data.journal.entries).toEqual([
+			expect.objectContaining({ id: 'entry-1', text: 'Morning note', tags: ['standup'] })
+		]);
+		expect(data.journal).not.toHaveProperty('taskItems');
 	});
 });

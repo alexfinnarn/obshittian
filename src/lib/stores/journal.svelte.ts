@@ -8,13 +8,11 @@
 import yaml from 'js-yaml';
 import { vault } from './vault.svelte';
 import { formatDailyNotePath } from '../utils/dailyNotes';
-import type { JournalEntry, JournalData, DailyTaskItem } from '../types/journal';
+import type { JournalEntry, JournalData } from '../types/journal';
 import { createJournalEntry, JOURNAL_DATA_VERSION } from '../types/journal';
 import {
   updateJournalEntryInIndex,
   removeJournalEntryFromIndex,
-  updateTaskItemInIndex,
-  removeTaskItemFromIndex,
 } from '../utils/tags';
 import { fileService } from '$lib/services/fileService';
 import { collectJournalDates } from '../utils/directoryScanner';
@@ -26,7 +24,6 @@ import { collectJournalDates } from '../utils/directoryScanner';
 interface JournalState {
   selectedDate: Date | null;
   entries: JournalEntry[];
-  taskItems: DailyTaskItem[];
   isLoading: boolean;
   datesWithEntries: Set<string>; // Format: "YYYY-MM-DD"
 }
@@ -37,7 +34,6 @@ interface JournalState {
 export const journalStore = $state<JournalState>({
   selectedDate: null,
   entries: [],
-  taskItems: [],
   isLoading: false,
   datesWithEntries: new Set(),
 });
@@ -89,8 +85,7 @@ function syncSelectedDatePresence(): void {
   const dateStr = getSelectedDateString();
   if (!dateStr) return;
 
-  const hasPersistedState =
-    journalStore.entries.length > 0 || journalStore.taskItems.length > 0;
+  const hasPersistedState = journalStore.entries.length > 0;
   const nextDates = new Set(journalStore.datesWithEntries);
 
   if (hasPersistedState) {
@@ -100,37 +95,6 @@ function syncSelectedDatePresence(): void {
   }
 
   journalStore.datesWithEntries = nextDates;
-}
-
-/**
- * Get all task items for the selected date
- */
-export function getTaskItems(): DailyTaskItem[] {
-  return journalStore.taskItems;
-}
-
-/**
- * Get task items for a specific task
- */
-export function getTaskItemsByTaskId(taskId: string): DailyTaskItem[] {
-  return journalStore.taskItems.filter((item) => item.taskId === taskId);
-}
-
-/**
- * Get the next order number for a new entry
- */
-function getNextOrder(): number {
-  if (journalStore.entries.length === 0) return 1;
-  return Math.max(...journalStore.entries.map((e) => e.order)) + 1;
-}
-
-/**
- * Get the next order number for a new task item
- */
-function getNextTaskItemOrder(taskId: string): number {
-  const taskItems = journalStore.taskItems.filter((item) => item.taskId === taskId);
-  if (taskItems.length === 0) return 1;
-  return Math.max(...taskItems.map((item) => item.order)) + 1;
 }
 
 // ============================================================================
@@ -144,8 +108,7 @@ export async function addEntry(text: string, tags?: string[]): Promise<JournalEn
   if (!journalStore.selectedDate) return null;
 
   const entryTags = tags ?? [];
-  const order = getNextOrder();
-  const entry = createJournalEntry(text, entryTags, order);
+  const entry = createJournalEntry(text, entryTags);
 
   const oldEntries = [...journalStore.entries];
   journalStore.entries = [...journalStore.entries, entry];
@@ -315,140 +278,6 @@ export async function removeTagFromEntry(id: string, tag: string): Promise<boole
   return true;
 }
 
-/**
- * Update an entry's order and save
- */
-export async function updateEntryOrder(id: string, order: number): Promise<boolean> {
-  const entry = journalStore.entries.find((e) => e.id === id);
-  if (!entry) return false;
-
-  const oldOrder = entry.order;
-  const oldUpdatedAt = entry.updatedAt;
-
-  entry.order = order;
-  entry.updatedAt = new Date().toISOString();
-
-  const saved = await saveEntries();
-  if (!saved) {
-    // Rollback on save failure
-    entry.order = oldOrder;
-    entry.updatedAt = oldUpdatedAt;
-    return false;
-  }
-
-  return true;
-}
-
-// ============================================================================
-// Task Item CRUD Operations
-// ============================================================================
-
-/**
- * Add a new task item and save
- */
-export async function addTaskItem(
-  taskId: string,
-  text: string,
-  tags?: string[]
-): Promise<DailyTaskItem | null> {
-  if (!journalStore.selectedDate) return null;
-
-  const itemTags = tags ?? [];
-  const order = getNextTaskItemOrder(taskId);
-  const { createDailyTaskItem } = await import('../types/journal');
-  const item = createDailyTaskItem(taskId, text, itemTags, order);
-
-  const oldTaskItems = [...journalStore.taskItems];
-  journalStore.taskItems = [...journalStore.taskItems, item];
-
-  const saved = await saveEntries();
-  if (!saved) {
-    journalStore.taskItems = oldTaskItems;
-    return null;
-  }
-
-  const dateStr = getSelectedDateString();
-  if (dateStr && item.tags.length > 0) {
-    updateTaskItemInIndex(dateStr, item.id, item.tags);
-  }
-
-  return item;
-}
-
-/**
- * Remove a task item by ID and save
- */
-export async function removeTaskItem(id: string): Promise<boolean> {
-  const index = journalStore.taskItems.findIndex((item) => item.id === id);
-  if (index === -1) return false;
-
-  const removed = journalStore.taskItems[index];
-  const oldTaskItems = [...journalStore.taskItems];
-  journalStore.taskItems = journalStore.taskItems.filter((item) => item.id !== id);
-
-  const saved = await saveEntries();
-  if (!saved) {
-    journalStore.taskItems = oldTaskItems;
-    return false;
-  }
-
-  const dateStr = getSelectedDateString();
-  if (dateStr && removed.tags.length > 0) {
-    removeTaskItemFromIndex(dateStr, id);
-  }
-
-  return true;
-}
-
-/**
- * Update a task item's text and save
- */
-export async function updateTaskItemText(id: string, text: string): Promise<boolean> {
-  const item = journalStore.taskItems.find((item) => item.id === id);
-  if (!item) return false;
-
-  const oldText = item.text;
-  const oldUpdatedAt = item.updatedAt;
-
-  item.text = text;
-  item.updatedAt = new Date().toISOString();
-
-  const saved = await saveEntries();
-  if (!saved) {
-    item.text = oldText;
-    item.updatedAt = oldUpdatedAt;
-    return false;
-  }
-
-  return true;
-}
-
-/**
- * Update a task item's status and save
- */
-export async function updateTaskItemStatus(
-  id: string,
-  status: 'pending' | 'in-progress' | 'completed'
-): Promise<boolean> {
-  const item = journalStore.taskItems.find((item) => item.id === id);
-  if (!item) return false;
-
-  const oldStatus = item.status;
-  const oldUpdatedAt = item.updatedAt;
-
-  item.status = status;
-  item.updatedAt = new Date().toISOString();
-
-  const saved = await saveEntries();
-  if (!saved) {
-    item.status = oldStatus;
-    item.updatedAt = oldUpdatedAt;
-    return false;
-  }
-
-  return true;
-}
-
 // ============================================================================
 // File I/O
 // ============================================================================
@@ -501,13 +330,13 @@ function getJournalFilePath(date: Date): string {
 }
 
 /**
- * Load entries and task items for a specific date
+ * Load entries for a specific date.
+ * Legacy taskItems are tolerated on read and dropped on the next write.
  */
 export async function loadEntriesForDate(date: Date): Promise<JournalEntry[]> {
   if (!vault.path) {
     journalStore.selectedDate = date;
     journalStore.entries = [];
-    journalStore.taskItems = [];
     journalStore.isLoading = false;
     return [];
   }
@@ -521,32 +350,26 @@ export async function loadEntriesForDate(date: Date): Promise<JournalEntry[]> {
 
     if (existsResult.exists) {
       const text = await fileService.readFile(filePath);
-      const data = yaml.load(text) as JournalData;
+      const data = yaml.load(text) as Partial<JournalData> & {
+        entries?: Array<Partial<JournalEntry>>;
+      };
 
-      // Version 2 data has no taskItems - normalize to empty array
-      const taskItems = (data?.taskItems ?? []).map((item) => ({
-        ...item,
-        tags: item.tags ?? [],
-        status: item.status ?? 'pending',
-      }));
-
-      journalStore.taskItems = taskItems;
-
-      // Normalize entries to ensure tags array exists (for backward compatibility)
+      // Normalize entries so legacy fields like order are dropped on load.
       const entries = (data?.entries ?? []).map((entry) => ({
-        ...entry,
+        id: entry.id ?? crypto.randomUUID(),
+        text: entry.text ?? '',
         tags: entry.tags ?? [],
+        createdAt: entry.createdAt ?? new Date().toISOString(),
+        updatedAt: entry.updatedAt ?? entry.createdAt ?? new Date().toISOString(),
       }));
       journalStore.entries = entries;
     } else {
-      // File doesn't exist - that's okay, just no entries or task items for this date
+      // File doesn't exist - that's okay, just no entries for this date.
       journalStore.entries = [];
-      journalStore.taskItems = [];
     }
   } catch (err) {
     console.error('Error reading journal file:', err);
     journalStore.entries = [];
-    journalStore.taskItems = [];
   }
 
   journalStore.isLoading = false;
@@ -554,8 +377,8 @@ export async function loadEntriesForDate(date: Date): Promise<JournalEntry[]> {
 }
 
 /**
- * Save current entries and task items to YAML file
- * Only creates file if there are entries or task items (no empty files)
+ * Save current entries to YAML.
+ * Only creates the file when there are entries.
  */
 export async function saveEntries(): Promise<boolean> {
   if (!vault.path) {
@@ -572,10 +395,9 @@ export async function saveEntries(): Promise<boolean> {
     const filePath = getJournalFilePath(journalStore.selectedDate);
 
     const hasEntries = journalStore.entries.length > 0;
-    const hasTaskItems = journalStore.taskItems.length > 0;
 
-    // If no entries AND no task items, delete the file if it exists
-    if (!hasEntries && !hasTaskItems) {
+    // If there are no entries, delete the file if it exists.
+    if (!hasEntries) {
       try {
         const existsResult = await fileService.exists(filePath);
         if (existsResult.exists) {
@@ -595,7 +417,6 @@ export async function saveEntries(): Promise<boolean> {
     const data: JournalData = {
       version: JOURNAL_DATA_VERSION,
       entries: journalStore.entries,
-      taskItems: journalStore.taskItems,
     };
 
     const yamlStr = yaml.dump(data, {
@@ -632,7 +453,6 @@ export async function scanDatesWithEntries(): Promise<void> {
 export function resetJournal(): void {
   journalStore.selectedDate = null;
   journalStore.entries = [];
-  journalStore.taskItems = [];
   journalStore.isLoading = false;
   journalStore.datesWithEntries = new Set();
 }

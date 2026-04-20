@@ -3,7 +3,6 @@
   import {
     updateEntryText,
     updateEntryTags,
-    updateEntryOrder,
     removeEntry,
   } from '$lib/stores/journal.svelte';
   import JournalEntryEditor from './JournalEntryEditor.svelte';
@@ -19,7 +18,6 @@
   let editorPane = $state<JournalEntryEditor | null>(null);
   let editText = $state('');
   let editTags = $state<string[]>([]);
-  let editOrder = $state(0);
   let isSaving = $state(false);
   let isEditing = $state(false);
 
@@ -32,7 +30,6 @@
   function enterEditMode() {
     editText = entry.text;
     editTags = [...entry.tags];
-    editOrder = entry.order;
     isEditing = true;
     editorPane?.setViewMode('edit');
   }
@@ -58,9 +55,6 @@
       }
       if (tagsChanged()) {
         await updateEntryTags(entry.id, editTags);
-      }
-      if (editOrder !== entry.order) {
-        await updateEntryOrder(entry.id, editOrder);
       }
       isEditing = false;
       editorPane?.setViewMode('view');
@@ -112,16 +106,6 @@
             placeholder="Add tags..."
           />
         </div>
-        <label class="order-label">
-          Order:
-          <input
-            type="number"
-            bind:value={editOrder}
-            class="order-input"
-            min="1"
-            data-testid="journal-entry-order-{entry.id}"
-          />
-        </label>
         <div class="toolbar-actions">
           <button
             class="view-toggle"
@@ -148,7 +132,6 @@
             {/each}
           </div>
         {/if}
-        <span class="order">#{entry.order}</span>
         <span class="timestamp">
           {#if entry.createdAt !== entry.updatedAt}
             <strong>C:</strong> {formatTime(entry.createdAt)} | <strong>U:</strong> {formatTime(entry.updatedAt)}
@@ -227,39 +210,10 @@
     max-width: 200px;
   }
 
-  .journal-entry :global(.order) {
-    color: var(--text-muted, #888);
-    font-size: 0.8rem;
-  }
-
   .journal-entry :global(.timestamp) {
     color: var(--text-muted, #888);
     font-size: 0.8rem;
     margin-left: auto;
-  }
-
-  .journal-entry :global(.order-label) {
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
-    font-size: 0.8rem;
-    color: var(--text-muted, #888);
-  }
-
-  .journal-entry :global(.order-input) {
-    width: 50px;
-    background: var(--input-bg, #1e1e1e);
-    border: 1px solid var(--border-color, #444);
-    border-radius: 4px;
-    color: var(--text-color, #fff);
-    font-size: 0.8rem;
-    padding: 0.25rem;
-    text-align: center;
-  }
-
-  .journal-entry :global(.order-input:focus) {
-    outline: none;
-    border-color: var(--accent-color, #0078d4);
   }
 
   /* Use EditorPane's button styles, add delete variant */
