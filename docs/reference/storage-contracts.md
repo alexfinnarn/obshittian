@@ -10,6 +10,7 @@ Purpose:
 
 - stores vault-specific quick links
 - stores vault-specific quick files
+- stores file browser settings (hidden paths)
 
 Current shape:
 
@@ -20,7 +21,10 @@ Current shape:
   ],
   "quickFiles": [
     { "name": "Todo", "path": "01_Todo.md" }
-  ]
+  ],
+  "fileBrowser": {
+    "hiddenPaths": ["_reports", "zzz_Daily Notes"]
+  }
 }
 ```
 
@@ -28,6 +32,7 @@ Notes:
 
 - the file is optional
 - if it is missing or invalid, the app falls back to defaults
+- `fileBrowser.hiddenPaths` contains vault-relative paths excluded from the file tree; missing or empty means nothing is hidden
 - legacy `dailyTasks` fields are ignored on load and dropped on the next save
 
 ### `.editor-tags.yaml`

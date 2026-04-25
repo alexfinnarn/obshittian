@@ -12,6 +12,12 @@ import {
 import { fileService } from '$lib/services/fileService';
 import type { DirectoryEntry } from '$lib/server/fileTypes';
 
+vi.mock('$lib/stores/vaultConfig.svelte', () => ({
+  vaultConfig: {
+    fileBrowser: { hiddenPaths: [] as string[] },
+  },
+}));
+
 // Mock the fileService
 vi.mock('$lib/services/fileService', () => ({
   fileService: {
@@ -132,6 +138,23 @@ describe('fileOperations', () => {
       expect(entries[0].name).toBe('beta'); // directory first
       expect(entries[1].name).toBe('alpha.md');
       expect(entries[2].name).toBe('zeta.md');
+    });
+
+    it('hides entries matching hiddenPaths', async () => {
+      const { vaultConfig } = await import('$lib/stores/vaultConfig.svelte');
+      vaultConfig.fileBrowser.hiddenPaths = ['root/_reports'];
+
+      mockFileService.listDirectory.mockResolvedValue([
+        createMockDirEntry('_reports'),
+        createMockFileEntry('notes.md'),
+      ]);
+
+      const entries = await getVisibleEntries('root');
+
+      expect(entries.length).toBe(1);
+      expect(entries[0].name).toBe('notes.md');
+
+      vaultConfig.fileBrowser.hiddenPaths = [];
     });
   });
 

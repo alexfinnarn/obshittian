@@ -9,4 +9,4 @@ State ownership and persistence are documented in:
 
 Current note:
 
-- `vaultConfig` includes quick links and quick files
+- `vaultConfig` includes quick links, quick files, and file browser settings (`fileBrowser.hiddenPaths`)

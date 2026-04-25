@@ -39,7 +39,7 @@ The main state boundaries are:
 
 - `vault`: active vault path and daily-notes folder
 - `settings`: user preferences from localStorage
-- `vaultConfig`: vault-owned quick links and quick files
+- `vaultConfig`: vault-owned quick links, quick files, and file browser settings
 - `tabsStore`: left-pane tab state
 - `journalStore`: selected date and journal entries
 - `tagsStore`: tag index and search metadata

@@ -5,11 +5,14 @@ import {
   setQuickLinks,
   getQuickFiles,
   setQuickFiles,
+  getFileBrowserConfig,
+  setFileBrowserConfig,
   loadVaultConfig,
   saveVaultConfig,
   resetVaultConfig,
   type QuickLink,
   type QuickFile,
+  type FileBrowserConfig,
 } from './vaultConfig.svelte';
 import { vault, closeVault, openVault } from './vault.svelte';
 import { fileService } from '$lib/services/fileService';
@@ -48,6 +51,10 @@ describe('vaultConfig store', () => {
 
     it('starts with empty quickFiles', () => {
       expect(vaultConfig.quickFiles).toEqual([]);
+    });
+
+    it('starts with empty fileBrowser hiddenPaths', () => {
+      expect(vaultConfig.fileBrowser).toEqual({ hiddenPaths: [] });
     });
   });
 
@@ -90,6 +97,26 @@ describe('vaultConfig store', () => {
     });
   });
 
+  describe('getFileBrowserConfig / setFileBrowserConfig', () => {
+    it('getFileBrowserConfig returns current config', () => {
+      const config: FileBrowserConfig = { hiddenPaths: ['_reports'] };
+      vaultConfig.fileBrowser = config;
+      expect(getFileBrowserConfig()).toEqual(config);
+    });
+
+    it('setFileBrowserConfig updates config and saves', async () => {
+      openVault('/mock/vault');
+      mockFileService.writeFile.mockResolvedValue(undefined);
+
+      const config: FileBrowserConfig = { hiddenPaths: ['_reports', 'archive'] };
+      const result = await setFileBrowserConfig(config);
+
+      expect(result).toBe(true);
+      expect(vaultConfig.fileBrowser).toEqual(config);
+      expect(mockFileService.writeFile).toHaveBeenCalled();
+    });
+  });
+
   describe('loadVaultConfig', () => {
     it('loads config from file', async () => {
       openVault('/mock/vault');
@@ -98,6 +125,7 @@ describe('vaultConfig store', () => {
         JSON.stringify({
           quickLinks: [{ name: 'Test', url: 'https://test.com' }],
           quickFiles: [{ name: 'Todo', path: 'todo.md' }],
+          fileBrowser: { hiddenPaths: ['_reports'] },
           dailyTasks: [{ id: 'gym', name: 'Gym', days: 'daily' }],
         })
       );
@@ -106,6 +134,7 @@ describe('vaultConfig store', () => {
 
       expect(result.quickLinks).toEqual([{ name: 'Test', url: 'https://test.com' }]);
       expect(result.quickFiles).toEqual([{ name: 'Todo', path: 'todo.md' }]);
+      expect(result.fileBrowser).toEqual({ hiddenPaths: ['_reports'] });
     });
 
     it('ignores legacy dailyTasks config on load', async () => {
@@ -154,6 +183,7 @@ describe('vaultConfig store', () => {
 
       vaultConfig.quickLinks = [{ name: 'Test', url: 'https://test.com' }];
       vaultConfig.quickFiles = [{ name: 'File', path: 'file.md' }];
+      vaultConfig.fileBrowser = { hiddenPaths: ['_reports'] };
 
       const result = await saveVaultConfig();
 
@@ -164,6 +194,7 @@ describe('vaultConfig store', () => {
           {
             quickLinks: [{ name: 'Test', url: 'https://test.com' }],
             quickFiles: [{ name: 'File', path: 'file.md' }],
+            fileBrowser: { hiddenPaths: ['_reports'] },
           },
           null,
           2
@@ -183,11 +214,13 @@ describe('vaultConfig store', () => {
     it('clears all config', () => {
       vaultConfig.quickLinks = [{ name: 'Test', url: 'https://test.com' }];
       vaultConfig.quickFiles = [{ name: 'File', path: 'file.md' }];
+      vaultConfig.fileBrowser = { hiddenPaths: ['_reports'] };
 
       resetVaultConfig();
 
       expect(vaultConfig.quickLinks).toEqual([]);
       expect(vaultConfig.quickFiles).toEqual([]);
+      expect(vaultConfig.fileBrowser).toEqual({ hiddenPaths: [] });
     });
   });
 });

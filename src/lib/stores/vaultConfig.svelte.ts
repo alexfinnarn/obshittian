@@ -20,9 +20,14 @@ export interface QuickFile {
   path: string;
 }
 
+export interface FileBrowserConfig {
+  hiddenPaths: string[];
+}
+
 export interface VaultConfig {
   quickLinks: QuickLink[];
   quickFiles: QuickFile[];
+  fileBrowser: FileBrowserConfig;
 }
 
 /**
@@ -31,6 +36,7 @@ export interface VaultConfig {
 const DEFAULT_CONFIG: VaultConfig = {
   quickLinks: [],
   quickFiles: [],
+  fileBrowser: { hiddenPaths: [] },
 };
 
 /**
@@ -39,6 +45,7 @@ const DEFAULT_CONFIG: VaultConfig = {
 export const vaultConfig = $state<VaultConfig>({
   quickLinks: [],
   quickFiles: [],
+  fileBrowser: { hiddenPaths: [] },
 });
 
 /**
@@ -72,6 +79,21 @@ export async function setQuickFiles(files: QuickFile[]): Promise<boolean> {
 }
 
 /**
+ * Get current file browser config
+ */
+export function getFileBrowserConfig(): FileBrowserConfig {
+  return vaultConfig.fileBrowser;
+}
+
+/**
+ * Set file browser config and save to vault
+ */
+export async function setFileBrowserConfig(config: FileBrowserConfig): Promise<boolean> {
+  vaultConfig.fileBrowser = config;
+  return await saveVaultConfig();
+}
+
+/**
  * Load vault config from .editor-config.json
  * Falls back to defaults when file doesn't exist.
  * Legacy fields such as dailyTasks are tolerated on read and dropped on the next save.
@@ -83,6 +105,7 @@ export async function loadVaultConfig(
     // No vault open, use defaults
     vaultConfig.quickLinks = defaults?.quickLinks ?? DEFAULT_CONFIG.quickLinks;
     vaultConfig.quickFiles = defaults?.quickFiles ?? DEFAULT_CONFIG.quickFiles;
+    vaultConfig.fileBrowser = defaults?.fileBrowser ?? DEFAULT_CONFIG.fileBrowser;
     return { ...vaultConfig };
   }
 
@@ -91,6 +114,7 @@ export async function loadVaultConfig(
     if (!existsResult.exists) {
       vaultConfig.quickLinks = defaults?.quickLinks ?? DEFAULT_CONFIG.quickLinks;
       vaultConfig.quickFiles = defaults?.quickFiles ?? DEFAULT_CONFIG.quickFiles;
+      vaultConfig.fileBrowser = defaults?.fileBrowser ?? DEFAULT_CONFIG.fileBrowser;
       return { ...vaultConfig };
     }
 
@@ -98,16 +122,19 @@ export async function loadVaultConfig(
     const parsed = JSON.parse(text) as {
       quickLinks?: QuickLink[];
       quickFiles?: QuickFile[];
+      fileBrowser?: FileBrowserConfig;
     };
 
     // Use vault config values, falling back to provided defaults
     vaultConfig.quickLinks = parsed.quickLinks ?? defaults?.quickLinks ?? DEFAULT_CONFIG.quickLinks;
     vaultConfig.quickFiles = parsed.quickFiles ?? defaults?.quickFiles ?? DEFAULT_CONFIG.quickFiles;
+    vaultConfig.fileBrowser = parsed.fileBrowser ?? defaults?.fileBrowser ?? DEFAULT_CONFIG.fileBrowser;
   } catch (err) {
     // File doesn't exist or is invalid - use defaults
     console.warn('Error reading vault config:', (err as Error).message);
     vaultConfig.quickLinks = defaults?.quickLinks ?? DEFAULT_CONFIG.quickLinks;
     vaultConfig.quickFiles = defaults?.quickFiles ?? DEFAULT_CONFIG.quickFiles;
+    vaultConfig.fileBrowser = defaults?.fileBrowser ?? DEFAULT_CONFIG.fileBrowser;
   }
 
   return { ...vaultConfig };
@@ -126,6 +153,7 @@ export async function saveVaultConfig(): Promise<boolean> {
     const data: VaultConfig = {
       quickLinks: vaultConfig.quickLinks,
       quickFiles: vaultConfig.quickFiles,
+      fileBrowser: vaultConfig.fileBrowser,
     };
     await fileService.writeFile(CONFIG_FILENAME, JSON.stringify(data, null, 2));
     return true;
@@ -141,4 +169,5 @@ export async function saveVaultConfig(): Promise<boolean> {
 export function resetVaultConfig(): void {
   vaultConfig.quickLinks = [];
   vaultConfig.quickFiles = [];
+  vaultConfig.fileBrowser = { hiddenPaths: [] };
 }

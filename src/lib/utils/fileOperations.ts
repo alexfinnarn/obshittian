@@ -6,6 +6,7 @@
 
 import { fileService } from '$lib/services/fileService';
 import { logActivity } from '$lib/services/activityLogger';
+import { vaultConfig } from '$lib/stores/vaultConfig.svelte';
 import type { DirectoryEntry } from '$lib/server/fileTypes';
 
 /**
@@ -174,5 +175,12 @@ export function isVisibleEntry(entry: DirectoryEntry): boolean {
  */
 export async function getVisibleEntries(dirPath: string): Promise<DirectoryEntry[]> {
   const entries = await fileService.listDirectory(dirPath);
-  return sortEntries(entries.filter(isVisibleEntry));
+  const hiddenPaths = vaultConfig.fileBrowser.hiddenPaths;
+  return sortEntries(
+    entries.filter((entry) => {
+      if (!isVisibleEntry(entry)) return false;
+      const fullPath = dirPath ? `${dirPath}/${entry.name}` : entry.name;
+      return !hiddenPaths.includes(fullPath);
+    })
+  );
 }

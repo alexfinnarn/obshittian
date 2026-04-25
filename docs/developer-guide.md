@@ -32,7 +32,7 @@ If vault validation fails, the rest of the app cannot function because file acce
 The app works with a normal directory of Markdown files. It also creates and reads a few 
 app-owned files inside that vault:
 
-- `.editor-config.json` for quick links and quick files
+- `.editor-config.json` for quick links, quick files, and file browser settings
 - `.editor-tags.yaml` for tag autocomplete vocabulary
 - `.editor-agent/` for vault-local AI support install metadata and command override locations
 - `zzz_Daily Notes/YYYY/MM/YYYY-MM-DD.yaml` for journal entries by default
