@@ -234,64 +234,45 @@ test.describe('Calendar Integration', () => {
   });
 
   test('clicking calendar date updates journal header', async ({ page }) => {
-    // Get enabled date buttons from the calendar (Vanilla Calendar Pro uses .vc-date)
-    // Only enabled dates (not disabled) can be clicked
-    const enabledDates = page.locator('.vc-date:not([data-vc-date-disabled])');
-    const count = await enabledDates.count();
+    const dateButtons = page.locator('.vc-date .vc-date__btn');
+    const count = await dateButtons.count();
 
     if (count > 0) {
-      // Get the current header text
       const header = page.locator('.journal-header h2');
-      const initialText = await header.textContent();
 
-      // Click a different date (first available enabled date)
-      await enabledDates.first().click();
+      await dateButtons.first().click();
 
-      // Header may or may not change depending on which date was clicked
-      // Just verify header is still visible and formatted correctly
       await expect(header).toBeVisible();
       const newText = await header.textContent();
       expect(newText).toMatch(/\w+ - \w+ \d+, \d{4}|No date selected/);
     }
   });
 
-  test('today is always enabled in calendar', async ({ page }) => {
-    // Today's date should always be enabled
+  test('today is selectable in calendar', async ({ page }) => {
     const todayCell = page.locator('.vc-date[data-vc-date-today]');
     await expect(todayCell).toBeVisible();
-    // Today should NOT have the disabled attribute
     await expect(todayCell).not.toHaveAttribute('data-vc-date-disabled');
+    await expect(todayCell.locator('.vc-date__btn')).toBeEnabled();
   });
 
-  test('calendar has disabled dates for past dates without entries', async ({ page }) => {
-    // In the current month, past dates without entries should be disabled
-    // Since we have no journal entries in test mode, all past dates (except today) should be disabled
+  test('calendar does not disable rendered dates', async ({ page }) => {
     const disabledDates = page.locator('.vc-date[data-vc-date-disabled]');
-    const disabledCount = await disabledDates.count();
-
-    // There should be some disabled dates (past dates without entries)
-    // This is a general check - we can't know exact count without knowing current date
-    expect(disabledCount).toBeGreaterThanOrEqual(0);
+    await expect(disabledDates).toHaveCount(0);
   });
 
-  test.skip('clicking disabled date does not change journal', async ({ page }) => {
-    // Note: Force clicking disabled elements has inconsistent behavior in E2E tests
-    // Get the current header text
+  test('clicking an arbitrary date updates journal', async ({ page }) => {
     const header = page.locator('.journal-header h2');
-    const initialText = await header.textContent();
+    const dateButtons = page.locator('.vc-date .vc-date__btn');
+    const count = await dateButtons.count();
 
-    // Find a disabled date in the current view
-    const disabledDate = page.locator('.vc-date[data-vc-date-disabled]').first();
-    const disabledExists = await disabledDate.count() > 0;
+    expect(count).toBeGreaterThan(0);
 
-    if (disabledExists) {
-      // Force click the disabled date - calendar should ignore it
-      await disabledDate.click({ force: true });
+    const target = count > 1 ? dateButtons.nth(1) : dateButtons.first();
+    await target.click();
 
-      // Header should remain unchanged
-      const newText = await header.textContent();
-      expect(newText).toBe(initialText);
-    }
+    await expect(header).toBeVisible();
+    const headerText = await header.textContent();
+    expect(headerText).toMatch(/\w+ - \w+ \d+, \d{4}/);
   });
 
   test('clicking month name opens month picker', async ({ page }) => {
@@ -334,16 +315,13 @@ test.describe('Calendar Integration', () => {
     await expect(monthsPanel).not.toBeVisible();
   });
 
-  test('clicking enabled date updates journal and loads entries', async ({ page }) => {
-    // Get enabled date buttons from the calendar
-    const enabledDates = page.locator('.vc-date:not([data-vc-date-disabled]) .vc-date__btn');
-    const count = await enabledDates.count();
+  test('clicking date updates journal and loads entries', async ({ page }) => {
+    const dateButtons = page.locator('.vc-date .vc-date__btn');
+    const count = await dateButtons.count();
 
     if (count > 0) {
-      // Click the first enabled date
-      await enabledDates.first().click();
+      await dateButtons.first().click();
 
-      // Journal header should be visible and show a date
       const header = page.locator('.journal-header h2');
       await expect(header).toBeVisible();
       const headerText = await header.textContent();

@@ -46,7 +46,7 @@ The app bootstrap lives in `src/routes/+page.svelte`. After a vault is restored 
 opened, it:
 
 1. loads vault-owned config from `.editor-config.json`
-2. scans journal dates for the calendar
+2. scans journal dates so the calendar can highlight days with existing entries
 3. loads the tag index from localStorage or rebuilds it from the vault
 4. loads tag vocabulary from `.editor-tags.yaml` or generates it from the tag index
 5. restores saved left-pane tabs from localStorage

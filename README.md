@@ -6,7 +6,8 @@ editor with a right-pane daily journal and is designed as a lightweight Obsidian
 ## What It Does
 
 - Edits Markdown files from a real vault directory through SvelteKit API routes
-- Keeps a calendar-backed daily journal in YAML files under the vault
+- Keeps a calendar-backed daily journal in YAML files under the vault, with every date selectable
+  and existing journal days highlighted
 - Indexes tags across Markdown files and journal entries
 - Stores quick links and quick files in the vault
 - Installs optional vault-local AI support under `.editor-agent/`
@@ -37,7 +38,7 @@ Then open `http://localhost:5173` and enter a local vault path in the Vault Pick
 
 1. Validate the directory with `POST /api/vault/validate`
 2. Set the active server-side vault root for file API routes
-3. Load vault config, tag metadata, journal dates, and any restorable tabs
+3. Load vault config, tag metadata, journal dates for calendar highlighting, and any restorable tabs
 
 The app is not useful until a vault is opened because all file operations are scoped to the 
 active vault directory.

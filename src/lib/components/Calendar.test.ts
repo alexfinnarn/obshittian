@@ -10,8 +10,9 @@ const mockState = vi.hoisted(() => ({
     selectedMonth: number;
     selectedYear: number;
     set: (options: Record<string, unknown>) => void;
-    update: () => void;
-    simulateDateClick: () => void;
+    update: (options?: Record<string, unknown>) => void;
+    updateCalls: Array<Record<string, unknown> | undefined>;
+    simulateDateClick: (dateStr: string) => void;
   } | null,
 }));
 
@@ -21,8 +22,9 @@ vi.mock('vanilla-calendar-pro', () => {
     selectedDates: string[];
     selectedMonth: number;
     selectedYear: number;
+    updateCalls: Array<Record<string, unknown> | undefined> = [];
     private container: HTMLElement;
-    private onClickDateCallback?: (self: MockVanillaCalendar) => void;
+    private onClickDateCallback?: (self: MockVanillaCalendar, event: MouseEvent) => void;
 
     constructor(container: HTMLElement, options: Record<string, unknown>) {
       mockState.lastCalendarOptions = options;
@@ -30,7 +32,9 @@ vi.mock('vanilla-calendar-pro', () => {
       this.selectedDates = (options.selectedDates as string[]) || [];
       this.selectedMonth = (options.selectedMonth as number) ?? new Date().getMonth();
       this.selectedYear = (options.selectedYear as number) ?? new Date().getFullYear();
-      this.onClickDateCallback = options.onClickDate as ((self: MockVanillaCalendar) => void) | undefined;
+      this.onClickDateCallback = options.onClickDate as
+        | ((self: MockVanillaCalendar, event: MouseEvent) => void)
+        | undefined;
       mockState.mockCalendarInstance = this as unknown as typeof mockState.mockCalendarInstance;
     }
 
@@ -58,14 +62,18 @@ vi.mock('vanilla-calendar-pro', () => {
       }
     }
 
-    update() {
-      // No-op in mock
+    update(options?: Record<string, unknown>) {
+      this.updateCalls.push(options);
     }
 
     // Helper for tests to simulate date click
-    simulateDateClick() {
+    simulateDateClick(dateStr: string) {
       if (this.onClickDateCallback) {
-        this.onClickDateCallback(this);
+        const dateEl = document.createElement('div');
+        dateEl.dataset.vcDate = dateStr;
+        const button = document.createElement('button');
+        dateEl.appendChild(button);
+        this.onClickDateCallback(this, { target: button } as unknown as MouseEvent);
       }
     }
   }
@@ -144,54 +152,81 @@ describe('Calendar component', () => {
     expect(mockState.lastCalendarOptions!.selectedYear).toBe(2024);
   });
 
-  it('configures calendar with disableAllDates and enableDates', () => {
+  it('does not configure date gating', () => {
     const datesWithEntries = ['2024-12-20', '2024-12-22'];
     render(Calendar, { props: { datesWithEntries } });
 
     expect(mockState.lastCalendarOptions).not.toBeNull();
-    expect(mockState.lastCalendarOptions!.disableAllDates).toBe(true);
-    expect(mockState.lastCalendarOptions!.enableDates).toBeDefined();
-    // Should include today and dates with entries
-    const enableDates = mockState.lastCalendarOptions!.enableDates as string[];
-    expect(enableDates).toContain('2024-12-20');
-    expect(enableDates).toContain('2024-12-22');
+    expect(mockState.lastCalendarOptions).not.toHaveProperty('disableAllDates');
+    expect(mockState.lastCalendarOptions).not.toHaveProperty('enableDates');
   });
 
-  it('enables today and next 7 days even without entries', () => {
-    render(Calendar, { props: { datesWithEntries: [] } });
+  it('configures weekends without separate visual marking', () => {
+    render(Calendar);
 
     expect(mockState.lastCalendarOptions).not.toBeNull();
-    const enableDates = mockState.lastCalendarOptions!.enableDates as string[];
-    // Today + next 7 days = 8 dates
-    expect(enableDates.length).toBe(8);
+    expect(mockState.lastCalendarOptions!.selectedWeekends).toEqual([]);
   });
 
-  it('enables the correct date range (today through 7 days ahead)', () => {
-    render(Calendar, { props: { datesWithEntries: [] } });
+  it('provides a date creation hook for journal entry markers', () => {
+    render(Calendar);
 
-    const enableDates = mockState.lastCalendarOptions!.enableDates as string[];
-    const today = new Date();
-
-    // Verify each of the 8 days is enabled
-    for (let i = 0; i <= 7; i++) {
-      const expectedDate = new Date(today);
-      expectedDate.setDate(today.getDate() + i);
-      const year = expectedDate.getFullYear();
-      const month = String(expectedDate.getMonth() + 1).padStart(2, '0');
-      const day = String(expectedDate.getDate()).padStart(2, '0');
-      const dateStr = `${year}-${month}-${day}`;
-      expect(enableDates).toContain(dateStr);
-    }
+    expect(mockState.lastCalendarOptions).not.toBeNull();
+    expect(mockState.lastCalendarOptions!.onCreateDateEls).toEqual(expect.any(Function));
   });
 
-  it('combines future week with past dates that have entries', () => {
-    const pastDatesWithEntries = ['2024-01-15', '2024-02-20'];
-    render(Calendar, { props: { datesWithEntries: pastDatesWithEntries } });
+  it('marks dates with journal entries', () => {
+    render(Calendar, { props: { datesWithEntries: ['2024-12-20'] } });
 
-    const enableDates = mockState.lastCalendarOptions!.enableDates as string[];
-    // Should have 8 dates (today + 7 days) + 2 past dates = 10 dates
-    expect(enableDates.length).toBe(10);
-    expect(enableDates).toContain('2024-01-15');
-    expect(enableDates).toContain('2024-02-20');
+    const dateEl = document.createElement('div');
+    dateEl.dataset.vcDate = '2024-12-20';
+    const onCreateDateEls = mockState.lastCalendarOptions!.onCreateDateEls as (
+      self: unknown,
+      dateEl: HTMLElement
+    ) => void;
+
+    onCreateDateEls(mockState.mockCalendarInstance, dateEl);
+
+    expect(dateEl.hasAttribute('data-has-journal-entry')).toBe(true);
+  });
+
+  it('does not mark dates without journal entries', () => {
+    render(Calendar, { props: { datesWithEntries: ['2024-12-20'] } });
+
+    const dateEl = document.createElement('div');
+    dateEl.dataset.vcDate = '2024-12-21';
+    const onCreateDateEls = mockState.lastCalendarOptions!.onCreateDateEls as (
+      self: unknown,
+      dateEl: HTMLElement
+    ) => void;
+
+    onCreateDateEls(mockState.mockCalendarInstance, dateEl);
+
+    expect(dateEl.hasAttribute('data-has-journal-entry')).toBe(false);
+  });
+
+  it('removes stale journal entry markers', () => {
+    render(Calendar, { props: { datesWithEntries: ['2024-12-20'] } });
+
+    const dateEl = document.createElement('div');
+    dateEl.dataset.vcDate = '2024-12-21';
+    dateEl.setAttribute('data-has-journal-entry', '');
+    const onCreateDateEls = mockState.lastCalendarOptions!.onCreateDateEls as (
+      self: unknown,
+      dateEl: HTMLElement
+    ) => void;
+
+    onCreateDateEls(mockState.mockCalendarInstance, dateEl);
+
+    expect(dateEl.hasAttribute('data-has-journal-entry')).toBe(false);
+  });
+
+  it('selects an arbitrary clicked date', () => {
+    const onselect = vi.fn();
+    render(Calendar, { props: { onselect } });
+
+    mockState.mockCalendarInstance?.simulateDateClick('2030-04-15');
+
+    expect(onselect).toHaveBeenCalledWith(new Date(2030, 3, 15));
   });
 });

@@ -16,6 +16,7 @@
 
   let container: HTMLDivElement;
   let calendar: Calendar | null = $state(null);
+  const entryDateSet = $derived(new Set(datesWithEntries));
 
   /**
    * Format a Date object to 'YYYY-MM-DD' string
@@ -25,25 +26,6 @@
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
-  }
-
-  /**
-   * Get the list of enabled dates for the calendar.
-   * Enabled: today + next 7 days + past dates with entries
-   * Disabled: future dates beyond 7 days + past dates without entries
-   */
-  function getEnabledDates(entries: string[]): string[] {
-    const today = new Date();
-    const enabled = new Set(entries);
-
-    // Enable today and the next 7 days
-    for (let i = 0; i <= 7; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-      enabled.add(formatDateString(date));
-    }
-
-    return Array.from(enabled);
   }
 
   /**
@@ -72,9 +54,13 @@
     return new Date();
   }
 
+  function markJournalEntryDate(dateEl: HTMLElement): void {
+    const dateStr = dateEl.dataset.vcDate;
+    dateEl.toggleAttribute('data-has-journal-entry', !!dateStr && entryDateSet.has(dateStr));
+  }
+
   onMount(() => {
     const initialDateStr = formatDateString(selectedDate);
-    const enabledDates = getEnabledDates(datesWithEntries);
 
     calendar = new Calendar(container, {
       selectedTheme: 'dark',
@@ -83,9 +69,10 @@
       selectedDates: [initialDateStr],
       selectedMonth: selectedDate.getMonth() as 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11,
       selectedYear: selectedDate.getFullYear(),
-      // Disable all dates by default, then enable specific ones
-      disableAllDates: true,
-      enableDates: enabledDates,
+      selectedWeekends: [],
+      onCreateDateEls: (self, dateEl) => {
+        markJournalEntryDate(dateEl);
+      },
       onClickDate: (self, event) => {
         // Get the clicked date from the event target's data attribute
         const target = event?.target as HTMLElement;
@@ -107,9 +94,7 @@
 
   // Update calendar when datesWithEntries changes
   $effect(() => {
-    if (calendar && datesWithEntries) {
-      const enabledDates = getEnabledDates(datesWithEntries);
-      calendar.set({ enableDates: enabledDates });
+    if (calendar && entryDateSet) {
       calendar.update({ dates: true });
     }
   });
@@ -196,14 +181,29 @@
     border-radius: 4px !important;
   }
 
-  :global(.vc-date__btn[aria-disabled="true"]) {
-      color: #e2e2e2 !important;
-      opacity: 0.5 !important;
-  }
-
   :global(.vc-date:hover) {
     background: var(--vc-hover-bg) !important;
     color: white !important;
+  }
+
+  :global(.vc-date[data-has-journal-entry] .vc-date__btn) {
+    position: relative;
+    color: var(--vc-accent-color) !important;
+    font-weight: 700 !important;
+    background: rgba(55, 148, 255, 0.16) !important;
+    box-shadow: inset 0 0 0 1px rgba(55, 148, 255, 0.55);
+  }
+
+  :global(.vc-date[data-has-journal-entry] .vc-date__btn::after) {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: 0.14rem;
+    width: 0.34rem;
+    height: 0.34rem;
+    border-radius: 999px;
+    background: var(--vc-accent-color);
+    transform: translateX(-50%);
   }
 
   /* Today */
@@ -218,15 +218,18 @@
     color: white !important;
   }
 
-  :global(.vc-date[data-vc-date-selected]:hover) {
-    background: var(--vc-accent-color) !important;
+  :global(.vc-date[data-vc-date-selected][data-has-journal-entry] .vc-date__btn) {
+    color: white !important;
+    background: transparent !important;
+    box-shadow: none;
   }
 
-  /* Disabled dates */
-  :global(.vc-date[data-vc-date-disabled]) {
-    color: #6b7280 !important;
-    opacity: 0.7;
-    cursor: not-allowed;
+  :global(.vc-date[data-vc-date-selected][data-has-journal-entry] .vc-date__btn::after) {
+    background: white;
+  }
+
+  :global(.vc-date[data-vc-date-selected]:hover) {
+    background: var(--vc-accent-color) !important;
   }
 
   /* Dates outside current month */

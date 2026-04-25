@@ -24,7 +24,7 @@ Startup sequence:
 4. optionally restore the last vault path and validate it with `/api/vault/validate`
 5. once a vault is open:
    - load `.editor-config.json`
-   - scan journal dates
+   - scan journal dates so the calendar can highlight days with existing entries
    - restore or rebuild the tag index
    - load or generate tag vocabulary
    - restore left-pane tabs
