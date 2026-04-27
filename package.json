@@ -28,7 +28,7 @@
     "svelte": "^5.43.8",
     "svelte-check": "^4.3.4",
     "typescript": "^6.0.3",
-    "vite": "^8.0.9",
+    "vite": "^8.0.10",
     "vitest": "^4.0.16"
   },
   "dependencies": {
