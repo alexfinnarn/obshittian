@@ -10,6 +10,7 @@ Built with **SvelteKit** (adapter-node), **Svelte 5**, and **TypeScript**.
 ## Reference Docs
 
 - `README.md` - Product overview, core features, and standard development commands
+- `DESIGN.md` - Design system specification, CSS tokens, typography, and styling rules (Obsidian Twilight)
 - `docs/architecture/` - Architecture reference for services, state, events, and actions
 - `docs/local-deployment.md` - Manual VPS/Kamal deployment workflow
 - `plans/README.md` - Canonical planning system, naming, phase structure, and archiving rules for active plans

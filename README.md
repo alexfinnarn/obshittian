@@ -46,6 +46,7 @@ active vault directory.
 ## Documentation
 
 - [Developer guide](docs/developer-guide.md)
+- [Design System Specification](DESIGN.md)
 - [Architecture overview](docs/architecture/overview.md)
 - [AI command runtime](docs/reference/ai-command-runtime.md)
 - [Storage and persistence contracts](docs/reference/storage-contracts.md)
