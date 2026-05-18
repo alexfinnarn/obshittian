@@ -200,7 +200,7 @@
 		height: 32px;
 		flex-shrink: 0;
 		border: 1px solid var(--border-color, #444);
-		border-radius: 4px;
+		border-radius: var(--radius-default);
 		background: transparent;
 		color: var(--text-muted, #888);
 		cursor: pointer;
@@ -232,15 +232,15 @@
 
 	.new-entry-editor {
 		height: 80px;
-		border: 1px solid var(--border-color, #444);
-		border-radius: 4px;
+		border: 1px solid var(--border-color, #333333);
+		border-radius: var(--radius-default);
 		overflow: hidden;
 		transition: height 0.2s ease, border-color 0.2s ease;
 	}
 
 	.new-entry-editor:focus-within {
 		height: 250px;
-		border-color: var(--accent-color, #0078d4);
+		border-color: var(--accent-color, #3794ff);
 	}
 
 	.tags-input-wrapper {
@@ -249,11 +249,11 @@
 	}
 
 	.add-btn {
-		background: var(--accent-color, #0078d4);
+		background: var(--accent-color, #3794ff);
 		border: none;
 		color: white;
 		padding: 0.375rem 0.75rem;
-		border-radius: 4px;
+		border-radius: var(--radius-default);
 		cursor: pointer;
 		font-size: 0.75rem;
 		font-weight: 500;

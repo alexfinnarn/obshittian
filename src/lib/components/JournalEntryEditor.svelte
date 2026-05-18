@@ -211,7 +211,7 @@
     padding: 0.25rem 0.75rem;
     font-size: 0.8rem;
     cursor: pointer;
-    border-radius: 3px;
+    border-radius: var(--radius-default);
     transition:
       background 0.15s,
       color 0.15s;
@@ -223,8 +223,8 @@
   }
 
   .editor-toolbar :global(.view-toggle.active) {
-    background: var(--accent-color, #0078d4);
-    border-color: var(--accent-color, #0078d4);
+    background: var(--accent-color, #3794ff);
+    border-color: var(--accent-color, #3794ff);
     color: #fff;
   }
 

@@ -166,7 +166,7 @@
 	}
 
 	.status-badge {
-		border-radius: 999px;
+		border-radius: var(--radius-full);
 		padding: 0.25rem 0.75rem;
 		font-size: 0.75rem;
 		font-weight: 700;
@@ -200,8 +200,8 @@
 	.status-grid > div,
 	.status-block {
 		padding: 0.85rem;
-		border: 1px solid var(--border-color, #444);
-		border-radius: 6px;
+		border: 1px solid var(--border-color, #333333);
+		border-radius: var(--radius-lg);
 		background: var(--input-bg, #1e1e1e);
 	}
 

@@ -109,8 +109,8 @@
 
   .modal {
     background: var(--modal-bg, #2d2d2d);
-    border: 1px solid var(--border-color, #444);
-    border-radius: 8px;
+    border: 1px solid var(--border-color, #333333);
+    border-radius: var(--radius-xl);
     width: 90vw;
     max-width: 500px;
     max-height: 90vh;
@@ -132,7 +132,7 @@
     justify-content: space-between;
     align-items: center;
     padding: 1rem;
-    border-bottom: 1px solid var(--border-color, #444);
+    border-bottom: 1px solid var(--border-color, #333333);
   }
 
   .modal-header h2 {
@@ -155,7 +155,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 4px;
+    border-radius: var(--radius-default);
   }
 
   .modal-close:hover {
@@ -171,7 +171,7 @@
 
   .modal-footer {
     padding: 1rem;
-    border-top: 1px solid var(--border-color, #444);
+    border-top: 1px solid var(--border-color, #333333);
     display: flex;
     justify-content: flex-end;
     gap: 0.5rem;

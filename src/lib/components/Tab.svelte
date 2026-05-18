@@ -54,7 +54,7 @@
     background: var(--editor-bg, #1e1e1e);
     border: 1px solid var(--border-color, #333);
     border-bottom: none;
-    border-radius: 4px 4px 0 0;
+    border-radius: var(--radius-default) var(--radius-default) 0 0;
     cursor: pointer;
     max-width: 150px;
     min-width: 60px;
@@ -111,6 +111,6 @@
 
   .tab-close:hover {
     opacity: 1 !important;
-    color: #ff6b6b;
+    color: var(--error);
   }
 </style>

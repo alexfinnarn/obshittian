@@ -218,7 +218,7 @@
   .paths-hint code {
     background: var(--input-bg, #1e1e1e);
     padding: 0.1em 0.3em;
-    border-radius: 3px;
+    border-radius: var(--radius-default);
   }
 
   .path-row {
@@ -230,16 +230,16 @@
   .path-input {
     flex: 1;
     padding: 0.5rem;
-    background: var(--input-bg, #1e1e1e);
-    border: 1px solid var(--border-color, #444);
-    border-radius: 4px;
-    color: var(--text-color, #fff);
+    background: var(--input-bg, #252525);
+    border: 1px solid var(--border-color, #333333);
+    border-radius: var(--radius-default);
+    color: var(--text-color, #e0e0e0);
     font-size: 0.875rem;
   }
 
   .path-input:focus {
     outline: none;
-    border-color: var(--accent-color, #0078d4);
+    border-color: var(--accent-color, #3794ff);
   }
 
   .path-delete {
@@ -249,7 +249,7 @@
     font-size: 1.25rem;
     cursor: pointer;
     padding: 0.25rem 0.5rem;
-    border-radius: 4px;
+    border-radius: var(--radius-default);
   }
 
   .path-delete:hover {
@@ -259,17 +259,17 @@
 
   .add-path-btn {
     background: none;
-    border: 1px dashed var(--border-color, #444);
+    border: 1px dashed var(--border-color, #333333);
     color: var(--text-muted, #888);
     padding: 0.5rem;
-    border-radius: 4px;
+    border-radius: var(--radius-default);
     cursor: pointer;
     font-size: 0.875rem;
   }
 
   .add-path-btn:hover {
-    border-color: var(--accent-color, #0078d4);
-    color: var(--text-color, #fff);
+    border-color: var(--accent-color, #3794ff);
+    color: var(--text-color, #e0e0e0);
   }
 
 

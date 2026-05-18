@@ -164,9 +164,9 @@
     width: 100%;
     padding: 0.75rem 1rem;
     font-size: 1rem;
-    font-family: monospace;
+    font-family: var(--font-mono);
     border: 1px solid var(--border-color, #3a3a3a);
-    border-radius: 4px;
+    border-radius: var(--radius-default);
     background: var(--input-bg, #2a2a2a);
     color: var(--text-color, #d4d4d4);
     margin-bottom: 0.5rem;
@@ -202,7 +202,7 @@
     text-align: left;
     padding: 1rem;
     background: var(--code-bg, #2a2a2a);
-    border-radius: 4px;
+    border-radius: var(--radius-default);
   }
 
   .hint-label {

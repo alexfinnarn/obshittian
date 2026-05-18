@@ -107,8 +107,8 @@
   .context-menu {
     position: fixed;
     background: var(--context-menu-bg, #2d2d2d);
-    border: 1px solid var(--border-color, #444);
-    border-radius: 4px;
+    border: 1px solid var(--border-color, #333333);
+    border-radius: var(--radius-default);
     min-width: 160px;
     padding: 4px 0;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);

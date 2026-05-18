@@ -149,7 +149,7 @@
     padding: 4px 8px;
     cursor: pointer;
     color: var(--text-color, #ccc);
-    border-radius: 4px;
+    border-radius: var(--radius-default);
   }
 
   .file-item:hover {
@@ -157,12 +157,12 @@
   }
 
   .file-item.active {
-    background: var(--active-bg, #0078d4);
+    background: var(--active-bg, #3794ff);
     color: white;
   }
 
   .file-item:focus {
-    outline: 1px solid var(--accent-color, #0078d4);
+    outline: 1px solid var(--accent-color, #3794ff);
     outline-offset: -1px;
   }
 
@@ -190,7 +190,7 @@
     padding: 4px 8px;
     cursor: pointer;
     color: var(--text-color, #ccc);
-    border-radius: 4px;
+    border-radius: var(--radius-default);
     list-style: none;
   }
 

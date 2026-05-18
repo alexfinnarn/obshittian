@@ -55,12 +55,12 @@
             '&': { height: '100%', fontSize: '14px' },
             '.cm-scroller': {
               overflow: 'auto',
-              fontFamily: "'SF Mono', 'Consolas', 'Monaco', monospace",
+              fontFamily: "var(--font-mono, 'JetBrains Mono', monospace)",
             },
             '.cm-content': { padding: '16px' },
             '.cm-gutters': {
-              backgroundColor: '#1e1e1e',
-              borderRight: '1px solid #333',
+              backgroundColor: 'var(--editor-bg, #1e1e1e)',
+              borderRight: '1px solid var(--border-default, #333333)',
             },
           }),
         ],

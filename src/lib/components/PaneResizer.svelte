@@ -64,11 +64,11 @@
 
   .pane-divider:hover,
   .pane-divider.dragging {
-    background: var(--accent-color, #0078d4);
+    background: var(--accent-color, #3794ff);
   }
 
   .pane-divider:focus {
     outline: none;
-    background: var(--accent-color, #0078d4);
+    background: var(--accent-color, #3794ff);
   }
 </style>

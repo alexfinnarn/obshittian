@@ -96,14 +96,14 @@
     padding: 0.5rem;
     font-size: 1rem;
     background: var(--input-bg, #1e1e1e);
-    border: 1px solid var(--border-color, #444);
-    border-radius: 4px;
+    border: 1px solid var(--border-color, #333333);
+    border-radius: var(--radius-default);
     color: var(--text-color, #fff);
   }
 
   .filename-input:focus {
     outline: none;
-    border-color: var(--accent-color, #0078d4);
+    border-color: var(--accent-color, #3794ff);
   }
 
   .helper-text {

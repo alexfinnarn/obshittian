@@ -178,7 +178,7 @@
   :global(.vc-date) {
     background: transparent !important;
     color: var(--vc-text-color) !important;
-    border-radius: 4px !important;
+    border-radius: var(--radius-default) !important;
   }
 
   :global(.vc-date:hover) {
@@ -201,7 +201,7 @@
     bottom: 0.14rem;
     width: 0.34rem;
     height: 0.34rem;
-    border-radius: 999px;
+    border-radius: var(--radius-full);
     background: var(--vc-accent-color);
     transform: translateX(-50%);
   }
@@ -234,7 +234,7 @@
 
   /* Dates outside current month */
   :global(.vc-date[data-vc-date-outside]) {
-    color: #6b7280 !important;
+    color: var(--text-muted) !important;
     opacity: 0.6;
   }
 

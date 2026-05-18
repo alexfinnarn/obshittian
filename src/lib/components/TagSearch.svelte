@@ -129,7 +129,7 @@
     width: 100%;
     padding: 0.5rem;
     border: 1px solid var(--border-color, #333);
-    border-radius: 4px;
+    border-radius: var(--radius-default);
     background: var(--input-bg, #2d2d2d);
     color: var(--text-color, #d4d4d4);
     font-size: 0.875rem;
@@ -161,7 +161,7 @@
     gap: 0.25rem;
     padding: 0.25rem 0.5rem;
     border: none;
-    border-radius: 4px;
+    border-radius: var(--radius-default);
     background: var(--tag-bg, #3a3a3a);
     color: var(--text-color, #d4d4d4);
     font-size: 0.75rem;
@@ -183,7 +183,7 @@
     opacity: 0.7;
     background: rgba(0, 0, 0, 0.2);
     padding: 0.125rem 0.25rem;
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
   }
 
   .file-results {
@@ -206,7 +206,7 @@
     width: 100%;
     padding: 0.375rem 0.5rem;
     border: none;
-    border-radius: 4px;
+    border-radius: var(--radius-default);
     background: transparent;
     color: var(--text-color, #d4d4d4);
     font-size: 0.875rem;

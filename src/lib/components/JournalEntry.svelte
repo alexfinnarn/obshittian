@@ -163,7 +163,7 @@
 <style>
   .journal-entry {
     border: 1px solid var(--border-color, #444);
-    border-radius: 4px;
+    border-radius: var(--radius-default);
     margin-bottom: 0.5rem;
     overflow: hidden;
     transition: border-color 0.2s ease;
@@ -171,7 +171,7 @@
 
   /* When editing, expand similar to new entry input */
   .journal-entry.editing {
-    border-color: var(--accent-color, #0078d4);
+    border-color: var(--accent-color, #3794ff);
   }
 
   /* Control the editor height inside the entry */
@@ -196,10 +196,10 @@
   }
 
   .journal-entry :global(.tag-badge) {
-    background: var(--accent-color, #0078d4);
+    background: var(--accent-color, #3794ff);
     color: white;
     padding: 0.125rem 0.375rem;
-    border-radius: 3px;
+    border-radius: var(--radius-default);
     font-size: 0.625rem;
     font-weight: 500;
   }

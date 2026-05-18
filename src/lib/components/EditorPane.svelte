@@ -260,7 +260,7 @@
     height: 32px;
     flex-shrink: 0;
     border: 1px solid var(--border-color, #333);
-    border-radius: 4px;
+    border-radius: var(--radius-default);
     background: transparent;
     color: var(--text-muted, #888);
     cursor: pointer;
@@ -292,7 +292,7 @@
     padding: 0.25rem 0.75rem;
     font-size: 0.8rem;
     cursor: pointer;
-    border-radius: 3px;
+    border-radius: var(--radius-default);
     transition: background 0.15s, color 0.15s;
     min-height: 32px;
   }
@@ -303,8 +303,8 @@
   }
 
   .view-toggle.active {
-    background: var(--accent-color, #0078d4);
-    border-color: var(--accent-color, #0078d4);
+    background: var(--accent-color, #3794ff);
+    border-color: var(--accent-color, #3794ff);
     color: #fff;
   }
 

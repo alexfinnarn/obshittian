@@ -252,7 +252,7 @@
     gap: 0.25rem;
     padding: 0.375rem 0.5rem;
     border: 1px solid var(--border-color, #333);
-    border-radius: 4px;
+    border-radius: var(--radius-default);
     background: var(--input-bg, #2d2d2d);
     min-height: 2rem;
     cursor: text;
@@ -275,7 +275,7 @@
     background: var(--accent-color, #3794ff);
     color: white;
     font-size: 0.75rem;
-    border-radius: 3px;
+    border-radius: var(--radius-default);
     white-space: nowrap;
   }
 
@@ -293,7 +293,7 @@
     line-height: 1;
     cursor: pointer;
     opacity: 0.7;
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
   }
 
   .remove-tag:hover {
@@ -328,7 +328,7 @@
     margin-top: 2px;
     background: var(--dropdown-bg, #2d2d2d);
     border: 1px solid var(--border-color, #333);
-    border-radius: 4px;
+    border-radius: var(--radius-default);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     z-index: 100;
     max-height: 200px;

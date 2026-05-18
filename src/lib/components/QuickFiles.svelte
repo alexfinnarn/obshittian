@@ -192,12 +192,12 @@
   }
 
   .quick-file-link {
-    color: var(--file-color, #ffd700);
+    color: var(--file-color, #e0e0e0);
     text-decoration: none;
     font-size: 0.875rem;
     padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    background: var(--file-bg, rgba(255, 215, 0, 0.1));
+    border-radius: var(--radius-default);
+    background: var(--file-bg, transparent);
     border: none;
     cursor: pointer;
   }
@@ -231,32 +231,32 @@
     flex: 1;
     min-width: 100px;
     padding: 0.5rem;
-    background: var(--input-bg, #1e1e1e);
-    border: 1px solid var(--border-color, #444);
-    border-radius: 4px;
-    color: var(--text-color, #fff);
+    background: var(--input-bg, #252525);
+    border: 1px solid var(--border-color, #333333);
+    border-radius: var(--radius-default);
+    color: var(--text-color, #e0e0e0);
     font-size: 0.875rem;
   }
 
   .file-name:focus {
     outline: none;
-    border-color: var(--accent-color, #0078d4);
+    border-color: var(--accent-color, #3794ff);
   }
 
   .file-path-input {
     flex: 2;
     min-width: 150px;
     padding: 0.5rem;
-    background: var(--input-bg, #1e1e1e);
-    border: 1px solid var(--border-color, #444);
-    border-radius: 4px;
-    color: var(--text-color, #fff);
+    background: var(--input-bg, #252525);
+    border: 1px solid var(--border-color, #333333);
+    border-radius: var(--radius-default);
+    color: var(--text-color, #e0e0e0);
     font-size: 0.875rem;
   }
 
   .file-path-input:focus {
     outline: none;
-    border-color: var(--accent-color, #0078d4);
+    border-color: var(--accent-color, #3794ff);
   }
 
   .file-delete {
@@ -266,7 +266,7 @@
     font-size: 1.25rem;
     cursor: pointer;
     padding: 0.25rem 0.5rem;
-    border-radius: 4px;
+    border-radius: var(--radius-default);
   }
 
   .file-delete:hover {
@@ -276,17 +276,17 @@
 
   .add-file-btn {
     background: none;
-    border: 1px dashed var(--border-color, #444);
+    border: 1px dashed var(--border-color, #333333);
     color: var(--text-muted, #888);
     padding: 0.5rem;
-    border-radius: 4px;
+    border-radius: var(--radius-default);
     cursor: pointer;
     font-size: 0.875rem;
   }
 
   .add-file-btn:hover {
-    border-color: var(--accent-color, #0078d4);
-    color: var(--text-color, #fff);
+    border-color: var(--accent-color, #3794ff);
+    color: var(--text-color, #e0e0e0);
   }
 
 

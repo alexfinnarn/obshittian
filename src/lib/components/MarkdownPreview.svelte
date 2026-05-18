@@ -92,15 +92,15 @@
   .preview :global(code) {
     background: var(--code-bg, #1e1e1e);
     padding: 0.2em 0.4em;
-    border-radius: 3px;
-    font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+    border-radius: var(--radius-default);
+    font-family: var(--font-mono);
     font-size: 0.9em;
   }
 
   .preview :global(pre) {
     background: var(--code-bg, #1e1e1e);
     padding: 1em;
-    border-radius: 4px;
+    border-radius: var(--radius-default);
     overflow-x: auto;
   }
 
@@ -129,7 +129,7 @@
   .frontmatter-details {
     margin-bottom: 1em;
     background: var(--code-bg, #1e1e1e);
-    border-radius: 4px;
+    border-radius: var(--radius-default);
     padding: 0.5em;
   }
 

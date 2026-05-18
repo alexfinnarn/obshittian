@@ -137,10 +137,10 @@
     justify-content: center;
     gap: 0.5rem;
     padding: 0.75rem 1rem;
-    border: 1px solid var(--border-color, #444);
-    border-radius: 6px;
+    border: 1px solid var(--border-color, #333333);
+    border-radius: var(--radius-lg);
     background: var(--input-bg, #252525);
-    color: var(--text-color, #fff);
+    color: var(--text-color, #e0e0e0);
     cursor: pointer;
     font-size: 0.9rem;
     font-weight: 600;

@@ -80,7 +80,7 @@
     padding: 0.25rem 0.5rem;
     font-size: 0.75rem;
     cursor: pointer;
-    border-radius: 3px;
+    border-radius: var(--radius-default);
     transition: background 0.15s, color 0.15s;
   }
 
