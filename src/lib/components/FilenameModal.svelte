@@ -112,34 +112,5 @@
     font-size: 0.875rem;
   }
 
-  .btn {
-    padding: 0.5rem 1rem;
-    font-size: 0.875rem;
-    border-radius: 4px;
-    cursor: pointer;
-    border: none;
-  }
 
-  .btn-secondary {
-    background: var(--button-secondary-bg, #3a3a3a);
-    color: var(--text-color, #fff);
-  }
-
-  .btn-secondary:hover {
-    background: var(--hover-bg, #4a4a4a);
-  }
-
-  .btn-primary {
-    background: var(--accent-color, #0078d4);
-    color: white;
-  }
-
-  .btn-primary:hover:not(:disabled) {
-    background: var(--accent-color-hover, #0066b8);
-  }
-
-  .btn-primary:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
 </style>

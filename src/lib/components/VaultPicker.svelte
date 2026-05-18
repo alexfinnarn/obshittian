@@ -189,37 +189,7 @@
     margin-top: 1rem;
   }
 
-  .btn {
-    padding: 0.75rem 1.5rem;
-    border: none;
-    border-radius: 4px;
-    font-size: 1rem;
-    cursor: pointer;
-    transition: background-color 0.15s;
-  }
 
-  .btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
-
-  .btn.primary {
-    background: var(--accent-color, #3794ff);
-    color: white;
-  }
-
-  .btn.primary:hover:not(:disabled) {
-    background: var(--accent-hover, #2d7cd6);
-  }
-
-  .btn.secondary {
-    background: var(--button-bg, #3a3a3a);
-    color: var(--text-color, #d4d4d4);
-  }
-
-  .btn.secondary:hover:not(:disabled) {
-    background: var(--hover-bg, #4a4a4a);
-  }
 
   .error {
     color: var(--error-color, #f44747);

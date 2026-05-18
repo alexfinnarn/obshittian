@@ -1,31 +1,127 @@
+@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
+
 /*
   CSS Custom Properties (Theme Variables)
+  Obsidian Twilight Design System
 */
 :root {
-  /* Daily Task Colors */
-  --dt-pending-bg: #3a3a3a;
-  --dt-pending-text: #888;
-  --dt-pending-border: #555;
-  --dt-complete-bg: #1a4d1a;
-  --dt-complete-text: #4ade80;
-  --dt-complete-border: #22c55e;
+  /* Obsidian Twilight - Colors */
+  --surface: #10131a;
+  --surface-dim: #10131a;
+  --surface-bright: #363940;
+  --surface-container-lowest: #0b0e14;
+  --surface-container-low: #181c22;
+  --surface-container: #1c2026;
+  --surface-container-high: #272a31;
+  --surface-container-highest: #31353c;
+  --on-surface: #e0e2eb;
+  --on-surface-variant: #c0c6d5;
+  --inverse-surface: #e0e2eb;
+  --inverse-on-surface: #2d3037;
+  --outline: #8a919f;
+  --outline-variant: #414753;
+  --surface-tint: #a6c8ff;
+  --primary: #a6c8ff;
+  --on-primary: #003060;
+  --primary-container: #3794ff;
+  --on-primary-container: #002c58;
+  --inverse-primary: #005eb1;
+  --secondary: #4de082;
+  --on-secondary: #003919;
+  --secondary-container: #00b55d;
+  --on-secondary-container: #003e1c;
+  --tertiary: #ffb77f;
+  --on-tertiary: #4e2600;
+  --tertiary-container: #e07800;
+  --on-tertiary-container: #482200;
+  --error: #ffb4ab;
+  --on-error: #690005;
+  --error-container: #93000a;
+  --on-error-container: #ffdad6;
+  --background: #10131a;
+  --on-background: #e0e2eb;
+  --surface-variant: #31353c;
 
-  /* Common Theme Colors */
-  --bg-color: #1e1e1e;
-  --text-color: #e0e0e0;
-  --text-muted: #888;
-  --border-color: #333;
-  --accent-color: #3794ff;
-  --hover-bg: #3a3a3a;
+  /* Obsidian Twilight - Custom Aliases */
+  --bg-primary: #1e1e1e;
+  --bg-secondary: #252525;
+  --bg-hover: #3a3a3a;
+  --border-default: #333333;
+  --text-primary: #e0e0e0;
+  --text-muted: #888888;
+  --status-pending-bg: #3a3a3a;
+  --status-pending-border: #555555;
+  --status-complete-bg: #1a4d1a;
 
-  /* Mobile Navigation */
+  /* Typography */
+  --font-ui: 'Hanken Grotesk', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  
+  /* Shapes & Spacing */
+  --radius-sm: 0.125rem;
+  --radius-default: 0.25rem; /* 4px */
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-full: 9999px;
+
+  --spacing-sidebar-width: 280px;
+  --touch-target-min: 44px;
+  --gutter-md: 16px;
+  --margin-edge: 24px;
   --mobile-nav-height: 56px;
-  --mobile-nav-bg: #252525;
-  --mobile-nav-border: #333;
+
+  /* Legacy Aliases (mapped to new tokens for backward compatibility) */
+  --dt-pending-bg: var(--status-pending-bg);
+  --dt-pending-text: var(--text-muted);
+  --dt-pending-border: var(--status-pending-border);
+  --dt-complete-bg: var(--status-complete-bg);
+  --dt-complete-text: var(--secondary);
+  --dt-complete-border: var(--secondary-container);
+
+  --bg-color: var(--bg-primary);
+  --text-color: var(--text-primary);
+  --border-color: var(--border-default);
+  --accent-color: var(--primary-container);
+  --hover-bg: var(--bg-hover);
+
+  --mobile-nav-bg: var(--bg-secondary);
+  --mobile-nav-border: var(--border-default);
   --mobile-nav-active: var(--accent-color);
 
-  /* Touch targets */
-  --touch-target-min: 44px;
+  /* Component mappings for Obsidian Twilight */
+  --sidebar-bg: var(--bg-secondary);
+  --editor-bg: var(--bg-primary);
+  --toolbar-bg: var(--bg-secondary);
+  --input-bg: var(--bg-secondary);
+  
+  --button-bg: var(--primary-container);
+  --button-secondary-bg: transparent;
+  --button-secondary-hover: var(--bg-hover);
+  
+  --modal-bg: var(--surface-container-highest);
+  --dropdown-bg: var(--surface-container-high);
+  --context-menu-bg: var(--surface-container-high);
+  
+  --code-bg: var(--surface-container);
+  --heading-color: var(--text-primary);
+  
+  --file-bg: transparent;
+  --file-bg-hover: var(--bg-hover);
+  --file-color: var(--text-primary);
+  
+  --link-color: var(--primary);
+  --link-bg: transparent;
+  --link-bg-hover: var(--bg-hover);
+  
+  --error-color: var(--error);
+  --tag-bg: var(--surface-container-high);
+  
+  --vc-bg: var(--surface-container);
+  --vc-focus-bg: var(--surface-container-high);
+  --vc-hover-bg: var(--bg-hover);
+  --vc-text-color: var(--text-primary);
+  --vc-accent-color: var(--primary);
 }
 
 /*
@@ -63,7 +159,9 @@ html {
 body {
   min-height: 100vh;
   line-height: 1.5;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  font-family: var(--font-ui);
+  background-color: var(--surface);
+  color: var(--on-surface);
 }
 
 /* Set shorter line heights on headings */
@@ -154,4 +252,60 @@ h6 {
   .safe-area-bottom {
     padding-bottom: env(safe-area-inset-bottom);
   }
+}
+
+/* 
+  Global Utility Classes 
+  Obsidian Twilight Component System
+*/
+.btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: var(--radius-default);
+  font-size: 1rem;
+  font-family: var(--font-ui);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-primary, .btn.primary {
+  background: var(--primary-container);
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled), .btn.primary:hover:not(:disabled) {
+  background: var(--inverse-primary);
+}
+
+.btn-secondary, .btn.secondary {
+  background: var(--button-secondary-bg);
+  border: 1px solid var(--border-default);
+  color: var(--text-primary);
+}
+
+.btn-secondary:hover:not(:disabled), .btn.secondary:hover:not(:disabled) {
+  background: var(--button-secondary-hover);
+}
+
+/* Typography Scales */
+.headline-lg {
+  font-size: 24px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.code-block {
+  font-family: var(--font-mono);
+  font-size: 14px;
 }

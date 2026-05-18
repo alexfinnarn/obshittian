@@ -253,30 +253,5 @@
     color: var(--text-color, #fff);
   }
 
-  /* Footer buttons */
-  .btn {
-    padding: 0.5rem 1rem;
-    border-radius: 4px;
-    font-size: 0.875rem;
-    cursor: pointer;
-    border: none;
-  }
 
-  .btn-secondary {
-    background: var(--button-secondary-bg, #3a3a3a);
-    color: var(--text-color, #fff);
-  }
-
-  .btn-secondary:hover {
-    background: var(--button-secondary-hover, #444);
-  }
-
-  .btn-primary {
-    background: var(--accent-color, #0078d4);
-    color: white;
-  }
-
-  .btn-primary:hover {
-    background: var(--accent-color-hover, #006cbd);
-  }
 </style>
