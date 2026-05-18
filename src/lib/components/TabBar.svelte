@@ -54,16 +54,16 @@
     flex: 1;
     min-width: 0;
     align-items: center;
-    padding: 0 0.5rem;
+    background: var(--bg-secondary);
+    border-bottom: 1px solid var(--border-color, #333);
   }
 
   .tabs-container {
     display: flex;
-    gap: 2px;
     flex: 1;
     min-width: 0;
     overflow-x: auto;
-    align-items: center;
+    align-items: stretch;
   }
 
   .tab-actions {

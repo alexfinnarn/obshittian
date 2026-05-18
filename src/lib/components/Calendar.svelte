@@ -129,69 +129,82 @@
     padding: 0.5rem;
   }
 
-  /* Vanilla Calendar Pro dark theme overrides */
+  /* Vanilla Calendar Pro Obsidian Twilight theme overrides */
   :global(.vc-calendar) {
-    --vc-bg: var(--sidebar-bg, #1e1e1e);
-    --vc-text-color: var(--text-color, #e8e8e8);
-    --vc-text-disabled-color: var(--text-muted, #666);
-    --vc-border-color: var(--border-color, #333);
-    --vc-hover-bg: var(--hover-bg, #333);
-    --vc-focus-bg: var(--hover-bg, #333);
-    --vc-accent-color: var(--accent-color, #3794ff);
+    --vc-bg: transparent;
+    --vc-text-color: var(--on-surface);
+    --vc-text-disabled-color: var(--outline-variant);
+    --vc-border-color: var(--border-default);
+    --vc-hover-bg: var(--surface-container-highest);
+    --vc-focus-bg: var(--surface-container-highest);
+    --vc-accent-color: var(--primary-container);
 
-    background: var(--vc-bg) !important;
+    background: transparent !important;
     border: none !important;
-    font-family: inherit !important;
+    font-family: var(--font-ui) !important;
     width: 100% !important;
   }
 
   /* Calendar header (month/year navigation) */
   :global(.vc-header) {
     background: transparent !important;
+    padding-bottom: 0.5rem;
   }
 
   :global(.vc-header__content) {
-    color: var(--vc-text-color) !important;
+    color: var(--on-surface) !important;
+    font-family: var(--font-ui) !important;
+    font-weight: 600 !important;
+    font-size: 1.1rem !important;
   }
 
   :global(.vc-arrow) {
-    background: var(--vc-hover-bg) !important;
-    color: var(--vc-text-color) !important;
+    background: transparent !important;
+    color: var(--on-surface-variant) !important;
     border: none !important;
+    border-radius: var(--radius-default) !important;
   }
 
   :global(.vc-arrow:hover) {
-    background: var(--vc-focus-bg) !important;
+    background: var(--surface-container-highest) !important;
+    color: var(--on-surface) !important;
   }
 
   /* Weekday headers */
   :global(.vc-week__day) {
-    color: var(--text-muted, #888) !important;
-    font-weight: normal !important;
+    color: var(--outline) !important;
+    font-family: var(--font-mono) !important;
+    font-size: 11px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
   }
 
   /* Date cells */
   :global(.vc-dates__date) {
-    color: var(--vc-text-color) !important;
+    color: var(--on-surface) !important;
   }
 
   :global(.vc-date) {
     background: transparent !important;
-    color: var(--vc-text-color) !important;
+    color: var(--on-surface) !important;
     border-radius: var(--radius-default) !important;
+    font-family: var(--font-mono) !important;
+    font-size: 13px !important;
   }
 
   :global(.vc-date:hover) {
-    background: var(--vc-hover-bg) !important;
-    color: white !important;
+    background: var(--surface-container-highest) !important;
+    color: var(--on-surface) !important;
   }
 
+  /* Has journal entry */
   :global(.vc-date[data-has-journal-entry] .vc-date__btn) {
     position: relative;
-    color: var(--vc-accent-color) !important;
+    color: var(--primary) !important;
     font-weight: 700 !important;
-    background: rgba(55, 148, 255, 0.16) !important;
-    box-shadow: inset 0 0 0 1px rgba(55, 148, 255, 0.55);
+    background: var(--surface-container-high) !important;
+    box-shadow: inset 0 0 0 1px var(--outline-variant);
   }
 
   :global(.vc-date[data-has-journal-entry] .vc-date__btn::after) {
@@ -199,60 +212,68 @@
     position: absolute;
     left: 50%;
     bottom: 0.14rem;
-    width: 0.34rem;
-    height: 0.34rem;
+    width: 4px;
+    height: 4px;
     border-radius: var(--radius-full);
-    background: var(--vc-accent-color);
+    background: var(--primary);
     transform: translateX(-50%);
   }
 
   /* Today */
-  :global(.vc-date[data-vc-date-today]) {
-    color: var(--vc-accent-color) !important;
-    font-weight: bold !important;
+  :global(.vc-date[data-vc-date-today] .vc-date__btn) {
+    color: var(--primary) !important;
+    font-weight: 700 !important;
+    box-shadow: inset 0 0 0 1px var(--primary);
   }
 
   /* Selected date */
   :global(.vc-date[data-vc-date-selected]) {
-    background: var(--vc-accent-color) !important;
-    color: white !important;
+    background: var(--primary-container) !important;
+    color: var(--on-primary-container) !important;
   }
 
-  :global(.vc-date[data-vc-date-selected][data-has-journal-entry] .vc-date__btn) {
-    color: white !important;
+  :global(.vc-date[data-vc-date-selected] .vc-date__btn) {
     background: transparent !important;
-    box-shadow: none;
+    color: var(--on-primary-container) !important;
+    font-weight: 700 !important;
+    box-shadow: none !important;
   }
 
   :global(.vc-date[data-vc-date-selected][data-has-journal-entry] .vc-date__btn::after) {
-    background: white;
+    background: var(--on-primary-container);
   }
 
   :global(.vc-date[data-vc-date-selected]:hover) {
-    background: var(--vc-accent-color) !important;
+    background: var(--primary) !important;
   }
 
   /* Dates outside current month */
   :global(.vc-date[data-vc-date-outside]) {
-    color: var(--text-muted) !important;
-    opacity: 0.6;
+    color: var(--outline-variant) !important;
+    opacity: 0.5;
+  }
+  
+  :global(.vc-date[data-vc-date-outside] .vc-date__btn) {
+    color: var(--outline-variant) !important;
   }
 
   /* Month/Year picker panels */
   :global(.vc-months__month),
   :global(.vc-years__year) {
-    color: var(--vc-text-color) !important;
+    color: var(--on-surface) !important;
     background: transparent !important;
+    font-family: var(--font-ui) !important;
+    border-radius: var(--radius-default) !important;
   }
 
   :global(.vc-months__month:hover),
   :global(.vc-years__year:hover) {
-    background: var(--vc-hover-bg) !important;
+    background: var(--surface-container-highest) !important;
   }
 
   :global(.vc-months__month[data-vc-months-month-selected]),
   :global(.vc-years__year[data-vc-years-year-selected]) {
-    background: var(--vc-accent-color) !important;
-    color: white !important;
+    background: var(--primary-container) !important;
+    color: var(--on-primary-container) !important;
   }
 </style>
